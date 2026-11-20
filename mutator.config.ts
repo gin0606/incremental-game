@@ -18,11 +18,15 @@ const config: MutatorConfig = defineConfig({
   include: ["**/*.{ts,mts,cts,tsx}"],
   exclude: [
     "**/*.test.*",
-    // テスト用の入力の生成器。変異は入力の分布を変えるだけで、検出の対象にならない。
+    // テスト用の入力の生成器。変異は入力の分布を変えるだけで、検出の対象にならない。除外してよいのは、本番の
+    // コードがこれらを import しない間だけ（import すると、本番で動くコードが変異の対象から外れる）。この条件は
+    // lint などの検査では守っていないため、本番のコードの import を変えるときに確かめる。
     "**/*.arbitrary.ts",
-    // DOM とゲームをつなぐ部分と E2E テスト。ユニットテストは届かず、E2E テスト（pnpm run test:e2e）で
-    // 確かめる。DOM に依存しない表示の内容と保存データの読み込みは src/ui/view.ts・src/ui/restore.ts に分けて
-    // 変異の対象にする。
+    // 画面の要素・localStorage・時計・Web Locks をゲームにつなぐ部分と E2E テスト。ユニットテストは届かず、
+    // E2E テスト（pnpm run test:e2e）で確かめる。除外してよいのは、main.ts がつなぐだけで、ゲーム・保存・通知・
+    // タブの扱いを決める判断や分岐を持たない間だけ（要素が無いときに止める検査と、配列の添字の型を絞る検査は
+    // 置いている）。表示の内容、保存データの読み込みと保存、通知、タブの重複の扱いは src/ui の view.ts・restore.ts・
+    // session.ts・notices.ts・tab-lock.ts に分けて変異の対象にし、判断を足すときもそちらに置く。
     "src/ui/main.ts",
     "e2e/**",
     "*.config.ts",
