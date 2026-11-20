@@ -12,7 +12,9 @@ import {
   initialState,
   isFactoryUnlocked,
   perform,
+  priceOf,
   production,
+  withPurchase,
 } from "./game.ts";
 import { add, atLeast, mul, num, toleranceFloor } from "./num.ts";
 
@@ -68,6 +70,31 @@ test.each([
   { factories: 5, expected: 150 * 1.2 ** 5 },
 ] as const)("工場の値段は 150 × 1.2^数（$factories）", ({ factories, expected }) => {
   expect(factoryCost(state({ factories }))).toBeApprox(num(expected));
+});
+
+test("priceOf は買えるものの値段を、解放されていないものと買い終えたものには undefined を返す", () => {
+  const locked = state({ collectors: 2, factories: 1 });
+  const unlocked = state({ collectors: 2, factories: 1, totalEarned: FACTORY_UNLOCK_EARNED });
+
+  expect(priceOf(locked, { type: "buyCollector" })).toBeApprox(collectorCost(locked));
+  expect(priceOf(locked, { type: "buyFactory" })).toBeUndefined();
+  expect(priceOf(unlocked, { type: "buyFactory" })).toBeApprox(factoryCost(unlocked));
+  expect(priceOf(locked, { type: "buyAutoBuyer" })).toBeApprox(AUTO_BUYER_COST);
+  expect(priceOf(state({ autoBuyer: true }), { type: "buyAutoBuyer" })).toBeUndefined();
+});
+
+test("withPurchase は値段を払わずに買ったものを足す", () => {
+  const before = state({ coins: num(5), collectors: 2, factories: 1 });
+
+  expect(withPurchase(before, { type: "buyCollector" })).toStrictEqual({
+    ...before,
+    collectors: 3,
+  });
+  expect(withPurchase(before, { type: "buyFactory" })).toStrictEqual({ ...before, factories: 2 });
+  expect(withPurchase(before, { type: "buyAutoBuyer" })).toStrictEqual({
+    ...before,
+    autoBuyer: true,
+  });
 });
 
 test("採集機を買うと台数が増え、値段の分だけコインが減る", () => {

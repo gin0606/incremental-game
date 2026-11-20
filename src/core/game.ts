@@ -96,9 +96,21 @@ const purchases: Readonly<Record<Action["type"], Purchase>> = {
   },
 };
 
+/**
+ * `action` で買うときの値段。解放されていない、買い終えたなどで買えなければ `undefined`。額が足りるかは問わない。
+ */
+export function priceOf(state: GameState, action: Action): Num | undefined {
+  return purchases[action.type].price(state);
+}
+
+/** `action` で買うものを、値段を払わずに足した状態。買ったときに生産量がどう変わるかを見積もるのに使う。 */
+export function withPurchase(state: GameState, action: Action): GameState {
+  return purchases[action.type].receive(state);
+}
+
 /** 値段を払って買う。誤差で値段をわずかに下回った分は 0 に切り上げる。額が足りるかは呼び出し側が確かめる。 */
 function pay(state: GameState, action: Action, amount: Num): GameState {
-  return { ...purchases[action.type].receive(state), coins: max(ZERO, sub(state.coins, amount)) };
+  return { ...withPurchase(state, action), coins: max(ZERO, sub(state.coins, amount)) };
 }
 
 /**
@@ -106,7 +118,7 @@ function pay(state: GameState, action: Action, amount: Num): GameState {
  * `undefined` を返す。額は許容誤差付きで比べる（{@link atLeast}）。
  */
 export function perform(state: GameState, action: Action): GameState | undefined {
-  const amount = purchases[action.type].price(state);
+  const amount = priceOf(state, action);
   if (amount === undefined || !atLeast(state.coins, amount)) {
     return undefined;
   }
