@@ -1,0 +1,5 @@
+# 対話シェルとエディタで使う Node.js と pnpm の版。package.json の devEngines.runtime（pnpm が
+# スクリプトの実行に使う Node.js）と packageManager に揃える。
+[tools]
+node = "24.22.3"
+pnpm = "12.21.0"

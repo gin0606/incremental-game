@@ -1,0 +1,18 @@
+permissions:
+  lefthook:
+    # postinstall で `lefthook install` を実行し、git hook を入れる。
+    build: true
+  '@mizchi/mutator':
+    # 同梱のエージェント向け skill は入れない。使い方は AGENTS.md の「作業環境」に書く。
+    skills: false
+# 公開から 1 日経っていない版を例外にした記録。版を上げたときに使われなくなった項目を消す。
+minimumReleaseAgeExcludePrune: true
+minimumReleaseAgeExclude:
+  - '@mizchi/mutator-bun@0.5.0'
+  - '@mizchi/mutator-core@0.5.0'
+  - '@mizchi/mutator-jest@0.5.0'
+  - '@mizchi/mutator-playwright@0.5.0'
+  - '@mizchi/mutator-typecheck@0.5.0'
+  - '@mizchi/mutator-vitest@0.5.0'
+  - '@mizchi/mutator@0.5.0'
+  - '@mizchi/test-impact@0.5.0'

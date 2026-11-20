@@ -1,0 +1,24 @@
+{
+  "$schema": "https://www.schemastore.org/tsconfig",
+  "extends": "@tsconfig/strictest/tsconfig.json",
+  "compilerOptions": {
+    "target": "es2024",
+    "lib": ["es2024", "dom"],
+    "types": [],
+    "module": "preserve",
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "noUncheckedSideEffectImports": true,
+    "isolatedDeclarations": true,
+    "declaration": true,
+    "noEmit": true,
+    "skipLibCheck": false
+  },
+  // 新しいディレクトリのコードが黙って型検査から外れないよう、全体を含める。ただし TypeScript の glob は
+  // ドットで始まるディレクトリを辿らないため、そこには TypeScript のコードを置かない。
+  // Node.js で動く設定ファイルは tsconfig.node.json で検査する。
+  "include": ["**/*.ts", "**/*.mts", "**/*.cts", "**/*.tsx"],
+  "exclude": ["*.config.ts", "node_modules", "dist", "coverage"]
+}

@@ -1,0 +1,6 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  // .axon/ は Axon が書く記録で、pnpm-workspace.yaml は pnpm が書き換える（引用符を単引用符に揃える）。
+  // どちらも書き手のツールの形式に任せ、整形しない。
+  "ignorePatterns": [".axon/", "pnpm-workspace.yaml"]
+}

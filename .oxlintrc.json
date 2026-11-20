@@ -1,0 +1,341 @@
+// oxlint の設定。方針は AGENTS.md の「技術方針」による。
+//
+// - correctness・suspicious・pedantic のカテゴリはエラーにする。この 3 カテゴリで無効にするルールは、
+//   他のルールと両立しない、対象のコードが存在しないなどの理由を、無効にした箇所に書く。
+// - perf・style・restriction・nursery はカテゴリとしては有効にせず、ルールごとに何を守るかを見て
+//   取り入れるものを `rules` に列挙する。取り入れなかったルールも、まとまりごとに理由を書く。
+// - 警告は使わない（`denyWarnings`）。有効なルールはすべてエラーとして扱う。
+// - 実行時は `--disable-nested-config` を付け、入れ子の設定ファイルを読ませない（package.json の lint）。
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+
+  // plugin の採否:
+  // - eslint・typescript・unicorn・oxc: 既定の plugin。言語と標準 API の誤りを広く検出する。
+  // - import: ESM の import/export の誤り、循環参照、拡張子の書き方を検出する。
+  // - vitest: テストの書き方の誤り（`.only` の残り、expect のないテストなど）を検出する。
+  // - promise: Promise の扱いの誤り（解決の重複、コールバックとの混在など）を検出する。
+  // 採らない plugin:
+  // - jsdoc: 型は TypeScript で書くため、JSDoc の型・タグを要求するルール（pedantic の require-param-type など）が
+  //   型の二重記述を強いる。文書の網羅は検査の目的にしない。
+  // - node: Node.js で動くコードは設定ファイルだけで、ゲーム本体はブラウザで動く。Node.js で動くコードを
+  //   増やすとき（シミュレーターの CLI など）に見直す。
+  // - react・react-perf・nextjs・vue・jsx-a11y・jest: 使わないライブラリ・環境のルール。
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "vitest", "promise"],
+
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "error",
+    "perf": "off",
+    "style": "off",
+    "restriction": "off",
+    "nursery": "off"
+  },
+
+  "options": {
+    "typeAware": true,
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error",
+    // 抑制コメントの書き方を `oxlint-disable` 系に揃え、`eslint-disable` 系を効かせない。
+    "respectEslintDisableDirectives": false
+  },
+
+  "rules": {
+    // ---- correctness・suspicious・pedantic の設定 ----
+
+    // `@ts-expect-error`・`@ts-ignore`・`@ts-nocheck` をすべて禁止する（型検査の抑制を防ぐ）。
+    "typescript/ban-ts-comment": [
+      "error",
+      { "ts-expect-error": true, "ts-ignore": true, "ts-nocheck": true, "ts-check": false }
+    ],
+    // ---- restriction ----
+    // 取り入れる: 誤りや危険な機能を禁じるもの。
+    "eslint/complexity": "error",
+    "eslint/no-alert": "error",
+    "eslint/no-console": "error",
+    "eslint/no-empty": "error",
+    "eslint/no-empty-function": "error",
+    "eslint/no-param-reassign": "error",
+    "eslint/no-proto": "error",
+    "eslint/no-regex-spaces": "error",
+    "eslint/no-sequences": "error",
+    "eslint/no-var": "error",
+    "eslint/unicode-bom": "error",
+    "typescript/no-dynamic-delete": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-import-type-side-effects": "error",
+    "typescript/no-invalid-void-type": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/no-var-requires": "error",
+    "typescript/promise-function-async": "error",
+    "typescript/use-unknown-in-catch-callback-variable": "error",
+    // 規則名を書かない抑制コメントで、すべてのルールを黙らせることを防ぐ。
+    "unicorn/no-abusive-eslint-disable": "error",
+    "unicorn/no-anonymous-default-export": "error",
+    "unicorn/no-array-for-each": "error",
+    "unicorn/no-document-cookie": "error",
+    "unicorn/no-length-as-slice-end": "error",
+    "unicorn/no-magic-array-flat-depth": "error",
+    "unicorn/no-process-exit": "error",
+    "unicorn/prefer-modern-math-apis": "error",
+    "unicorn/prefer-module": "error",
+    "unicorn/prefer-node-protocol": "error",
+    "unicorn/prefer-number-properties": "error",
+    "oxc/bad-bitwise-operator": "error",
+    "oxc/no-barrel-file": "error",
+    // 相対 import は `.ts` まで書く（Node.js の型の除去と Vite の両方で同じ指定で解決できる）。
+    "import/extensions": ["error", "always", { "ignorePackages": true, "checkTypeImports": true }],
+    "import/no-amd": "error",
+    "import/no-commonjs": "error",
+    "import/no-cycle": "error",
+    "import/no-default-export": "error",
+    "import/no-dynamic-require": "error",
+    "import/unambiguous": "error",
+    "promise/catch-or-return": "error",
+    "promise/spec-only": "error",
+    // 取り入れない restriction:
+    // - eslint/default-case: switch に default を強いると、typescript/switch-exhaustiveness-check による
+    //   union の網羅の検査が効かなくなる。
+    // - eslint/no-undefined: `T | undefined` と exactOptionalPropertyTypes を使う TypeScript の書き方と、
+    //   pedantic の unicorn/no-typeof-undefined（`=== undefined` を求める）に反する。
+    // - eslint/no-eq-null: pedantic の eqeqeq が `== null` も禁じる。
+    // - eslint/no-bitwise: シード付き乱数の実装でビット演算を使う。演算子の取り違えは oxc/bad-bitwise-operator で検出する。
+    // - eslint/no-void: 意図して待たない Promise を `void` で示す書き方を使う（no-floating-promises が認める形）。
+    // - eslint/no-use-before-define: 変数の宣言前の使用は TypeScript が検出し、関数の巻き上げは相互再帰で使う。
+    // - eslint/no-implicit-globals: すべてのファイルを ES module として扱う（tsconfig の moduleDetection: force）。
+    // - eslint/class-methods-use-this・no-plusplus・no-div-regex、typescript/explicit-member-accessibility、
+    //   unicorn/import-style・no-array-reduce: 誤りではなく書き方の好みを決めるもの。
+    // - typescript/explicit-function-return-type・explicit-module-boundary-types: 公開する境界の型は
+    //   tsconfig の isolatedDeclarations が求め、内部の推論まで書かせる必要はない。
+    // - typescript/non-nullable-type-assertion-style: typescript/no-non-null-assertion と両立しない。
+    // - typescript/prefer-literal-enum-member、oxc/no-const-enum: enum は erasableSyntaxOnly で使えない。
+    // - oxc/no-async-await・no-optional-chaining・no-rest-spread-properties: 古い実行環境向けに構文を禁じるもので、
+    //   対象のブラウザと Node.js はこれらの構文を持つ。
+    // - import/no-relative-parent-imports: core・ui・save などのディレクトリ間の import を禁じてしまう。
+    // - import/no-webpack-loader-syntax: webpack を使わない。
+    // - vitest/require-test-timeout: テストごとの timeout ではなく Vitest の既定の timeout を使う。
+    // - eslint/no-restricted-globals・no-restricted-imports・no-restricted-properties、typescript/no-restricted-types:
+    //   禁じる対象を設定して使うルール。使う箇所（core の DOM・時刻・乱数の禁止など）を作るときに設定する。
+
+    // ---- perf ----
+    "eslint/no-useless-call": "error",
+    "unicorn/prefer-array-find": "error",
+    "unicorn/prefer-array-flat-map": "error",
+    "unicorn/prefer-set-has": "error",
+    "oxc/no-accumulating-spread": "error",
+    // 取り入れない perf:
+    // - eslint/no-await-in-loop: 順に待つ必要のある処理（E2E の手順など）で使う。
+    // - oxc/no-map-spread: 状態を作り直す不変な更新（`xs.map((x) => ({ ...x, n }))`）を禁じ、変更による更新を促す。
+
+    // ---- style ----
+    // 取り入れる: 誤りを招く書き方を禁じるもの、型の安全性を上げるもの、古い書き方を新しい書き方に揃えるもの。
+    // 整形は oxfmt が担うため、空白や改行の規則は取り入れない。
+    "eslint/curly": "error",
+    "eslint/default-case-last": "error",
+    "eslint/default-param-last": "error",
+    "eslint/grouped-accessor-pairs": "error",
+    "eslint/guard-for-in": "error",
+    "eslint/logical-assignment-operators": "error",
+    "eslint/no-extra-label": "error",
+    "eslint/no-implicit-coercion": "error",
+    "eslint/no-label-var": "error",
+    "eslint/no-labels": "error",
+    "eslint/no-lone-blocks": "error",
+    "eslint/no-multi-assign": "error",
+    "eslint/no-multi-str": "error",
+    "eslint/no-nested-ternary": "error",
+    "eslint/no-new-func": "error",
+    "eslint/no-return-assign": "error",
+    "eslint/no-script-url": "error",
+    "eslint/no-template-curly-in-string": "error",
+    "eslint/no-useless-computed-key": "error",
+    "eslint/object-shorthand": "error",
+    "eslint/operator-assignment": "error",
+    "eslint/prefer-const": "error",
+    "eslint/prefer-exponentiation-operator": "error",
+    "eslint/prefer-numeric-literals": "error",
+    "eslint/prefer-object-has-own": "error",
+    "eslint/prefer-object-spread": "error",
+    "eslint/prefer-regex-literals": "error",
+    "eslint/prefer-rest-params": "error",
+    "eslint/prefer-spread": "error",
+    "eslint/prefer-template": "error",
+    "eslint/yoda": "error",
+    "typescript/adjacent-overload-signatures": "error",
+    "typescript/array-type": "error",
+    "typescript/ban-tslint-comment": "error",
+    "typescript/consistent-generic-constructors": "error",
+    "typescript/consistent-indexed-object-style": "error",
+    "typescript/consistent-type-assertions": [
+      "error",
+      { "assertionStyle": "as", "objectLiteralTypeAssertions": "never" }
+    ],
+    "typescript/consistent-type-definitions": "error",
+    "typescript/consistent-type-exports": "error",
+    "typescript/consistent-type-imports": "error",
+    // 添字シグネチャの型は tsconfig の noPropertyAccessFromIndexSignature に従い、角括弧での参照を認める。
+    "typescript/dot-notation": "error",
+    // メソッド記法の型は引数が双変に検査されるため、プロパティ記法に揃えて strictFunctionTypes を効かせる。
+    "typescript/method-signature-style": "error",
+    "typescript/no-empty-interface": "error",
+    "typescript/no-inferrable-types": "error",
+    "typescript/no-unnecessary-qualifier": "error",
+    "typescript/prefer-find": "error",
+    "typescript/prefer-for-of": "error",
+    "typescript/prefer-function-type": "error",
+    "typescript/prefer-readonly": "error",
+    "typescript/prefer-reduce-type-parameter": "error",
+    "typescript/prefer-regexp-exec": "error",
+    "typescript/prefer-return-this-type": "error",
+    "typescript/prefer-string-starts-ends-with": "error",
+    "typescript/unified-signatures": "error",
+    "unicorn/consistent-date-clone": "error",
+    "unicorn/consistent-existence-index-check": "error",
+    "unicorn/consistent-template-literal-escape": "error",
+    "unicorn/custom-error-definition": "error",
+    "unicorn/error-message": "error",
+    "unicorn/explicit-timer-delay": "error",
+    "unicorn/filename-case": "error",
+    "unicorn/no-array-method-this-argument": "error",
+    "unicorn/no-await-expression-member": "error",
+    "unicorn/no-console-spaces": "error",
+    "unicorn/no-unreadable-array-destructuring": "error",
+    "unicorn/no-useless-collection-argument": "error",
+    "unicorn/no-zero-fractions": "error",
+    "unicorn/number-literal-case": "error",
+    // 大きな数のリテラルを桁区切りで読みやすくする。
+    "unicorn/numeric-separators-style": "error",
+    "unicorn/prefer-array-index-of": "error",
+    "unicorn/prefer-bigint-literals": "error",
+    "unicorn/prefer-class-fields": "error",
+    "unicorn/prefer-classlist-toggle": "error",
+    "unicorn/prefer-default-parameters": "error",
+    "unicorn/prefer-dom-node-text-content": "error",
+    "unicorn/prefer-export-from": "error",
+    "unicorn/prefer-global-this": "error",
+    "unicorn/prefer-includes": "error",
+    "unicorn/prefer-keyboard-event-key": "error",
+    "unicorn/prefer-logical-operator-over-ternary": "error",
+    "unicorn/prefer-modern-dom-apis": "error",
+    "unicorn/prefer-negative-index": "error",
+    "unicorn/prefer-object-from-entries": "error",
+    "unicorn/prefer-optional-catch-binding": "error",
+    "unicorn/prefer-reflect-apply": "error",
+    "unicorn/prefer-response-static-json": "error",
+    "unicorn/prefer-spread": "error",
+    "unicorn/prefer-string-raw": "error",
+    "unicorn/prefer-string-trim-start-end": "error",
+    "unicorn/prefer-structured-clone": "error",
+    "unicorn/relative-url-style": "error",
+    "unicorn/require-array-join-separator": "error",
+    "unicorn/require-module-attributes": "error",
+    "unicorn/switch-case-braces": "error",
+    "unicorn/switch-case-break-position": "error",
+    "unicorn/text-encoding-identifier-case": "error",
+    "unicorn/throw-new-error": "error",
+    "import/consistent-type-specifier-style": "error",
+    "import/first": "error",
+    "import/newline-after-import": "error",
+    "import/no-duplicates": "error",
+    "import/no-mutable-exports": "error",
+    "import/no-named-default": "error",
+    // Vitest が集めるテストの名前（vitest.config.ts の include）だけを認め、集められずに黙って実行されない
+    // テストファイル（`*.spec.ts`、`*.test.js` など）を検出する。
+    "vitest/consistent-test-filename": [
+      "error",
+      {
+        "allTestPattern": "(^|[/\\\\])__tests__[/\\\\]|\\.(test|spec)\\.[cm]?[jt]sx?$",
+        "pattern": "\\.test\\.(ts|mts|cts|tsx)$"
+      }
+    ],
+    "vitest/consistent-test-it": "error",
+    "vitest/consistent-vitest-vi": "error",
+    "vitest/max-nested-describe": "error",
+    "vitest/no-alias-methods": "error",
+    "vitest/no-duplicate-hooks": "error",
+    "vitest/no-identical-title": "error",
+    "vitest/no-import-node-test": "error",
+    "vitest/no-interpolation-in-snapshots": "error",
+    "vitest/no-mocks-import": "error",
+    "vitest/no-test-prefixes": "error",
+    "vitest/no-test-return-statement": "error",
+    "vitest/no-unneeded-async-expect-function": "error",
+    // 呼び出しの検査で、回数だけでなく引数も確かめるよう促す。
+    "vitest/prefer-called-exactly-once-with": "error",
+    "vitest/prefer-called-once": "error",
+    "vitest/prefer-called-with": "error",
+    "vitest/prefer-comparison-matcher": "error",
+    "vitest/prefer-each": "error",
+    "vitest/prefer-equality-matcher": "error",
+    "vitest/prefer-expect-resolves": "error",
+    "vitest/prefer-expect-type-of": "error",
+    "vitest/prefer-hooks-in-order": "error",
+    "vitest/prefer-hooks-on-top": "error",
+    "vitest/prefer-import-in-mock": "error",
+    "vitest/prefer-mock-promise-shorthand": "error",
+    "vitest/prefer-mock-return-shorthand": "error",
+    "vitest/prefer-spy-on": "error",
+    "vitest/prefer-strict-boolean-matchers": "error",
+    "vitest/prefer-strict-equal": "error",
+    "vitest/prefer-to-be": "error",
+    "vitest/prefer-to-be-object": "error",
+    "vitest/prefer-to-contain": "error",
+    "vitest/prefer-to-have-been-called-times": "error",
+    "vitest/prefer-to-have-length": "error",
+    "vitest/prefer-todo": "error",
+    "promise/no-nesting": "error",
+    "promise/no-return-wrap": "error",
+    "promise/param-names": "error",
+    "promise/prefer-await-to-then": "error",
+    "promise/prefer-catch": "error",
+    // 取り入れない style:
+    // - 命名・宣言の形・並び順の好みを決めるもの: eslint の arrow-body-style・capitalized-comments・func-name-matching・
+    //   func-names・func-style・id-denylist・id-length・id-match・init-declarations・max-params・max-statements・
+    //   new-cap・no-continue・no-ternary・one-var・prefer-arrow-callback・prefer-destructuring・
+    //   prefer-named-capture-group・sort-imports・sort-keys・vars-on-top、typescript/class-literal-property-style、
+    //   unicorn の catch-error-name・max-nested-calls・prefer-ternary、import の exports-last・group-exports・
+    //   no-namespace、vitest の consistent-each-for・max-expects・no-hooks・prefer-describe-function-title・
+    //   prefer-expect-assertions・prefer-lowercase-title（テスト名は日本語）・require-hook・
+    //   require-top-level-describe、promise の avoid-new・prefer-await-to-callbacks。
+    // - eslint/no-magic-numbers: テストの入力や配列の添字など、名前を付けても読みやすくならない数まで禁じる。
+    // - eslint/no-duplicate-imports: import/no-duplicates が型の import を区別して同じものを検出する。
+    // - unicorn/no-nested-ternary: eslint/no-nested-ternary が入れ子の三項演算子をすべて禁じる。
+    // - unicorn/no-null: DOM と JSON の API が null を返す。
+    // - unicorn/empty-brace-spaces、vitest の padding-around-after-all-blocks・padding-around-test-blocks: 整形は oxfmt が担う。
+    // - typescript/parameter-properties: パラメータプロパティは erasableSyntaxOnly で使えない。
+    // - import/no-anonymous-default-export: unicorn/no-anonymous-default-export と同じものを検出する。
+    // - import の no-named-export・prefer-default-export: import/no-default-export と両立しない。
+    // - import/no-nodejs-modules: 設定ファイルは Node.js の API を使う。
+    // - vitest の prefer-to-be-truthy・prefer-to-be-falsy: vitest/prefer-strict-boolean-matchers と両立しない。
+    // - vitest/prefer-called-times: vitest/prefer-called-once と逆の書き方を求め、両立しない。
+    // - vitest の no-importing-vitest-globals・prefer-importing-vitest-globals: globals を有効にしていないため、
+    //   import しない書き方は型検査で失敗する。
+    // - vitest の no-restricted-matchers・no-restricted-vi-methods: 禁じる対象を設定して使うルール。
+    // - vitest/no-large-snapshots: snapshot を使っていない。使うときに見直す。
+
+    // ---- nursery ----
+    // 開発中で挙動が変わりうるため、誤りを検出する価値が高いものだけ取り入れる。
+    "eslint/no-unreachable-loop": "error",
+    "eslint/no-useless-assignment": "error",
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/prefer-optional-chain": "error",
+    "unicorn/no-useless-iterator-to-array": "error",
+    "promise/no-return-in-finally": "error"
+    // 取り入れない nursery:
+    // - eslint/no-undef、import/export・import/named: TypeScript の型検査が同じ誤りを検出する。
+    // - eslint/no-restricted-exports: 禁じる対象を設定して使うルール。
+  },
+
+  "overrides": [
+    {
+      // Vite・Vitest の設定ファイルは default export で設定を渡す決まりになっている。
+      "files": ["*.config.ts"],
+      "rules": {
+        "import/no-default-export": "off"
+      }
+    }
+  ]
+}
