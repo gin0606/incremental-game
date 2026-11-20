@@ -174,10 +174,17 @@ settings:
 importers:
 
   .:
+    dependencies:
+      break_eternity.js:
+        specifier: 2.2.2
+        version: 2.2.2
     devDependencies:
       '@mizchi/mutator':
         specifier: 0.5.0
-        version: 0.5.0(vite@8.3.8(@types/node@24.19.2))(vitest@5.1.1(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)))
+        version: 0.5.0(@playwright/test@1.65.1)(vite@8.3.8(@types/node@24.19.2))(vitest@5.1.1(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)))
+      '@playwright/test':
+        specifier: 1.65.1
+        version: 1.65.1
       '@tsconfig/strictest':
         specifier: 2.0.9
         version: 2.0.9
@@ -669,6 +676,11 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@playwright/test@1.65.1':
+    resolution: {integrity: sha512-y+NCIRm2LvY4slUVWvGh1nujJ8RF/hEisIsq2mtUPgdQC4L701bq5hZGMhrpeXjACvwvO9tj5dJqhvM6TP9lbw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   '@rolldown/binding-android-arm-eabi@1.2.19':
     resolution: {integrity: sha512-e+Ebe0WT+9tbXmNKPIiC8YrWAHYwug3m6i4p3rZGGulfZri1jtI4HslT+OZnFf/OIHowWF71DTlHwXBP2SiA7A==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -980,6 +992,9 @@ packages:
   assertion-error@2.0.1:
     resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
     engines: {node: '>=12'}
+
+  break_eternity.js@2.2.2:
+    resolution: {integrity: sha512-QAOyM7ZLau6KPxZu18zSQs96kOxMHLWU6hTbTl+eH6dAeqMv0bAar1rDmwCwfCgCU41/ZdoTUE9vHuY4ZjQTeQ==}
 
   chai@6.3.0:
     resolution: {integrity: sha512-XWAtwJ6OHO+tj0EKCs0Y2UamnyOxseZWltU4x2U2wh8g4AigdjwvtUjvLP2tqkA/avxHEtzxNaqGq/YGNwckKg==}
@@ -1338,6 +1353,16 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
+  playwright-core@1.65.1:
+    resolution: {integrity: sha512-hqPpz7blSMPxWVdoeE1yiBSzXsKiVOd2k+kjCvmUywD2GPO2Dd9HfcWnq9NN0GHbNZDFgZ9JfBFr+X5/BLo0qw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.65.1:
+    resolution: {integrity: sha512-vJ1FuoOrNwOKHUIVEvSt3jT1L+wjjDpwhwIstKtfvTh8XIG4FG4bIFuvNdMxi81LGfAhUgUZleVFaOLY4RIUUw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   postcss@8.5.33:
     resolution: {integrity: sha512-RVHEU9/Pp1Fnjr/MpAJsZoADukCKhfIi15OunEYiGktIkYLkPVvC1sioWolGDS7XByMTx9m/IGbro0Js13zhnQ==}
     engines: {node: ^10 || ^12 || >=14}
@@ -1514,56 +1539,57 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.3
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@mizchi/mutator-bun@0.5.0':
+  '@mizchi/mutator-bun@0.5.0(@playwright/test@1.65.1)':
     dependencies:
-      '@mizchi/mutator-core': 0.5.0
+      '@mizchi/mutator-core': 0.5.0(@playwright/test@1.65.1)
     transitivePeerDependencies:
       - '@playwright/test'
 
-  '@mizchi/mutator-core@0.5.0':
+  '@mizchi/mutator-core@0.5.0(@playwright/test@1.65.1)':
     dependencies:
-      '@mizchi/test-impact': 0.5.0
+      '@mizchi/test-impact': 0.5.0(@playwright/test@1.65.1)
       magic-string: 1.4.5
       oxc-parser: 0.159.0
     transitivePeerDependencies:
       - '@playwright/test'
 
-  '@mizchi/mutator-jest@0.5.0':
+  '@mizchi/mutator-jest@0.5.0(@playwright/test@1.65.1)':
     dependencies:
-      '@mizchi/mutator-core': 0.5.0
+      '@mizchi/mutator-core': 0.5.0(@playwright/test@1.65.1)
     transitivePeerDependencies:
       - '@playwright/test'
 
-  '@mizchi/mutator-playwright@0.5.0(vite@8.3.8(@types/node@24.19.2))':
+  '@mizchi/mutator-playwright@0.5.0(@playwright/test@1.65.1)(vite@8.3.8(@types/node@24.19.2))':
     dependencies:
-      '@mizchi/mutator-core': 0.5.0
-      '@mizchi/test-impact': 0.5.0
+      '@mizchi/mutator-core': 0.5.0(@playwright/test@1.65.1)
+      '@mizchi/test-impact': 0.5.0(@playwright/test@1.65.1)
     optionalDependencies:
+      '@playwright/test': 1.65.1
       vite: 8.3.8(@types/node@24.19.2)
 
-  '@mizchi/mutator-typecheck@0.5.0':
+  '@mizchi/mutator-typecheck@0.5.0(@playwright/test@1.65.1)':
     dependencies:
-      '@mizchi/mutator-core': 0.5.0
+      '@mizchi/mutator-core': 0.5.0(@playwright/test@1.65.1)
     transitivePeerDependencies:
       - '@playwright/test'
 
-  '@mizchi/mutator-vitest@0.5.0(vitest@5.1.1(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)))':
+  '@mizchi/mutator-vitest@0.5.0(@playwright/test@1.65.1)(vitest@5.1.1(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)))':
     dependencies:
-      '@mizchi/mutator-core': 0.5.0
+      '@mizchi/mutator-core': 0.5.0(@playwright/test@1.65.1)
     optionalDependencies:
       vitest: 5.1.1(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2))
     transitivePeerDependencies:
       - '@playwright/test'
 
-  '@mizchi/mutator@0.5.0(vite@8.3.8(@types/node@24.19.2))(vitest@5.1.1(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)))':
+  '@mizchi/mutator@0.5.0(@playwright/test@1.65.1)(vite@8.3.8(@types/node@24.19.2))(vitest@5.1.1(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)))':
     dependencies:
-      '@mizchi/mutator-bun': 0.5.0
-      '@mizchi/mutator-core': 0.5.0
-      '@mizchi/mutator-jest': 0.5.0
-      '@mizchi/mutator-playwright': 0.5.0(vite@8.3.8(@types/node@24.19.2))
-      '@mizchi/mutator-typecheck': 0.5.0
-      '@mizchi/mutator-vitest': 0.5.0(vitest@5.1.1(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)))
-      '@mizchi/test-impact': 0.5.0
+      '@mizchi/mutator-bun': 0.5.0(@playwright/test@1.65.1)
+      '@mizchi/mutator-core': 0.5.0(@playwright/test@1.65.1)
+      '@mizchi/mutator-jest': 0.5.0(@playwright/test@1.65.1)
+      '@mizchi/mutator-playwright': 0.5.0(@playwright/test@1.65.1)(vite@8.3.8(@types/node@24.19.2))
+      '@mizchi/mutator-typecheck': 0.5.0(@playwright/test@1.65.1)
+      '@mizchi/mutator-vitest': 0.5.0(@playwright/test@1.65.1)(vitest@5.1.1(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)))
+      '@mizchi/test-impact': 0.5.0(@playwright/test@1.65.1)
       chokidar: 6.0.0
     transitivePeerDependencies:
       - '@playwright/test'
@@ -1571,11 +1597,13 @@ snapshots:
       - vite
       - vitest
 
-  '@mizchi/test-impact@0.5.0':
+  '@mizchi/test-impact@0.5.0(@playwright/test@1.65.1)':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       oxc-parser: 0.159.0
       typescript: 6.0.3
+    optionalDependencies:
+      '@playwright/test': 1.65.1
 
   '@napi-rs/wasm-runtime@1.2.6(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)':
     dependencies:
@@ -1759,6 +1787,10 @@ snapshots:
   '@oxlint/binding-win32-x64-msvc@1.94.0':
     optional: true
 
+  '@playwright/test@1.65.1':
+    dependencies:
+      playwright: 1.65.1
+
   '@rolldown/binding-android-arm-eabi@1.2.19':
     optional: true
 
@@ -1929,6 +1961,8 @@ snapshots:
   '@vitest/spy@5.1.1': {}
 
   assertion-error@2.0.1: {}
+
+  break_eternity.js@2.2.2: {}
 
   chai@6.3.0: {}
 
@@ -2136,6 +2170,12 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
+
+  playwright-core@1.65.1: {}
+
+  playwright@1.65.1:
+    dependencies:
+      playwright-core: 1.65.1
 
   postcss@8.5.33:
     dependencies:

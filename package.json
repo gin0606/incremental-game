@@ -11,8 +11,12 @@
     "test": "vitest run",
     "test:mutation": "mutator"
   },
+  "dependencies": {
+    "break_eternity.js": "2.2.2"
+  },
   "devDependencies": {
     "@mizchi/mutator": "0.5.0",
+    "@playwright/test": "1.65.1",
     "@tsconfig/strictest": "2.0.9",
     "@types/node": "24.19.2",
     "fast-check": "4.10.3",
