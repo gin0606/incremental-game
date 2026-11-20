@@ -1,7 +1,7 @@
 import type { ViteUserConfig } from "vitest/config";
 import { configDefaults, defineConfig } from "vitest/config";
 
-import type { FastCheckSettings } from "./vitest.setup.ts";
+import type { FastCheckSettings } from "./vitest.provide.d.ts";
 
 const readInteger = (name: string, min: number): number | undefined => {
   const raw = process.env[name];

@@ -5,7 +5,8 @@
     "lib": ["es2024"],
     "types": ["node"]
   },
-  "include": ["*.config.ts"],
+  // vitest.provide.d.ts は、vitest.config.ts が読む型と、両方の Vitest の設定の `provide` に型を付ける拡張を持つ。
+  "include": ["*.config.ts", "vitest.provide.d.ts"],
   // Playwright の型は DOM の型を読むため、tsconfig.e2e.json で検査する。
   "exclude": ["playwright.config.ts"]
 }

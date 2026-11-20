@@ -39,6 +39,8 @@
   },
 
   "options": {
+    // 型情報は各ファイルを含む tsconfig から得る。e2e/ と設定ファイルは tsconfig.json の references で
+    // 型検査と同じ compiler options の設定に結び付ける（理由は tsconfig.json のコメント）。
     "typeAware": true,
     "denyWarnings": true,
     "reportUnusedDisableDirectives": "error",

@@ -4,16 +4,7 @@ import { expect, inject } from "vitest";
 import type { Num } from "./src/core/num.ts";
 import { DEFAULT_TOLERANCE, approxEqual, format, toParts } from "./src/core/num.ts";
 
-export interface FastCheckSettings {
-  readonly seed?: number;
-  readonly numRuns?: number;
-}
-
 declare module "vitest" {
-  export interface ProvidedContext {
-    fastCheck: FastCheckSettings;
-  }
-
   export interface Matchers<R> {
     /** Num が `expected` と相対誤差 `tolerance`（既定は DEFAULT_TOLERANCE）の範囲で等しい。 */
     toBeApprox: (expected: Num, tolerance?: number) => R;

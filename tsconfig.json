@@ -32,5 +32,15 @@
   // ドットで始まるディレクトリを辿らないため、そこには TypeScript のコードを置かない。
   // Node.js で動く設定ファイルは tsconfig.node.json、E2E テスト（e2e/）は tsconfig.e2e.json で検査する。
   "include": ["**/*.ts", "**/*.mts", "**/*.cts", "**/*.tsx"],
-  "exclude": ["*.config.ts", "e2e", "node_modules", "dist", "coverage"]
+  "exclude": ["*.config.ts", "e2e", "node_modules", "dist", "coverage"],
+  // oxlint の型情報を使うルール（tsrs-lint）は、ファイルを含む設定を最も近い tsconfig.json とその references から
+  // 探し、どれにも含まれないファイルは strict 系の一部しか有効にしない既定の compiler options で検査する。上で外した
+  // e2e/ と設定ファイルを型検査と同じ compiler options で検査させるため、型検査の設定を継承した lint 用の設定を
+  // 参照する。参照先は composite で出力を止めない設定でなければならず（TS6306・TS6310）、型検査の設定そのものを
+  // composite にすると型検査が増分になって tsbuildinfo を書き出すため、lint 用に分ける。references は extends で
+  // 継承されず、型検査（tsconfig.check.json）には影響しない。上で外したファイルの型検査の設定を足すときは、
+  // ここからも辿れるようにする。
+  // 参照先にも含まれる .ts は、この設定の program（mutator や直接の tsrs）では参照先の出力に置き換わり、出力を
+  // 作らないため型が欠ける。両方に含めるファイルは置き換えの対象にならない .d.ts にする（vitest.provide.d.ts）。
+  "references": [{ "path": "./tsconfig.e2e.lint.json" }, { "path": "./tsconfig.node.lint.json" }]
 }
