@@ -37,23 +37,23 @@ test("ページを開くと資源が増え、購入でき、再読み込みで�
     .toBeGreaterThanOrEqual(afterPurchase);
 });
 
+// 時計を止める時刻は install から 60 秒先に置き、テストの実行が止まっても過去を指定しないようにする。
+
 test("閉じている間の時間もオフラインの経過として生産する", async ({ context }) => {
   const first = await context.newPage();
   await first.clock.install({ time: at(0) });
-  await first.clock.pauseAt(at(1000));
+  await first.clock.pauseAt(at(60_000));
   await first.goto("/");
   await expect(first.locator("#collectors")).toHaveText("1");
-  // 自動保存を待たずに、開いた時点の状態と時刻を保存している。
-  expect(await first.evaluate(() => localStorage.getItem("incremental-game:save"))).not.toBeNull();
-  await first.clock.runFor(9000);
+  await first.clock.runFor(10_000);
   const closedWith = await coinsOf(first.locator("#coins"));
   await first.close();
 
   // 1 時間後に開き直し、1 秒進める。採集機 1 台で毎秒 1。読み込みにかかる実時間に左右されないよう、時計を
   // 止めてから開く。
   const second = await context.newPage();
-  await second.clock.install({ time: at(3_609_000) });
-  await second.clock.pauseAt(at(3_610_000));
+  await second.clock.install({ time: at(3_610_000) });
+  await second.clock.pauseAt(at(3_670_000));
   await second.goto("/");
   await expect(second.locator("#collectors")).toHaveText("1");
   await second.clock.runFor(1000);
@@ -61,6 +61,34 @@ test("閉じている間の時間もオフラインの経過として生産す�
 
   expect(reopened).toBeGreaterThanOrEqual(closedWith + 3600);
   expect(reopened).toBeLessThanOrEqual(closedWith + 3602);
+});
+
+test("最初の自動保存より前にページが失われても、閉じていた間を数える", async ({ context }) => {
+  const first = await context.newPage();
+  await first.clock.install({ time: at(0) });
+  await first.clock.pauseAt(at(60_000));
+  await first.goto("/");
+  await expect(first.locator("#collectors")).toHaveText("1");
+  // 時計を止めているので、自動保存はまだ動いていない。開いた時点の保存だけが残った状態を作る。
+  const startupSave = await first.evaluate(() => localStorage.getItem("incremental-game:save"));
+  expect(startupSave).not.toBeNull();
+  await first.close();
+
+  const second = await context.newPage();
+  await second.addInitScript((text) => {
+    if (text !== null) {
+      localStorage.setItem("incremental-game:save", text);
+    }
+  }, startupSave);
+  await second.clock.install({ time: at(3_600_000) });
+  await second.clock.pauseAt(at(3_660_000));
+  await second.goto("/");
+
+  // 開いた時点（60 秒）から 1 時間。採集機 1 台で毎秒 1。
+  await expect(second.locator("#collectors")).toHaveText("1");
+  const reopened = await coinsOf(second.locator("#coins"));
+  expect(reopened).toBeGreaterThanOrEqual(3599);
+  expect(reopened).toBeLessThanOrEqual(3600);
 });
 
 test("別のタブで遊んでいる間は始めず、そのタブを閉じると続きから始める", async ({ context }) => {
