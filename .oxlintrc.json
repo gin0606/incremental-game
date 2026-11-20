@@ -71,7 +71,9 @@
     // 検査を通って commit されうる。ソースがドットで始まるパスから import する用途は無いので、まとめて禁じる。
     // `./`・`../` そのものは対象にしない。TypeScript は `\` も区切りとして解決するため、区切りは `/` と `\` を見る。
     // このルールが見るのは import・export 文と、文字列リテラルを渡す `import()` だけで、テンプレートリテラルの
-    // `import()` や `vi.mock()` などに渡すパスは検査しない。正規表現は先読みの無い Rust の regex。
+    // `import()` や `vi.mock()` などに渡すパスは検査しない。`import()` に変数や `${}` を含むテンプレートリテラルを
+    // 渡すことは import/no-dynamic-require で禁じるが、`${}` を含まないテンプレートリテラルはどちらも通る。
+    // 正規表現は先読みの無い Rust の regex。
     "eslint/no-restricted-imports": [
       "error",
       {
@@ -117,7 +119,8 @@
     "import/no-commonjs": "error",
     "import/no-cycle": "error",
     "import/no-default-export": "error",
-    "import/no-dynamic-require": "error",
+    // `import()` も対象にし、import 先を静的に決めない import（eslint/no-restricted-imports が検査できない）を禁じる。
+    "import/no-dynamic-require": ["error", { "esmodule": true }],
     "import/unambiguous": "error",
     "promise/catch-or-return": "error",
     "promise/spec-only": "error",
@@ -417,8 +420,15 @@
             "message": "core は時刻を読まない（Intl.DateTimeFormat は引数が無いと現在時刻を書式にする）。表示の書式は ui が担う。"
           },
           { "name": "fetch", "message": "core は通信しない。" },
-          { "name": "process", "message": "core は実行環境の API を使わない。" }
+          { "name": "process", "message": "core は実行環境の API を使わない。" },
+          {
+            "name": "Reflect",
+            "message": "core は Reflect を使わない（名前で判定する禁止を、Reflect.get などで迂回させない）。"
+          }
         ],
+        // このルールと no-restricted-globals は名前で判定するため、値として受け渡した Math（`const M = Math` の後の
+        // `M.random()` や、`Object.getOwnPropertyDescriptor(Math, "random")`・`Object.values(Math)` のように関数へ
+        // 渡す場合）と、変数のキーで参照するプロパティ（`Math[key]`）は検出しない。
         "eslint/no-restricted-properties": [
           "error",
           {
@@ -427,8 +437,8 @@
             "message": "core は乱数の実装に依存しない。シード付きの乱数を受け取る。"
           },
           {
-            // break_eternity.js の Decimal は Math.random で乱数の値を作るメソッドを持つ。
-            "object": "Decimal",
+            // break_eternity.js の Decimal は Math.random で乱数の値を作るメソッドを持つ。Decimal を別名で import
+            // しても検出するよう、オブジェクトの名前を問わずこのプロパティを禁じる。
             "property": "randomDecimalForTesting",
             "message": "core は乱数の実装に依存しない。シード付きの乱数を受け取る。"
           }
@@ -436,7 +446,10 @@
         // 全体の設定（ドットで始まるパスの禁止）に、core の外への import の禁止を足す。override は全体の設定を
         // 置き換えるため、全体の pattern もここに書き写す。全体の pattern を変えたら、ここも揃える。
         // core は src/core の直下に平らに置き、`..` を含む import を core の外への import とみなす（`./../ui` のような
-        // 書き方の迂回も防ぐ）。
+        // 書き方の迂回も防ぐ）。`..` を使わずに core の外を指す絶対パスと、package.json の imports による `#` の別名も
+        // 禁じる。tsconfig の paths には別名を置いていない。paths に別名を足すときは、その別名もここで禁じる。
+        // `${}` を含まないテンプレートリテラルの `import()` はこのルールが検査しないため、tsconfig.core.json の
+        // rootDir で防ぐ（TypeScript のソースに限る。core のテストは rootDir の対象外）。
         "eslint/no-restricted-imports": [
           "error",
           {
@@ -448,6 +461,10 @@
               {
                 "regex": "(^|[/\\\\])\\.\\.([/\\\\]|$)",
                 "message": "core は ui・save などほかのディレクトリに依存しない。"
+              },
+              {
+                "regex": "^([/\\\\#]|[A-Za-z]:|file:)",
+                "message": "core は ui・save などほかのディレクトリに依存しない（絶対パスや別名で core の外を指さない）。"
               }
             ]
           }
@@ -456,8 +473,10 @@
     },
     {
       // E2E テストの本体は、Playwright が渡す fixture（Page などメソッドを持つ変更可能なオブジェクト）を受け取り、
-      // 引数を readonly な型にできない。型を書かずに推論させた引数（fixture の分割代入）だけを対象から外し、
-      // 型を書いた引数は引き続き検査する。
+      // 引数を readonly な型にできない。型を書かずに推論させた引数を対象から外し、型を書いた引数は引き続き検査する。
+      // 外れるのは fixture の分割代入に限らず、e2e/ 内のコールバックの引数など、推論させた引数すべて。
+      // このルールは pedantic のカテゴリで有効にしていて、全体ではオプションを付けていない。override はオプションを
+      // 置き換えるため、全体でオプションを付けるときは、ここにも同じものを書く。
       "files": ["e2e/**"],
       "rules": {
         "typescript/prefer-readonly-parameter-types": ["error", { "ignoreInferredTypes": true }]

@@ -4,10 +4,14 @@
   // 検査の一つで、DOM の API を使うと型エラーになる。時刻と乱数（Date・Math.random など）は ECMAScript の
   // 標準にあるため型では禁じられず、.oxlintrc.json の src/core 向けの設定で禁じる。
   // テストは Vitest の型を読むため除く（tsconfig.check.json で検査する）。
+  // rootDir は、core の本体が src/core の外の TypeScript のソースを読むと型エラー（TS6059）にする。lint は `${}` を
+  // 含まないテンプレートリテラルを渡す `import()` を検査しないため、その経路で core の外を import することをここで
+  // 防ぐ。JSON（package.json などリポジトリにある JSON を含む）と、.d.ts を持つ .js は rootDir の対象外で防げない。
   "extends": "./tsconfig.check.json",
   "compilerOptions": {
     "lib": ["es2024"],
-    "types": []
+    "types": [],
+    "rootDir": "src/core"
   },
   "include": ["src/core/**/*.ts", "src/core/**/*.mts", "src/core/**/*.cts", "src/core/**/*.tsx"],
   "exclude": ["src/core/**/*.test.*"]
