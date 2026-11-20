@@ -348,6 +348,15 @@
 
   "overrides": [
     {
+      // E2E テストの本体は、Playwright が渡す fixture（Page などメソッドを持つ変更可能なオブジェクト）を受け取り、
+      // 引数を readonly な型にできない。型を書かずに推論させた引数（fixture の分割代入）だけを対象から外し、
+      // 型を書いた引数は引き続き検査する。
+      "files": ["e2e/**"],
+      "rules": {
+        "typescript/prefer-readonly-parameter-types": ["error", { "ignoreInferredTypes": true }]
+      }
+    },
+    {
       // Vite・Vitest の設定ファイルは default export で設定を渡す決まりになっている。
       "files": ["*.config.ts"],
       "rules": {
