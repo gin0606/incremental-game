@@ -1,6 +1,6 @@
 {
   "183d9eacngw": {
-    "reason": "正規化で layer だけが変わり sign と mag が元のままになる入力は、今の break_eternity.js には無い（layer を変える正規化は mag を 10 の冪か常用対数に置き換え、layer 1 以上で mag が 0 の入力は事前に除く）。ライブラリの正規化が変わったときの守りとして layer の比較を残すため受け入れる。",
+    "reason": "正規化で layer だけが変わり sign と mag が元のままになる入力は、今の break_eternity.js には無い（layer 1 以上で mag が 0 の入力は事前に除く）。break_eternity.js 2.2.2 の normalize（dist/break_eternity.esm.js）で layer を変える分岐は、sign 0 などを 0 にする分岐（layer 1 以上なら mag も 0 に変わる）、layer 0 で mag が 1/9e15 未満のとき mag を常用対数にする分岐、|mag| が 9e15 以上のとき mag を常用対数にする分岐、|mag| が log10(9e15) 未満の間 layer を下げて mag を 10 の冪にするループの 4 つで、x と log10(x)、x と 10^x は等しくならず、ループは layer 1 以上の間 |mag| を増やし、layer 0 に下りるときの 10^x は正の値で、負の元の mag と異なり正の元の mag より大きいので、どれも mag か sign を変える。前提を満たす入力 200 万件（境界の値を含む）で fromComponents を試しても、layer だけが変わる入力は無かった。ライブラリの正規化が変わったときの守りとして layer の比較を残すため受け入れる。",
     "where": "src/core/num.ts:179:39 value.layer !== layer -> false"
   }
 }
