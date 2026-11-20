@@ -28,6 +28,9 @@ const config: MutatorConfig = defineConfig({
     // 置いている）。表示の内容、保存データの読み込みと保存、通知、タブの重複の扱いは src/ui の view.ts・restore.ts・
     // session.ts・notices.ts・tab-lock.ts に分けて変異の対象にし、判断を足すときもそちらに置く。
     "src/ui/main.ts",
+    // シミュレーターの CLI の入口。引数・標準出力・終了コードを src/sim/run.ts につなぐだけで、判断や分岐を持たない
+    // 間だけ除外してよい。CLI を実際に動かすテスト（src/sim/cli/main.slow.test.ts）で確かめる。
+    "src/sim/cli/main.ts",
     "e2e/**",
     "*.config.ts",
     "vitest.setup.ts",
