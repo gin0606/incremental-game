@@ -58,6 +58,23 @@
     "eslint/no-param-reassign": "error",
     "eslint/no-proto": "error",
     "eslint/no-regex-spaces": "error",
+    // ドットで始まるディレクトリ・ファイルを指す相対 import を禁じる。そこには `.tmp/` など Git 管理外の置き場があり、
+    // pre-commit の検査は作業ツリーのファイルを読むため、手元にしかないファイルへの import を含む変更が
+    // 検査を通って commit されうる。ソースがドットで始まるパスから import する用途は無いので、まとめて禁じる。
+    // `./`・`../` そのものは対象にしない。TypeScript は `\` も区切りとして解決するため、区切りは `/` と `\` を見る。
+    // このルールが見るのは import・export 文と、文字列リテラルを渡す `import()` だけで、テンプレートリテラルの
+    // `import()` や `vi.mock()` などに渡すパスは検査しない。正規表現は先読みの無い Rust の regex。
+    "eslint/no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "regex": "^\\.\\.?[/\\\\](.*[/\\\\])?(\\.[^./\\\\]|\\.\\.[^/\\\\])[^/\\\\]*([/\\\\]|$)",
+            "message": "ドットで始まるディレクトリ・ファイル（.tmp/ など Git 管理外の置き場を含む）を import しない。"
+          }
+        ]
+      }
+    ],
     "eslint/no-sequences": "error",
     "eslint/no-var": "error",
     "eslint/unicode-bom": "error",
@@ -117,7 +134,7 @@
     // - import/no-relative-parent-imports: core・ui・save などのディレクトリ間の import を禁じてしまう。
     // - import/no-webpack-loader-syntax: webpack を使わない。
     // - vitest/require-test-timeout: テストごとの timeout ではなく Vitest の既定の timeout を使う。
-    // - eslint/no-restricted-globals・no-restricted-imports・no-restricted-properties、typescript/no-restricted-types:
+    // - eslint/no-restricted-globals・no-restricted-properties、typescript/no-restricted-types:
     //   禁じる対象を設定して使うルール。使う箇所（core の DOM・時刻・乱数の禁止など）を作るときに設定する。
 
     // ---- perf ----
