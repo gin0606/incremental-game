@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { expect, test } from "vitest";
 
-import type { Num } from "./num.ts";
+import type { Num, NumParts } from "./num.ts";
 import {
   DEFAULT_TOLERANCE,
   add,
@@ -17,6 +17,7 @@ import {
   sub,
   toNumber,
   toParts,
+  toText,
   toleranceFloor,
 } from "./num.ts";
 
@@ -128,6 +129,9 @@ test("toNumber は number で表せない大きさを Infinity にする", () =>
   expect(toNumber(tenTo(400))).toBe(Number.POSITIVE_INFINITY);
 });
 
+/** 表現をそのまま値にする（計算の誤差を含まない大きな値）。読めない表現なら NaN の代わりに 0。 */
+const exactly = (parts: NumParts): Num => fromParts(parts) ?? num(0);
+
 test.each([
   { value: num(0), expected: "0" },
   { value: num(12.9), expected: "12" },
@@ -201,4 +205,16 @@ test.each([
   { name: "layer が 1 で mag が 0", parts: { sign: 1, layer: 1, mag: 0 } },
 ] as const)("fromParts は不正な表現に undefined を返す: $name", ({ parts }) => {
   expect(fromParts(parts)).toBeUndefined();
+});
+
+test.each([
+  { value: num(0), expected: "0" },
+  { value: num(-1234.5), expected: "-1234.5" },
+  { value: num(1e-8), expected: "1e-8" },
+  // break_eternity.js の toString は 3.3000000000000003e-12 にし、読み戻すと別の値になる。
+  { value: num(3.3e-12), expected: "3.3e-12" },
+  { value: exactly({ sign: 1, layer: 1, mag: 400 }), expected: "1e400" },
+  { value: exactly({ sign: 1, layer: 2, mag: 20 }), expected: "ee20" },
+] as const)("toText は break_eternity.js の表記にする（$expected）", ({ value, expected }) => {
+  expect(toText(value)).toBe(expected);
 });

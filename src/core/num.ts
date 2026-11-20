@@ -115,6 +115,18 @@ export function toNumber(value: Num): number {
   return toDecimal(value).toNumber();
 }
 
+/**
+ * 機械が読むための文字列。break_eternity.js の表記で、`1234.5`、`3.3e-12`、`1.5e400`、`ee20` のような形になる。
+ * break_eternity.js の `Decimal.fromString` で同じ値に読み戻せる。break_eternity.js が number 1 つで持つ値
+ * （layer 0。大きさがおよそ 1e-16 以上 9e15 未満）は JavaScript の数の表記にする。break_eternity.js の表記は 1e-7 未満
+ * で末尾の桁がずれ、読み戻すと値が変わるため。それより大きい・小さい値は break_eternity.js の表記のままで、
+ * `1.5000000000000004e16` のように末尾の桁が付くことがあるが、読み戻すと同じ値になる。
+ */
+export function toText(value: Num): string {
+  const decimal = toDecimal(value);
+  return decimal.layer === 0 ? String(decimal.sign * decimal.mag) : decimal.toString();
+}
+
 /** 表示で端数をどちらへ丸めるか。`down` は 0 の方向、`up` は大きいほうへ。 */
 export type Rounding = "down" | "up";
 
