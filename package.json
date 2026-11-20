@@ -7,7 +7,7 @@
     "format": "oxfmt --disable-nested-config",
     "format:check": "oxfmt --check --disable-nested-config",
     "lint": "oxlint --disable-nested-config",
-    "typecheck": "tsrs --noEmit -p tsconfig.check.json && tsrs --noEmit -p tsconfig.core.json && tsrs --noEmit -p tsconfig.e2e.json && tsrs --noEmit -p tsconfig.node.json",
+    "typecheck": "tsrs --noEmit -p tsconfig.check.json && tsrs --noEmit -p tsconfig.core.json && tsrs --noEmit -p tsconfig.e2e.json && tsrs --noEmit -p tsconfig.node.json && sh scripts/check-tsconfig-references.sh",
     "test": "vitest run",
     "test:mutation": "mutator",
     "e2e:install": "PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium --only-shell",

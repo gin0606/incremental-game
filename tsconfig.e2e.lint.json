@@ -1,13 +1,13 @@
 {
   "$schema": "https://www.schemastore.org/tsconfig",
   // oxlint の型情報を使うルールに、e2e/ と playwright.config.ts を tsconfig.e2e.json と同じ compiler options で
-  // 検査させるための設定。理由は tsconfig.json の references のコメントにある。型検査には使わない。
+  // 検査させるための設定。理由は tsconfig.json の references のコメントにある。
   "extends": "./tsconfig.e2e.json",
   "compilerOptions": {
     "composite": true,
     "noEmit": false,
     "emitDeclarationOnly": true,
-    // 直接 tsrs で検査・ビルドしたときに書き出す tsbuildinfo と .d.ts を、Git と型検査の対象の外に置く。
+    // 検査（`pnpm run typecheck` を含む）やビルドで書き出す tsbuildinfo と .d.ts を、Git と型検査の対象の外に置く。
     "outDir": "node_modules/.cache/tsconfig-lint/e2e"
   }
 }

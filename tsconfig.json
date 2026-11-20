@@ -40,7 +40,10 @@
   // composite にすると型検査が増分になって tsbuildinfo を書き出すため、lint 用に分ける。references は extends で
   // 継承されず、型検査（tsconfig.check.json）には影響しない。上で外したファイルの型検査の設定を足すときは、
   // ここからも辿れるようにする。
-  // 参照先にも含まれる .ts は、この設定の program（mutator や直接の tsrs）では参照先の出力に置き換わり、出力を
-  // 作らないため型が欠ける。両方に含めるファイルは置き換えの対象にならない .d.ts にする（vitest.provide.d.ts）。
+  // 参照先にも含まれる .ts は、この設定の program では参照先のものとして扱われる。直接の tsrs では参照先の出力に
+  // 置き換わって型が欠け、mutator（TypeScript の API）ではそのファイルの型エラーが報告されず、型エラーになる変異を
+  // 除けない。両方に含めるファイルは置き換えの対象にならない .d.ts にする（vitest.provide.d.ts）。
+  // 参照先が読むファイルを列挙していること（TS6307）と、両方に含まれる .ts が無いことは、lint とほかの型検査の設定
+  // では崩れても気づけないため、`pnpm run typecheck` が scripts/check-tsconfig-references.sh で確かめる。
   "references": [{ "path": "./tsconfig.e2e.lint.json" }, { "path": "./tsconfig.node.lint.json" }]
 }
