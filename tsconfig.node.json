@@ -1,6 +1,6 @@
 {
   "$schema": "https://www.schemastore.org/tsconfig",
-  "extends": "./tsconfig.json",
+  "extends": "./tsconfig.check.json",
   "compilerOptions": {
     "lib": ["es2024"],
     "types": ["node"]

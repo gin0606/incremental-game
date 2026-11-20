@@ -14,7 +14,18 @@
     "isolatedDeclarations": true,
     "declaration": true,
     "noEmit": true,
-    "skipLibCheck": false
+    "skipLibCheck": false,
+    // ミューテーションテスト（mutator）は、このファイルの設定で変異を型検査し、エラーになる変異を実行せずに除く
+    // （読むファイル名は変えられない）。未使用の変数・引数、到達不能なコード、switch の fallthrough、
+    // 値を返さない経路をエラーにすると、本体を定数に置き換える変異、条件を true・false にする変異、case や
+    // return を消す変異が除かれ、テストの弱さを測れなくなる。これらは型の誤りではなく oxlint
+    // （no-unused-vars・no-unreachable・no-fallthrough・consistent-return）も検出するため、ここでは外す。
+    // プロジェクトの型検査は tsconfig.check.json で、これらもエラーにして行う。
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "allowUnreachableCode": true,
+    "noFallthroughCasesInSwitch": false,
+    "noImplicitReturns": false
   },
   // 新しいディレクトリのコードが黙って型検査から外れないよう、全体を含める。ただし TypeScript の glob は
   // ドットで始まるディレクトリを辿らないため、そこには TypeScript のコードを置かない。

@@ -7,7 +7,7 @@
     "format": "oxfmt --disable-nested-config",
     "format:check": "oxfmt --check --disable-nested-config",
     "lint": "oxlint --disable-nested-config",
-    "typecheck": "tsrs --noEmit -p tsconfig.json && tsrs --noEmit -p tsconfig.node.json",
+    "typecheck": "tsrs --noEmit -p tsconfig.check.json && tsrs --noEmit -p tsconfig.node.json",
     "test": "vitest run",
     "test:mutation": "mutator"
   },
