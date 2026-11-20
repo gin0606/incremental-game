@@ -16,3 +16,6 @@ minimumReleaseAgeExclude:
   - '@mizchi/mutator-vitest@0.5.0'
   - '@mizchi/mutator@0.5.0'
   - '@mizchi/test-impact@0.5.0'
+# 依存が package.json・lockfile と合わないとき、スクリプトの前に install せずに失敗させる。install は
+# lockfile などを書き換えるため、commit 時の検査の途中で起きると、検査した内容と commit する内容がずれる。
+verifyDepsBeforeRun: error

@@ -13,3 +13,6 @@ node_modules/
 
 # 一時ファイル
 .tmp/
+
+# リポジトリ内で pnpm を実行したときに作られうる store
+.pnpm-store/

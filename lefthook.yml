@@ -1,0 +1,37 @@
+# git hook の定義。`pnpm install` の postinstall で `lefthook install` が hook を入れる。
+
+# hook から呼ぶ lefthook を node_modules の版に固定する。hook の既定の探索は、lefthook が見つからないと
+# `swift package` などを順に試し、リポジトリに `.build/` を作る。見つからないときは何も試さずに失敗させる。
+lefthook: "test -x node_modules/.bin/lefthook || { echo 'node_modules/.bin/lefthook が無い。pnpm install を実行してから commit する。' >&2; exit 1; }; node_modules/.bin/lefthook"
+
+# commit ごとに整形・lint・型検査・ユニットテストを回す。ミューテーションテストは時間がかかり、
+# 生存変異の判断を commit のたびに求めることになるため入れない（取り込み前に回す）。
+# 1 つが失敗しても残りを実行し、失敗をまとめて示す。
+pre-commit:
+  jobs: &checks
+    # 検査は作業ツリーのファイルを読む。lefthook が隠すのは、一部だけ stage したファイルの残りの変更だけで、
+    # stage していない変更や add していないファイルがあると、commit されない内容で検査が通る
+    # （import 先のファイルを add し忘れた commit など）。それらが残っていれば失敗させる。
+    # Axon の記録（.axon/）は検査の結果を変えないため除く。
+    - name: unstaged
+      run: >-
+        git diff --quiet -- . ':!.axon' &&
+        test -z "$(git ls-files --others --exclude-standard -- . ':!.axon')" ||
+        { echo "stage していない変更か add していないファイルがある。commit に含めるなら stage し、含めないなら git stash push --keep-index --include-untracked -- ':/' ':(top,exclude).axon' で退避してから commit する。" >&2;
+        git status --short -- . ':!.axon' >&2; exit 1; }
+    - name: format
+      run: pnpm run format:check
+    - name: lint
+      run: pnpm run lint
+    - name: typecheck
+      run: pnpm run typecheck
+    # 新しい snapshot を書き出さずに失敗させる。書き出すと、検査の後にできたファイルが commit から漏れる。
+    # テストファイルに残った不要な snapshot も失敗になる。snapshot を足す・消すときは `pnpm run test -u` で
+    # 書き直し、差分を確かめて stage してから commit する。テストファイルごと消したときは、その snapshot の
+    # ファイルも消す（失敗にも `-u` での削除にもならない）。
+    - name: test
+      run: pnpm run test --update=none
+
+# merge commit（fast-forward でない git merge）は pre-commit を通らないため、同じ検査を回す。
+pre-merge-commit:
+  jobs: *checks
