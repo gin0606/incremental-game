@@ -1,7 +1,22 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
-    "deny": ["Bash(git commit *--no-verify*)", "Bash(git commit -n*)", "Bash(git commit * -n*)"]
+    "deny": [
+      "Bash(git commit *--no-verify*)",
+      "Bash(git commit -n*)",
+      "Bash(git commit * -n*)",
+      "Bash(git -C * commit *--no-verify*)",
+      "Bash(git -C * commit -n*)",
+      "Bash(git -C * commit * -n*)",
+      "Bash(git *-c core.hooksPath*)",
+      "Bash(git *-c core.hookspath*)",
+      "Bash(git *config *core.hooksPath *)",
+      "Bash(git *config *core.hookspath *)",
+      "Bash(git merge *--no-verify*)",
+      "Bash(git -C * merge *--no-verify*)",
+      "Bash(git pull *--no-verify*)",
+      "Bash(git -C * pull *--no-verify*)"
+    ]
   },
   "worktree": {
     "baseRef": "head"
