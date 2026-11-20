@@ -1,0 +1,18 @@
+{
+  "$schema": "https://www.schemastore.org/tsconfig",
+  // E2E テスト（Playwright）とその設定を検査する。Playwright の型は Node.js と DOM の型を読むため、
+  // ゲーム本体（tsconfig.check.json）と設定ファイル（tsconfig.node.json）から分ける。
+  "extends": "./tsconfig.check.json",
+  "compilerOptions": {
+    "lib": ["es2024", "dom"],
+    "types": ["node"]
+  },
+  "include": [
+    "e2e/**/*.ts",
+    "e2e/**/*.mts",
+    "e2e/**/*.cts",
+    "e2e/**/*.tsx",
+    "playwright.config.ts"
+  ],
+  "exclude": []
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://www.schemastore.org/tsconfig",
+  // ゲームロジック（src/core）を、DOM の型を除いて検査する。core が DOM・時刻・乱数の実装に依存しないための
+  // 検査の一つで、DOM の API を使うと型エラーになる。時刻と乱数（Date・Math.random など）は ECMAScript の
+  // 標準にあるため型では禁じられず、.oxlintrc.json の src/core 向けの設定で禁じる。
+  // テストは Vitest の型を読むため除く（tsconfig.check.json で検査する）。
+  "extends": "./tsconfig.check.json",
+  "compilerOptions": {
+    "lib": ["es2024"],
+    "types": []
+  },
+  "include": ["src/core/**/*.ts", "src/core/**/*.mts", "src/core/**/*.cts", "src/core/**/*.tsx"],
+  "exclude": ["src/core/**/*.test.*"]
+}

@@ -6,5 +6,6 @@
     "types": ["node"]
   },
   "include": ["*.config.ts"],
-  "exclude": []
+  // Playwright の型は DOM の型を読むため、tsconfig.e2e.json で検査する。
+  "exclude": ["playwright.config.ts"]
 }

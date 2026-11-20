@@ -2,6 +2,9 @@ node_modules/
 /dist/
 /coverage/
 
+# Playwright の失敗時の trace など
+/test-results/
+
 # mutator の結果キャッシュとレポート（受け入れた変異の記録 mutator.accepted.json は管理する）
 .mutator/
 

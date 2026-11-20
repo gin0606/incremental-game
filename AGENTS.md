@@ -67,6 +67,7 @@
 - commit・merge 時の hook（lefthook の pre-commit・pre-merge-commit）を `--no-verify` などで飛ばさない。
 - 型検査の合否は `pnpm run typecheck` で決め、`tsrs --noEmit` を直接実行した結果は使わない。`-p` を付けなければミューテーションテストのために一部の検査を外した `tsconfig.json` を読み、`-p tsconfig.check.json` だけでは `*.config.ts` を検査しない。
 - ミューテーションテスト（`pnpm run test:mutation`）は commit ごとではなく取り込み前に実行する。全体を覆う遅いテストは `*.slow.test.ts` という名前にし、ミューテーションテストから外す。
+- E2E テスト（`pnpm run test:e2e`）が使う Chromium は、`pnpm install` の後に worktree ごとに `pnpm run e2e:install` で node_modules に入れる（`playwright install` を直接実行すると利用者のキャッシュに入り、テストから使われない）。
 - 性質テスト（fast-check）の失敗は、出力された seed を環境変数 `FC_SEED` に渡すと再現する（`FC_NUM_RUNS` で実行回数を変えていたなら同じ値も渡す）。出力された `{ seed, path }` をそのテストの `fc.assert` の第 2 引数に一時的に渡すと、縮小済みの反例から始められる。
 - 一時ファイルは、リポジトリの `.tmp/`（Git 管理外）か、セッションの scratchpad に置き、作業の終わりに消さない。`.tmp/` は worktree と一緒に消える。無人運転中に一時ファイルを消そうとすると、権限の確認で止まることがある。
 

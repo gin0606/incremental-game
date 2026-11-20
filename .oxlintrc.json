@@ -17,9 +17,15 @@
   // 採らない plugin:
   // - jsdoc: 型は TypeScript で書くため、JSDoc の型・タグを要求するルール（pedantic の require-param-type など）が
   //   型の二重記述を強いる。文書の網羅は検査の目的にしない。
-  // - node: Node.js で動くコードは設定ファイルだけで、ゲーム本体はブラウザで動く。Node.js で動くコードを
-  //   増やすとき（シミュレーターの CLI など）に見直す。
+  // - node: Node.js で動くコードは設定ファイルと E2E テスト（Playwright）だけで、ゲーム本体はブラウザで動く。
+  //   この plugin のルールは、CommonJS（require・exports・__dirname）とコールバック形式の API に向けたものと、
+  //   環境変数・同期 API・top-level await を禁じる制限が中心。前者は ESM の TypeScript で書くこれらのコードに
+  //   当たらず、後者は playwright.config.ts が worker へポートを渡す環境変数と、空きポートを待つ top-level await
+  //   を使うため採らない。Node.js で動くコードを増やすとき（シミュレーターの CLI など）に見直す。
   // - react・react-perf・nextjs・vue・jsx-a11y・jest: 使わないライブラリ・環境のルール。
+  // - Playwright（E2E テスト）向けの plugin は oxlint に無い（eslint-plugin-playwright を jsPlugins で読む機能は
+  //   alpha）。Playwright の公式の推奨である await の書き忘れの検出は、型情報を使う
+  //   typescript/no-floating-promises が担う。break_eternity.js 向けのルールは無い。
   "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "vitest", "promise"],
 
   "categories": {
@@ -134,8 +140,9 @@
     // - import/no-relative-parent-imports: core・ui・save などのディレクトリ間の import を禁じてしまう。
     // - import/no-webpack-loader-syntax: webpack を使わない。
     // - vitest/require-test-timeout: テストごとの timeout ではなく Vitest の既定の timeout を使う。
-    // - eslint/no-restricted-globals・no-restricted-properties、typescript/no-restricted-types:
-    //   禁じる対象を設定して使うルール。使う箇所（core の DOM・時刻・乱数の禁止など）を作るときに設定する。
+    // - eslint/no-restricted-globals・no-restricted-properties: 禁じる対象を設定して使うルール。src/core の DOM・時刻・
+    //   乱数の禁止に使い、overrides で設定する。
+    // - typescript/no-restricted-types: 禁じる対象を設定して使うルール。使う箇所を作るときに設定する。
 
     // ---- perf ----
     "eslint/no-useless-call": "error",
@@ -347,6 +354,104 @@
   },
 
   "overrides": [
+    {
+      // ゲームロジック（src/core）を DOM・時刻・乱数・保存先などの実装から切り離す。シミュレーターが時間を
+      // 早送りして決定的に遊べるよう、時刻は経過時間の引数で、乱数はシード付きの乱数を状態か引数で受け取る。
+      // DOM の API は tsconfig.core.json の型検査でも禁じるが、時刻と乱数は ECMAScript の標準にあり型では
+      // 禁じられないため、ここで禁じる。`globalThis.Date` のような迂回も防ぐため、グローバルオブジェクトも禁じる。
+      "files": ["src/core/**"],
+      "rules": {
+        "eslint/no-restricted-globals": [
+          "error",
+          { "name": "Date", "message": "core は時刻を読まない。経過時間を引数で受け取る。" },
+          { "name": "Temporal", "message": "core は時刻を読まない。経過時間を引数で受け取る。" },
+          { "name": "performance", "message": "core は時刻を読まない。経過時間を引数で受け取る。" },
+          {
+            "name": "setTimeout",
+            "message": "core はタイマーを使わない。時間は advance で進める。"
+          },
+          {
+            "name": "setInterval",
+            "message": "core はタイマーを使わない。時間は advance で進める。"
+          },
+          {
+            "name": "clearTimeout",
+            "message": "core はタイマーを使わない。時間は advance で進める。"
+          },
+          {
+            "name": "clearInterval",
+            "message": "core はタイマーを使わない。時間は advance で進める。"
+          },
+          {
+            "name": "queueMicrotask",
+            "message": "core はタイマーを使わない。時間は advance で進める。"
+          },
+          {
+            "name": "requestAnimationFrame",
+            "message": "core はタイマーを使わない。時間は advance で進める。"
+          },
+          {
+            "name": "crypto",
+            "message": "core は乱数の実装に依存しない。シード付きの乱数を受け取る。"
+          },
+          { "name": "globalThis", "message": "core はグローバルオブジェクトを使わない。" },
+          { "name": "window", "message": "core はグローバルオブジェクトを使わない。" },
+          { "name": "self", "message": "core はグローバルオブジェクトを使わない。" },
+          { "name": "global", "message": "core はグローバルオブジェクトを使わない。" },
+          { "name": "document", "message": "core は DOM を使わない。描画は ui が担う。" },
+          { "name": "navigator", "message": "core は実行環境の API を使わない。" },
+          { "name": "location", "message": "core は実行環境の API を使わない。" },
+          {
+            "name": "localStorage",
+            "message": "core は保存先を使わない。保存は save と ui が担う。"
+          },
+          {
+            "name": "sessionStorage",
+            "message": "core は保存先を使わない。保存は save と ui が担う。"
+          },
+          { "name": "indexedDB", "message": "core は保存先を使わない。保存は save と ui が担う。" },
+          {
+            "name": "Intl",
+            "message": "core は時刻を読まない（Intl.DateTimeFormat は引数が無いと現在時刻を書式にする）。表示の書式は ui が担う。"
+          },
+          { "name": "fetch", "message": "core は通信しない。" },
+          { "name": "process", "message": "core は実行環境の API を使わない。" }
+        ],
+        "eslint/no-restricted-properties": [
+          "error",
+          {
+            "object": "Math",
+            "property": "random",
+            "message": "core は乱数の実装に依存しない。シード付きの乱数を受け取る。"
+          },
+          {
+            // break_eternity.js の Decimal は Math.random で乱数の値を作るメソッドを持つ。
+            "object": "Decimal",
+            "property": "randomDecimalForTesting",
+            "message": "core は乱数の実装に依存しない。シード付きの乱数を受け取る。"
+          }
+        ],
+        // 全体の設定（ドットで始まるパスの禁止）に、core の外への import の禁止を足す。override は全体の設定を
+        // 置き換えるため、全体の pattern もここに書き写す。全体の pattern を変えたら、ここも揃える。
+        // core は src/core の直下に平らに置き、`..` を含む import を core の外への import とみなす（`./../ui` のような
+        // 書き方の迂回も防ぐ）。
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^\\.\\.?[/\\\\](.*[/\\\\])?(\\.[^./\\\\]|\\.\\.[^/\\\\])[^/\\\\]*([/\\\\]|$)",
+                "message": "ドットで始まるディレクトリ・ファイル（.tmp/ など Git 管理外の置き場を含む）を import しない。"
+              },
+              {
+                "regex": "(^|[/\\\\])\\.\\.([/\\\\]|$)",
+                "message": "core は ui・save などほかのディレクトリに依存しない。"
+              }
+            ]
+          }
+        ]
+      }
+    },
     {
       // E2E テストの本体は、Playwright が渡す fixture（Page などメソッドを持つ変更可能なオブジェクト）を受け取り、
       // 引数を readonly な型にできない。型を書かずに推論させた引数（fixture の分割代入）だけを対象から外し、
