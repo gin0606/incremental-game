@@ -8,7 +8,8 @@ import { defineConfig } from "@mizchi/mutator";
  *   黙って飛ばさない。
  * - スコアが `thresholds.break` を下回ると終了コード 2 で失敗する。テストが到達しない変異もスコアを下げる。
  *   等価な変異は `mutator accept <key> --reason <理由>` で mutator.accepted.json に記録して除く。
- *   `break` は変異をすべて検出できている最小のコードに合わせた仮の値で、ゲームのコードを入れるときに見直す。
+ * - `break` は 100 にし、検出できない変異を一件ずつ、テストを足して検出するか、理由を書いて受け入れるかを
+ *   決めさせる。スコアは割合なので、100 未満にするとコードが増えるほど検出できない変異が黙って増えうる。
  */
 const config: MutatorConfig = defineConfig({
   runner: "vitest",
@@ -17,6 +18,13 @@ const config: MutatorConfig = defineConfig({
   include: ["**/*.{ts,mts,cts,tsx}"],
   exclude: [
     "**/*.test.*",
+    // テスト用の入力の生成器。変異は入力の分布を変えるだけで、検出の対象にならない。
+    "**/*.arbitrary.ts",
+    // DOM とゲームをつなぐ部分と E2E テスト。ユニットテストは届かず、E2E テスト（pnpm run test:e2e）で
+    // 確かめる。DOM に依存しない表示の内容と保存データの読み込みは src/ui/view.ts・src/ui/restore.ts に分けて
+    // 変異の対象にする。
+    "src/ui/main.ts",
+    "e2e/**",
     "*.config.ts",
     "vitest.setup.ts",
     "node_modules/**",

@@ -1,0 +1,6 @@
+{
+  "183d9eacngw": {
+    "reason": "正規化で layer だけが変わり sign と mag が元のままになる入力は、今の break_eternity.js には無い（layer を変える正規化は mag を 10 の冪か常用対数に置き換え、layer 1 以上で mag が 0 の入力は事前に除く）。ライブラリの正規化が変わったときの守りとして layer の比較を残すため受け入れる。",
+    "where": "src/core/num.ts:179:39 value.layer !== layer -> false"
+  }
+}
