@@ -1,0 +1,16 @@
+{
+  "$schema": "https://www.schemastore.org/tsconfig",
+  // シミュレーターの CLI（Node.js で動く）を、Node.js の型を読んで検査する。ゲームと sim の本体はブラウザでも動く
+  // コードとして tsconfig.json（DOM の型を読み、Node.js の型を読まない）で検査するため、CLI だけを分ける。
+  // ここが CLI のファイルに最も近い tsconfig.json なので、oxlint の型情報を使うルールもこの設定で CLI を検査する
+  // （tsconfig.json の references を使わないのは、CLI が import する sim と core のファイルが tsconfig.json の
+  // program にも入り、references の参照先にできないため）。`pnpm run typecheck` が `-p` で指定して検査する。
+  "extends": "../../../tsconfig.check.json",
+  "compilerOptions": {
+    "lib": ["es2024"],
+    "types": ["node"]
+  },
+  // 継承した include・exclude は継承元のディレクトリからの相対パスになるため、ここで置き換える。
+  "include": ["**/*.ts", "**/*.mts", "**/*.cts", "**/*.tsx"],
+  "exclude": []
+}

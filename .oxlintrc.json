@@ -17,11 +17,12 @@
   // 採らない plugin:
   // - jsdoc: 型は TypeScript で書くため、JSDoc の型・タグを要求するルール（pedantic の require-param-type など）が
   //   型の二重記述を強いる。文書の網羅は検査の目的にしない。
-  // - node: Node.js で動くコードは設定ファイルと E2E テスト（Playwright）だけで、ゲーム本体はブラウザで動く。
-  //   この plugin のルールは、CommonJS（require・exports・__dirname）とコールバック形式の API に向けたものと、
-  //   環境変数・同期 API・top-level await を禁じる制限が中心。前者は ESM の TypeScript で書くこれらのコードに
-  //   当たらず、後者は playwright.config.ts が worker へポートを渡す環境変数と、空きポートを待つ top-level await
-  //   を使うため採らない。Node.js で動くコードを増やすとき（シミュレーターの CLI など）に見直す。
+  // - node: Node.js で動くコードは設定ファイル、E2E テスト（Playwright）、シミュレーターの CLI（src/sim/cli）で、
+  //   ゲーム本体はブラウザで動く。この plugin のルールは、CommonJS（require・exports・__dirname）とコールバック形式の
+  //   API に向けたものと、環境変数・同期 API・top-level await を禁じる制限が中心。前者は ESM の TypeScript で書く
+  //   これらのコードに当たらない。後者は、playwright.config.ts が worker へポートを渡す環境変数と、空きポートを待つ
+  //   top-level await を使い、CLI のテストが同期 API で CLI を動かすため、全体には採らない。シミュレーター（src/sim）
+  //   にだけ、結果を引数とシードだけで決めるための node/no-process-env を overrides で入れる。
   // - react・react-perf・nextjs・vue・jsx-a11y・jest: 使わないライブラリ・環境のルール。
   // - Playwright（E2E テスト）向けの plugin は oxlint に無い（eslint-plugin-playwright を jsPlugins で読む機能は
   //   alpha）。Playwright の公式の推奨である await の書き忘れの検出は、型情報を使う
@@ -146,7 +147,7 @@
     // - import/no-webpack-loader-syntax: webpack を使わない。
     // - vitest/require-test-timeout: テストごとの timeout ではなく Vitest の既定の timeout を使う。
     // - eslint/no-restricted-globals・no-restricted-properties: 禁じる対象を設定して使うルール。src/core の DOM・時刻・
-    //   乱数の禁止に使い、overrides で設定する。
+    //   乱数の禁止と、src/sim の時刻・乱数の禁止に使い、overrides で設定する。
     // - typescript/no-restricted-types: 禁じる対象を設定して使うルール。使う箇所を作るときに設定する。
 
     // ---- perf ----
@@ -465,6 +466,329 @@
               {
                 "regex": "^([/\\\\#]|[A-Za-z]:|file:)",
                 "message": "core は ui・save などほかのディレクトリに依存しない（絶対パスや別名で core の外を指さない）。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      // シミュレーター（src/sim）の結果を、引数とシードだけで決める（同じ入力から同じ結果にする）。時刻・乱数・環境変数を
+      // 読ませない。乱数はシード付きの src/sim/random.ts を使う。`globalThis.Date` のような迂回も防ぐため、グローバル
+      // オブジェクトも禁じる。名前で判定するため、値として受け渡した Math などの迂回は検出しない（src/core の設定の
+      // コメントと同じ）。process は、次の override で src/sim/cli にだけ認める。
+      "files": ["src/sim/**"],
+      "plugins": ["node"],
+      "rules": {
+        "node/no-process-env": "error",
+        // import できるものを、src/sim の中（同じディレクトリ）と src/core の直下に限る。Node.js のモジュール（環境変数・
+        // 時刻・乱数・ファイル・通信や、別の文脈でコードを動かすもの）と、時刻や保存先を使う src/ui・src/save を読ませ
+        // ない。`*` は `/` を含まないため、`../core/../ui/x.ts` のような迂回も許可に当たらない。テストのライブラリ
+        // （vitest・fast-check）は、時刻やシードの無い乱数に届く API（vi.getRealSystemTime、シードを渡さない fc.sample）
+        // を持つため、後の override でテストのファイルにだけ認める。src/sim/cli でも後の override で許可を足す。
+        // 全体の設定（ドットで始まるパスの禁止）を置き換えるため、全体の pattern もここに書き写す。全体を変えたら、
+        // ここも揃える。後の override は、この許可を書き写して足す。ここを変えたら、あちらも揃える。
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^\\.\\.?[/\\\\](.*[/\\\\])?(\\.[^./\\\\]|\\.\\.[^/\\\\])[^/\\\\]*([/\\\\]|$)",
+                "message": "ドットで始まるディレクトリ・ファイル（.tmp/ など Git 管理外の置き場を含む）を import しない。"
+              },
+              {
+                "group": ["*", "!./*", "!../core/*"],
+                "message": "sim が import するのは src/sim と src/core だけにする（テストのライブラリはテストのファイルだけ）。環境変数・時刻・乱数・実行環境を読まず、結果を引数とシードだけで決める。"
+              }
+            ]
+          }
+        ],
+        "eslint/no-restricted-globals": [
+          "error",
+          { "name": "Date", "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。" },
+          {
+            "name": "Temporal",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "performance",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          { "name": "crypto", "message": "sim の乱数はシード付きの src/sim/random.ts を使う。" },
+          {
+            "name": "Intl",
+            "message": "sim は時刻を読まない（Intl.DateTimeFormat は引数が無いと現在時刻を書式にする）。"
+          },
+          { "name": "globalThis", "message": "sim はグローバルオブジェクトを使わない。" },
+          { "name": "window", "message": "sim はグローバルオブジェクトを使わない。" },
+          { "name": "self", "message": "sim はグローバルオブジェクトを使わない。" },
+          { "name": "global", "message": "sim はグローバルオブジェクトを使わない。" },
+          {
+            "name": "setTimeout",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "setInterval",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "setImmediate",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "queueMicrotask",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "requestAnimationFrame",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          { "name": "document", "message": "sim は実行環境の API を使わない。" },
+          { "name": "navigator", "message": "sim は実行環境の API を使わない。" },
+          { "name": "location", "message": "sim は実行環境の API を使わない。" },
+          { "name": "localStorage", "message": "sim は実行環境の API を使わない。" },
+          { "name": "sessionStorage", "message": "sim は実行環境の API を使わない。" },
+          { "name": "indexedDB", "message": "sim は実行環境の API を使わない。" },
+          { "name": "fetch", "message": "sim は通信しない。" },
+          {
+            "name": "WeakRef",
+            "message": "sim はガベージコレクションの時機に結果を左右させない。"
+          },
+          {
+            "name": "FinalizationRegistry",
+            "message": "sim はガベージコレクションの時機に結果を左右させない。"
+          },
+          {
+            "name": "Reflect",
+            "message": "sim は Reflect を使わない（名前で判定する禁止を、Reflect.get などで迂回させない）。"
+          },
+          {
+            "name": "process",
+            "message": "sim は実行環境の API（時刻を読む process.hrtime など）を使わない。CLI は src/sim/cli に置く。"
+          }
+        ],
+        "eslint/no-restricted-properties": [
+          "error",
+          {
+            "object": "Math",
+            "property": "random",
+            "message": "sim の乱数はシード付きの src/sim/random.ts を使う。"
+          },
+          {
+            "property": "randomDecimalForTesting",
+            "message": "sim の乱数はシード付きの src/sim/random.ts を使う。"
+          },
+          // process のグローバルを認める src/sim/cli でも、時刻や実行環境の状態を読む API は使わせない。
+          {
+            "object": "process",
+            "property": "hrtime",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "object": "process",
+            "property": "uptime",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "object": "process",
+            "property": "cpuUsage",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "object": "process",
+            "property": "resourceUsage",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "object": "process",
+            "property": "memoryUsage",
+            "message": "sim は実行環境の状態を読まない。結果は引数とシードだけで決める。"
+          },
+          {
+            "object": "process",
+            "property": "pid",
+            "message": "sim は実行環境の状態を読まない。結果は引数とシードだけで決める。"
+          },
+          {
+            "object": "process",
+            "property": "ppid",
+            "message": "sim は実行環境の状態を読まない。結果は引数とシードだけで決める。"
+          },
+          {
+            "object": "process",
+            "property": "report",
+            "message": "sim は実行環境の状態を読まない。結果は引数とシードだけで決める。"
+          },
+          {
+            "object": "process",
+            "property": "availableMemory",
+            "message": "sim は実行環境の状態を読まない。結果は引数とシードだけで決める。"
+          },
+          {
+            "object": "process",
+            "property": "constrainedMemory",
+            "message": "sim は実行環境の状態を読まない。結果は引数とシードだけで決める。"
+          },
+          // import の許可リストを迂回して Node.js のモジュールやネイティブのコードを読み込ませない。
+          {
+            "object": "process",
+            "property": "getBuiltinModule",
+            "message": "sim が使うモジュールは import の許可リストに限る。"
+          },
+          {
+            "object": "process",
+            "property": "binding",
+            "message": "sim が使うモジュールは import の許可リストに限る。"
+          },
+          {
+            "object": "process",
+            "property": "dlopen",
+            "message": "sim が使うモジュールは import の許可リストに限る。"
+          }
+        ]
+      }
+    },
+    {
+      // src/sim のテストでは、src/sim の override の許可にテストのライブラリを足す。テストのファイルの拡張子は
+      // vitest.config.ts の include と揃える。
+      "files": [
+        "src/sim/**/*.test.ts",
+        "src/sim/**/*.test.mts",
+        "src/sim/**/*.test.cts",
+        "src/sim/**/*.test.tsx"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^\\.\\.?[/\\\\](.*[/\\\\])?(\\.[^./\\\\]|\\.\\.[^/\\\\])[^/\\\\]*([/\\\\]|$)",
+                "message": "ドットで始まるディレクトリ・ファイル（.tmp/ など Git 管理外の置き場を含む）を import しない。"
+              },
+              {
+                "group": ["*", "!./*", "!../core/*", "!vitest", "!fast-check"],
+                "message": "sim が import するのは src/sim と src/core とテストのライブラリだけにする。環境変数・時刻・乱数・実行環境を読まず、結果を引数とシードだけで決める。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      // シミュレーターの CLI（src/sim/cli）は、標準出力・標準エラー・終了コードと、テストで CLI を起動するために
+      // process を使う。上の override の no-restricted-globals から process だけを外す。override はオプションを置き換える
+      // ため、上の一覧を変えたら、ここも揃える。環境変数を読む禁止（node/no-process-env）は上の override のまま効く。
+      "files": ["src/sim/cli/**"],
+      "rules": {
+        // src/sim の override の許可に、src/sim の直下（`../`）を足す。CLI を起動するテストの許可は後の override で足す。
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^\\.\\.?[/\\\\](.*[/\\\\])?(\\.[^./\\\\]|\\.\\.[^/\\\\])[^/\\\\]*([/\\\\]|$)",
+                "message": "ドットで始まるディレクトリ・ファイル（.tmp/ など Git 管理外の置き場を含む）を import しない。"
+              },
+              {
+                "group": ["*", "!./*", "!../*", "!../../core/*"],
+                "message": "sim が import するのは src/sim と src/core だけにする（テストのライブラリはテストのファイルだけ）。環境変数・時刻・乱数・実行環境を読まず、結果を引数とシードだけで決める。"
+              }
+            ]
+          }
+        ],
+        "eslint/no-restricted-globals": [
+          "error",
+          { "name": "Date", "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。" },
+          {
+            "name": "Temporal",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "performance",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          { "name": "crypto", "message": "sim の乱数はシード付きの src/sim/random.ts を使う。" },
+          {
+            "name": "Intl",
+            "message": "sim は時刻を読まない（Intl.DateTimeFormat は引数が無いと現在時刻を書式にする）。"
+          },
+          { "name": "globalThis", "message": "sim はグローバルオブジェクトを使わない。" },
+          { "name": "window", "message": "sim はグローバルオブジェクトを使わない。" },
+          { "name": "self", "message": "sim はグローバルオブジェクトを使わない。" },
+          { "name": "global", "message": "sim はグローバルオブジェクトを使わない。" },
+          {
+            "name": "setTimeout",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "setInterval",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "setImmediate",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "queueMicrotask",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "requestAnimationFrame",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          { "name": "document", "message": "sim は実行環境の API を使わない。" },
+          { "name": "navigator", "message": "sim は実行環境の API を使わない。" },
+          { "name": "location", "message": "sim は実行環境の API を使わない。" },
+          { "name": "localStorage", "message": "sim は実行環境の API を使わない。" },
+          { "name": "sessionStorage", "message": "sim は実行環境の API を使わない。" },
+          { "name": "indexedDB", "message": "sim は実行環境の API を使わない。" },
+          { "name": "fetch", "message": "sim は通信しない。" },
+          {
+            "name": "WeakRef",
+            "message": "sim はガベージコレクションの時機に結果を左右させない。"
+          },
+          {
+            "name": "FinalizationRegistry",
+            "message": "sim はガベージコレクションの時機に結果を左右させない。"
+          },
+          {
+            "name": "Reflect",
+            "message": "sim は Reflect を使わない（名前で判定する禁止を、Reflect.get などで迂回させない）。"
+          }
+        ]
+      }
+    },
+    {
+      // src/sim/cli のテストでは、src/sim/cli の override の許可に、テストのライブラリと、CLI を実際に起動するために
+      // child_process・url を足す。
+      "files": [
+        "src/sim/cli/**/*.test.ts",
+        "src/sim/cli/**/*.test.mts",
+        "src/sim/cli/**/*.test.cts",
+        "src/sim/cli/**/*.test.tsx"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^\\.\\.?[/\\\\](.*[/\\\\])?(\\.[^./\\\\]|\\.\\.[^/\\\\])[^/\\\\]*([/\\\\]|$)",
+                "message": "ドットで始まるディレクトリ・ファイル（.tmp/ など Git 管理外の置き場を含む）を import しない。"
+              },
+              {
+                "group": [
+                  "*",
+                  "!./*",
+                  "!../*",
+                  "!../../core/*",
+                  "!vitest",
+                  "!fast-check",
+                  "!node:child_process",
+                  "!node:url"
+                ],
+                "message": "sim が import するのは src/sim と src/core とテストのライブラリだけにする。環境変数・時刻・乱数・実行環境を読まず、結果を引数とシードだけで決める。"
               }
             ]
           }
