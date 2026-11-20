@@ -20,7 +20,8 @@
     // 値を返さない経路をエラーにすると、本体を定数に置き換える変異、条件を true・false にする変異、case や
     // return を消す変異が除かれ、テストの弱さを測れなくなる。これらは型の誤りではなく oxlint
     // （no-unused-vars・no-unreachable・no-fallthrough・consistent-return）も検出するため、ここでは外す。
-    // プロジェクトの型検査は tsconfig.check.json で、これらもエラーにして行う。
+    // プロジェクトの型検査は tsconfig.check.json で、これらもエラーにして行う。型検査に使う設定を足すときは、
+    // このファイルではなく tsconfig.check.json を継承する（tsconfig.node.json と同じ）。
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "allowUnreachableCode": true,
