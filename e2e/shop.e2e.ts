@@ -1,7 +1,7 @@
-import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
 import { at } from "./clock.ts";
+import { rendered } from "./rendered.ts";
 
 /**
  * コイン `coins` を持つ保存データ（保存形式の版 1）。時計を止める時刻 `at(60_000)` に保存したものとし、その時刻に
@@ -79,15 +79,6 @@ test("自動購入を買うと、そのボタンと説明を隠す", async ({ pa
   await expect(work).toHaveCount(1);
   await expect(work).toBeHidden();
 });
-
-/**
- * ブラウザに描画の更新をさせる。フォーカスを持つ要素が隠れたり押せなくなったりしたときにフォーカスを外す処理は、
- * HTML の仕様では描画の更新の中で走る（HTML Living Standard 8.1.7.3 の update the rendering）。スクリーンショットは
- * 新しい描画を待つので、その後にフォーカスを確かめれば、この処理が走った後の位置を見られる。
- */
-const rendered = async (page: Readonly<Pick<Page, "screenshot">>): Promise<void> => {
-  await page.screenshot();
-};
 
 test("キーボードで自動購入を買うと、フォーカスを店の中の前にある品物のボタンへ移し、続けて店の中を移れる", async ({
   page,
