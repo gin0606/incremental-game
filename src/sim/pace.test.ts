@@ -96,7 +96,8 @@ test("measure は妥当な規則の常に開いているボットだけで、遊
   expect(play?.changes).toStrictEqual([0]);
   expect(play?.purchaseMedian).toBeCloseTo((15 + 5 / 3) / 2, 10);
   expect(play?.purchaseLongest).toBe(15);
-  expect(play?.perDay).toBe(3 / (100 / 86_400));
+  // 最初から解放されている gen と tiny は数えず、10 秒で解放される more だけを数える。
+  expect(play?.perDay).toBe(1 / (100 / 86_400));
   expect(play?.noveltyGap).toBe(90);
   // 30 秒から始まる区間（30〜80 秒）以降は伸びない。最後の区間は 50〜100 秒。
   expect(play?.wall).toBe(70);

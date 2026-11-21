@@ -63,7 +63,8 @@ const play = <S>(model: Model<S>, targets: Targets, step: number, trial: Trial):
     seed: trial.seed,
   });
 
-const playMeasure = <S>(targets: Targets, run: Run<S>): PlayMeasure => {
+/** `initial` は最初から解放されている要素。新要素に数えない。 */
+const playMeasure = <S>(targets: Targets, initial: readonly string[], run: Run<S>): PlayMeasure => {
   const { timeline } = run;
   const { duration, sampleEvery, milestones, growth, walls } = targets;
   const times = milestoneTimes(timeline, milestones.levels);
@@ -71,7 +72,9 @@ const playMeasure = <S>(targets: Targets, run: Run<S>): PlayMeasure => {
   const purchases = gaps(
     timeline.filter((entry) => entry.kind === "purchase").map((entry) => entry.t),
   );
-  const unlocks = timeline.filter((entry) => entry.kind === "unlock");
+  const unlocks = timeline.filter(
+    (entry) => entry.kind === "unlock" && !initial.includes(entry.id),
+  );
   return {
     bot: botName(run.bot),
     milestones: times,
@@ -139,8 +142,9 @@ export function measure<S>(
   const runs = active.map((trial) => play(model, targets, step, trial));
   const reasonable = (run: Run<S>): boolean => targets.reasonable.includes(run.bot.purchase);
   const best = runs.find((run) => run.bot.purchase === targets.choice.best);
+  const initial = model.unlocked(model.initial);
   return {
-    plays: runs.filter((run) => reasonable(run)).map((run) => playMeasure(targets, run)),
+    plays: runs.filter((run) => reasonable(run)).map((run) => playMeasure(targets, initial, run)),
     choices:
       best === undefined
         ? []
