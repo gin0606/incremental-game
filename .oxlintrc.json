@@ -146,8 +146,9 @@
     // - import/no-relative-parent-imports: core・ui・save などのディレクトリ間の import を禁じてしまう。
     // - import/no-webpack-loader-syntax: webpack を使わない。
     // - vitest/require-test-timeout: テストごとの timeout ではなく Vitest の既定の timeout を使う。
-    // - eslint/no-restricted-globals・no-restricted-properties: 禁じる対象を設定して使うルール。src/core の DOM・時刻・
-    //   乱数の禁止と、src/sim の時刻・乱数の禁止に使い、overrides で設定する。
+    // - eslint/no-restricted-globals・no-restricted-properties: 禁じる対象を設定して使うルール。src/core と src/sim で
+    //   結果を入力だけで決められなくする API（時刻・乱数・既定のロケールなど）と、src/core の DOM を禁じるのに使い、
+    //   overrides で設定する。
     // - typescript/no-restricted-types: 禁じる対象を設定して使うルール。使う箇所を作るときに設定する。
 
     // ---- perf ----
@@ -365,6 +366,12 @@
       // 早送りして決定的に遊べるよう、時刻は経過時間の引数で、乱数はシード付きの乱数を状態か引数で受け取る。
       // DOM の API は tsconfig.core.json の型検査でも禁じるが、時刻と乱数は ECMAScript の標準にあり型では
       // 禁じられないため、ここで禁じる。`globalThis.Date` のような迂回も防ぐため、グローバルオブジェクトも禁じる。
+      // シミュレーター（src/sim）は core の関数を動かして遊ぶため、core で結果が時刻・ガベージコレクションの時機・
+      // 既定のロケールに左右されると、シミュレーターの結果も引数とシードだけで決まらなくなる。そのため、src/sim で
+      // 禁じた ECMAScript の標準の API（Atomics・WeakRef・FinalizationRegistry、値として受け渡す Function、既定の
+      // ロケールを読むメソッド）は core でも禁じる。core は判定の基盤の外にあり、ゲームの変更として独立した判断を
+      // 経ずに変わりうるため、ここで止める。Function を名前で禁じる理由と既知の限界は src/sim の override のコメントと
+      // 同じ。
       "files": ["src/core/**"],
       "rules": {
         // `/// <reference lib="dom" />` などで、tsconfig.core.json と tsconfig.sim.json が外した DOM と Node.js の型を読み
@@ -425,13 +432,29 @@
           { "name": "indexedDB", "message": "core は保存先を使わない。保存は save と ui が担う。" },
           {
             "name": "Intl",
-            "message": "core は時刻を読まない（Intl.DateTimeFormat は引数が無いと現在時刻を書式にする）。表示の書式は ui が担う。"
+            "message": "core は時刻と既定のロケールを読まない（Intl.DateTimeFormat は引数が無いと現在時刻を書式にし、Intl の書式と比較は実行環境のロケールで結果が変わる）。表示の書式は ui が担う。"
           },
           { "name": "fetch", "message": "core は通信しない。" },
           { "name": "process", "message": "core は実行環境の API を使わない。" },
           {
             "name": "Reflect",
             "message": "core は Reflect を使わない（名前で判定する禁止を、Reflect.get などで迂回させない）。"
+          },
+          {
+            "name": "Atomics",
+            "message": "core はタイマーを使わない（Atomics.wait・waitAsync は時間切れまで待つ）。時間は advance で進める。"
+          },
+          {
+            "name": "WeakRef",
+            "message": "core はガベージコレクションの時機に結果を左右させない。"
+          },
+          {
+            "name": "FinalizationRegistry",
+            "message": "core はガベージコレクションの時機に結果を左右させない。"
+          },
+          {
+            "name": "Function",
+            "message": "core は文字列からコードを作らない（Function を値として受け渡して no-new-func を迂回させない）。"
           }
         ],
         // このルールと no-restricted-globals は名前で判定するため、値として受け渡した Math（`const M = Math` の後の
@@ -449,6 +472,36 @@
             // しても検出するよう、オブジェクトの名前を問わずこのプロパティを禁じる。
             "property": "randomDecimalForTesting",
             "message": "core は乱数の実装に依存しない。シード付きの乱数を受け取る。"
+          },
+          // 既定のロケールを読むメソッド。Node.js は既定のロケールを環境変数（LANG など）から決めるため、同じ引数と
+          // シードでもマシンによって結果が変わりうる。ロケールを引数で渡しても、結果は実行環境のロケールのデータに
+          // よる。Number・Array・Date・String など、どのオブジェクトのメソッドかを問わず禁じる。Intl は上の
+          // no-restricted-globals で禁じる。`x["toLocaleString"]()` と分割代入（`const { toLocaleString } = x`）も
+          // エラーになる（2026-11-21 に確かめた）。変数のキーで参照する `x[key]()` と、オブジェクトを関数へ渡して
+          // メソッドを取り出す書き方は検出しない（既知の限界。上のコメントと同じ）。
+          {
+            "property": "toLocaleString",
+            "message": "core は既定のロケールを読まない（実行環境で結果が変わる）。表示の書式は ui が担う。"
+          },
+          {
+            "property": "toLocaleDateString",
+            "message": "core は既定のロケールを読まない（実行環境で結果が変わる）。表示の書式は ui が担う。"
+          },
+          {
+            "property": "toLocaleTimeString",
+            "message": "core は既定のロケールを読まない（実行環境で結果が変わる）。表示の書式は ui が担う。"
+          },
+          {
+            "property": "toLocaleUpperCase",
+            "message": "core は既定のロケールを読まない（実行環境で結果が変わる）。toUpperCase を使う。"
+          },
+          {
+            "property": "toLocaleLowerCase",
+            "message": "core は既定のロケールを読まない（実行環境で結果が変わる）。toLowerCase を使う。"
+          },
+          {
+            "property": "localeCompare",
+            "message": "core は既定のロケールを読まない（実行環境で結果が変わる）。比較は < などで行う。"
           }
         ],
         // 全体の設定（ドットで始まるパスの禁止）に、core の外への import の禁止を足す。override は全体の設定を
@@ -480,10 +533,10 @@
       }
     },
     {
-      // シミュレーター（src/sim）の結果を、引数とシードだけで決める（同じ入力から同じ結果にする）。時刻・乱数・環境変数を
-      // 読ませない。乱数はシード付きの src/sim/random.ts を使う。`globalThis.Date` のような迂回も防ぐため、グローバル
-      // オブジェクトも禁じる。名前で判定するため、値として受け渡した Math などの迂回は検出しない（src/core の設定の
-      // コメントと同じ）。process は、次の override で src/sim/cli にだけ認める。
+      // シミュレーター（src/sim）の結果を、引数とシードだけで決める（同じ入力から同じ結果にする）。時刻・乱数・環境変数・
+      // 既定のロケールを読ませない。乱数はシード付きの src/sim/random.ts を使う。`globalThis.Date` のような迂回も防ぐ
+      // ため、グローバルオブジェクトも禁じる。名前で判定するため、値として受け渡した Math などの迂回は検出しない
+      // （src/core の設定のコメントと同じ）。process は、次の override で src/sim/cli にだけ認める。
       // - DOM と Node.js にしかない API は、本体（テストと CLI を除く）を DOM と Node.js の型を除いて検査する
       //   tsconfig.sim.json で型エラーになる。下の一覧で名前を挙げたもの（Event・URL・AbortSignal など）は、DOM の型を
       //   読むテストでも禁じる。挙げていない DOM の API（KeyboardEvent など Event の派生）は、テストでは禁じていない
@@ -545,7 +598,7 @@
           { "name": "crypto", "message": "sim の乱数はシード付きの src/sim/random.ts を使う。" },
           {
             "name": "Intl",
-            "message": "sim は時刻を読まない（Intl.DateTimeFormat は引数が無いと現在時刻を書式にする）。"
+            "message": "sim は時刻と既定のロケールを読まない（Intl.DateTimeFormat は引数が無いと現在時刻を書式にし、Intl の書式と比較は実行環境のロケールで結果が変わる）。"
           },
           { "name": "globalThis", "message": "sim はグローバルオブジェクトを使わない。" },
           { "name": "window", "message": "sim はグローバルオブジェクトを使わない。" },
@@ -675,6 +728,32 @@
           {
             "property": "randomDecimalForTesting",
             "message": "sim の乱数はシード付きの src/sim/random.ts を使う。"
+          },
+          // 既定のロケールを読むメソッド（理由と範囲は src/core の override のコメント）。後の override はこのルールを
+          // 置き換えないため、src/sim/cli とテストのファイルでも効く。
+          {
+            "property": "toLocaleString",
+            "message": "sim は既定のロケールを読まない（実行環境で結果が変わり、引数とシードだけで決まらない）。"
+          },
+          {
+            "property": "toLocaleDateString",
+            "message": "sim は既定のロケールを読まない（実行環境で結果が変わり、引数とシードだけで決まらない）。"
+          },
+          {
+            "property": "toLocaleTimeString",
+            "message": "sim は既定のロケールを読まない（実行環境で結果が変わり、引数とシードだけで決まらない）。"
+          },
+          {
+            "property": "toLocaleUpperCase",
+            "message": "sim は既定のロケールを読まない（実行環境で結果が変わる）。toUpperCase を使う。"
+          },
+          {
+            "property": "toLocaleLowerCase",
+            "message": "sim は既定のロケールを読まない（実行環境で結果が変わる）。toLowerCase を使う。"
+          },
+          {
+            "property": "localeCompare",
+            "message": "sim は既定のロケールを読まない（実行環境で結果が変わる）。比較は < などで行う。"
           },
           // URL のグローバルを認める src/sim/cli でも、乱数の UUID を返す API は使わせない。
           {
@@ -843,7 +922,7 @@
           { "name": "crypto", "message": "sim の乱数はシード付きの src/sim/random.ts を使う。" },
           {
             "name": "Intl",
-            "message": "sim は時刻を読まない（Intl.DateTimeFormat は引数が無いと現在時刻を書式にする）。"
+            "message": "sim は時刻と既定のロケールを読まない（Intl.DateTimeFormat は引数が無いと現在時刻を書式にし、Intl の書式と比較は実行環境のロケールで結果が変わる）。"
           },
           { "name": "globalThis", "message": "sim はグローバルオブジェクトを使わない。" },
           { "name": "window", "message": "sim はグローバルオブジェクトを使わない。" },
