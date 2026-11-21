@@ -20,6 +20,7 @@ test("速い組は efficiency の全予定と、ほかの規則の常に開い�
     ...intervals.map((interval) => `efficiency@${interval}#1`),
     "roi@always#1",
     "cheapest@always#1",
+    "expensive@always#1",
     "newest@always#1",
     "random@always#1",
   ]);
@@ -28,7 +29,7 @@ test("速い組は efficiency の全予定と、ほかの規則の常に開い�
 test("全組はすべての規則と予定の組み合わせで、random は 3 つのシード", () => {
   const schedules = ["always", ...intervals];
   expect(names(fullSet)).toStrictEqual([
-    ...["efficiency", "roi", "cheapest", "newest"].flatMap((rule) =>
+    ...["efficiency", "roi", "cheapest", "expensive", "newest"].flatMap((rule) =>
       schedules.map((schedule) => `${rule}@${schedule}#1`),
     ),
     ...schedules.flatMap((schedule) => [1, 2, 3].map((seed) => `random@${schedule}#${seed}`)),

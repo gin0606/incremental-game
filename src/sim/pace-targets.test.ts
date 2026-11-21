@@ -13,6 +13,8 @@ const validSettings = {
   idle: { phases: [0, 600], window: 1800, away: [60, 600] },
 };
 
+const ruleError = "購入規則（efficiency・roi・cheapest・expensive・newest・random）で書く";
+
 const validTargets = {
   milestones: { levels: [1, 2], ratio: { min: 1 } },
   growth: { speed: { max: 10 }, change: { min: 0, max: 2 } },
@@ -84,11 +86,7 @@ test.each([
   { path: ["sampleEvery"], value: 0, message: "settings.sampleEvery: 正の数で書く" },
   { path: ["reasonable"], value: [], message: "settings.reasonable: 空でない配列で書く" },
   { path: ["reasonable"], value: "roi", message: "settings.reasonable: 空でない配列で書く" },
-  {
-    path: ["reasonable"],
-    value: ["roi", "best"],
-    message: "settings.reasonable[1]: 購入規則（efficiency・roi・cheapest・newest・random）で書く",
-  },
+  { path: ["reasonable"], value: ["roi", "best"], message: `settings.reasonable[1]: ${ruleError}` },
   { path: ["growth"], value: undefined, message: "settings.growth: オブジェクトで書く" },
   {
     path: ["growth", "bounds"],
@@ -100,11 +98,7 @@ test.each([
   { path: ["walls", "window"], value: 0, message: "settings.walls.window: 正の数で書く" },
   { path: ["walls", "below"], value: "0", message: "settings.walls.below: 有限の数で書く" },
   { path: ["choice"], value: undefined, message: "settings.choice: オブジェクトで書く" },
-  {
-    path: ["choice", "best"],
-    value: "best",
-    message: "settings.choice.best: 購入規則（efficiency・roi・cheapest・newest・random）で書く",
-  },
+  { path: ["choice", "best"], value: "best", message: `settings.choice.best: ${ruleError}` },
   {
     path: ["choice", "restricted"],
     value: [],

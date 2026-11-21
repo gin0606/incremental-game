@@ -1,5 +1,5 @@
 import type { Num } from "../core/num.ts";
-import { ZERO, add, approxEqual, atLeast, div } from "../core/num.ts";
+import { ZERO, add, approxEqual, atLeast, div, sub } from "../core/num.ts";
 import type { Offer } from "./model.ts";
 import type { Rng } from "./random.ts";
 import { pick } from "./random.ts";
@@ -13,18 +13,20 @@ import { pick } from "./random.ts";
  *   今の生産量が 0 なら、値段 / 生産量の増分で比べる。
  * - `roi`: 生産量の増分 / 値段が最大のもの（同論文 §2.4.2 の natural greedy）。
  * - `cheapest`: 最も安いもの。
+ * - `expensive`: 最も高いもの。
  * - `newest`: 候補にある生成器のうち、最後に解放されたものだけを買う。
  * - `random`: 等しい確率で選ぶ。選んだものを買うか、候補から消えるか、値段が変わる（自動購入などボットの外で
  *   買われた）まで選び直さない（待つ間に何度選び直したかで結果が変わらないように）。
  *
  * どれも、同じ値の候補が並んだら先に解放されたものを選ぶ。
  */
-export type PurchaseRule = "efficiency" | "roi" | "cheapest" | "newest" | "random";
+export type PurchaseRule = "efficiency" | "roi" | "cheapest" | "expensive" | "newest" | "random";
 
 export const purchaseRules: readonly PurchaseRule[] = [
   "efficiency",
   "roi",
   "cheapest",
+  "expensive",
   "newest",
   "random",
 ];
@@ -74,6 +76,10 @@ const minBy = (offers: readonly Offer[], score: (offer: Offer) => Num): Offer | 
   return best?.offer;
 };
 
+/** `score` が最大の候補。同じ値（許容誤差の範囲）なら先のもの。 */
+const maxBy = (offers: readonly Offer[], score: (offer: Offer) => Num): Offer | undefined =>
+  minBy(offers, (offer) => sub(ZERO, score(offer)));
+
 const efficiency = (offer: Offer, rate: Num): Num => {
   const perGain = div(offer.cost, offer.rateGain);
   return atLeast(ZERO, rate) ? perGain : add(perGain, div(offer.cost, rate));
@@ -98,6 +104,10 @@ const choosers: Readonly<Record<PurchaseRule, Chooser>> = {
   }),
   cheapest: (generators, _rate, memory) => ({
     target: minBy(generators, (offer) => offer.cost),
+    memory,
+  }),
+  expensive: (generators, _rate, memory) => ({
+    target: maxBy(generators, (offer) => offer.cost),
     memory,
   }),
   newest: (generators, _rate, memory) => ({ target: generators.at(-1), memory }),

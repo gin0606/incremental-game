@@ -187,7 +187,9 @@ test.each([
 });
 
 test("使い方に購入規則の一覧を示す", () => {
-  expect(message(parseArgs([]))).toContain("購入規則: efficiency、roi、cheapest、newest、random\n");
+  expect(message(parseArgs([]))).toContain(
+    "購入規則: efficiency、roi、cheapest、expensive、newest、random\n",
+  );
 });
 
 test("引数の誤り以外の例外は投げ直す", () => {

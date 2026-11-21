@@ -26,7 +26,14 @@ const target = (
 ): string | undefined => choose(rule, offers, num(rate), memory).target?.id;
 
 test("購入規則の一覧", () => {
-  expect(purchaseRules).toStrictEqual(["efficiency", "roi", "cheapest", "newest", "random"]);
+  expect(purchaseRules).toStrictEqual([
+    "efficiency",
+    "roi",
+    "cheapest",
+    "expensive",
+    "newest",
+    "random",
+  ]);
 });
 
 test("生産量の増分が正の候補だけを生成器とみなす", () => {
@@ -67,11 +74,24 @@ test("cheapest は生成器のうち最も安いものを選ぶ", () => {
   expect(target("cheapest", [dearFast, upgrade, cheapSlow], 1)).toBe("a");
 });
 
+test("expensive は生成器のうち最も高いものを選ぶ", () => {
+  expect(target("expensive", [cheapSlow, offer("up", 1000, 0), dearFast], 1)).toBe("b");
+  expect(target("expensive", [dearFast, cheapSlow], 1)).toBe("b");
+  // 高いほうが、生産量の増分も、増分 / 値段も小さい。
+  expect(target("expensive", [offer("c", 10, 5), offer("d", 100, 1)], 1)).toBe("d");
+});
+
+test("expensive は許容誤差の範囲で高いだけの後の候補より、先のものを選ぶ", () => {
+  expect(
+    target("expensive", [offer("first", 10, 1), offer("second", 10 * (1 + 1e-12), 1)], 1),
+  ).toBe("first");
+});
+
 test("newest は最後に解放された生成器を選ぶ", () => {
   expect(target("newest", [dearFast, cheapSlow, offer("c", 1000, 1), upgrade], 1)).toBe("c");
 });
 
-test.each(["efficiency", "roi", "cheapest"] as const)(
+test.each(["efficiency", "roi", "cheapest", "expensive"] as const)(
   "%s は同じ値の候補なら先のものを選ぶ",
   (rule) => {
     expect(target(rule, [offer("first", 10, 1), offer("second", 10, 1)], 1)).toBe("first");
@@ -126,7 +146,7 @@ test("random は生成器が無くなれば、覚えている候補を忘れる"
   });
 });
 
-test.each(["efficiency", "roi", "cheapest", "newest"] as const)(
+test.each(["efficiency", "roi", "cheapest", "expensive", "newest"] as const)(
   "%s は乱数も覚えていることも変えない",
   (rule) => {
     expect(choose(rule, [cheapSlow, dearFast], num(1), memory).memory).toBe(memory);
