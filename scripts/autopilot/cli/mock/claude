@@ -45,11 +45,23 @@ work() {
   git add "work-$name.txt"
   git commit --quiet -m "work"
   printf '# 報告\n\nほかの worktree（対話のセッション）: agent-other は変えなかった。\n' > .tmp/supervise/report.md
+  printf -- '- judge: .tmp/supervise/judge/1.md\n' > .tmp/supervise/round.md
+  mkdir -p .tmp/supervise/judge
+  echo '結論: 承認' > .tmp/supervise/judge/1.md
+  ln -s judge/1.md .tmp/supervise/latest.md
 }
 case "$scenario" in
-  ready|ready-stop|move-main|switch-branch|ready-stray|ready-detached|ready-off-branch|ready-merge)
+  ready|ready-stop|move-main|switch-branch|ready-stray|ready-detached|ready-off-branch|ready-merge|ready-unreadable)
     work
     case "$scenario" in
+      ready-unreadable)
+        # 回のログの置き場へ写せないファイルを残し、結果ファイルを、外を指す symlink と読み取り専用のファイルにする。
+        # 名前の順で、写したことを確かめるファイル（judge/、round.md）より前に置く。
+        touch .tmp/supervise/a-unreadable
+        chmod 000 .tmp/supervise/a-unreadable
+        mv .tmp/supervise/report.md .tmp/report-source.md
+        ln -s ../report-source.md .tmp/supervise/report.md
+        ;;
       ready-merge)
         # base の木を持つ別の commit を merge する（変更は無いが merge commit ができる）。
         side=$(git commit-tree "$base^{tree}" -p "$base" -m side)
@@ -58,6 +70,7 @@ case "$scenario" in
     esac
     result ready "$COMPLETIONS"
     case "$scenario" in
+      ready-unreadable) chmod 444 .tmp/supervise/result.json ;;
       move-main) git -C "$MOCK_REPOSITORY" commit --quiet --allow-empty -m moved ;;
       switch-branch) git -C "$MOCK_REPOSITORY" switch --quiet -c other ;;
       ready-stray) echo x > stray.txt ;;

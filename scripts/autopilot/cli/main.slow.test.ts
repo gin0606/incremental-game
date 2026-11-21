@@ -108,12 +108,18 @@ test("取り込んだ回の worktree・ブランチ・一時ディレクトリ�
   const roundDir = join(context.logDir, "rounds", name);
   expect(readdirSync(roundDir).toSorted()).toStrictEqual([
     "previous-report.md",
-    "report.md",
-    "result.json",
     "stderr.log",
     "stream.jsonl",
+    "supervise",
   ]);
-  expect(readFileSync(join(roundDir, "report.md"), "utf8")).toContain("# 報告");
+  // セッションの worktree の .tmp/supervise/ を、回の記録が参照する judge の出力まで写す。
+  expect(
+    readdirSync(join(roundDir, "supervise"), { recursive: true, encoding: "utf8" }).toSorted(),
+  ).toStrictEqual(["judge", "judge/1.md", "latest.md", "report.md", "result.json", "round.md"]);
+  expect(readFileSync(join(roundDir, "supervise/report.md"), "utf8")).toContain("# 報告");
+  expect(readFileSync(join(roundDir, "supervise/judge/1.md"), "utf8")).toBe("結論: 承認\n");
+  // 相対の symlink は、セッションの worktree を消した後も、写した先の中を指す。
+  expect(readFileSync(join(roundDir, "supervise/latest.md"), "utf8")).toBe("結論: 承認\n");
   expect(readFileSync(join(roundDir, "previous-report.md"), "utf8")).toContain(
     "- 実行できなかった完了（次の回が拾い直す）: `fail-1`\n",
   );

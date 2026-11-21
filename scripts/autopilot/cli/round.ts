@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { parseResultFile } from "../result-file.ts";
@@ -11,7 +11,7 @@ import type { Decided } from "./merge.ts";
 import { revParse, settle } from "./merge.ts";
 import type { Sink } from "./run.ts";
 import { attempt, git, gitOrThrow, log } from "./run.ts";
-import { describeEnd, session } from "./session.ts";
+import { copySessionFiles, describeEnd, session } from "./session.ts";
 
 // 1 回の監督セッションを起動し、結果ファイルを読んで取り込み、後始末をする。取り込みの手順は
 // .claude/skills/supervise/SKILL.md の「結果ファイル」節による。
@@ -33,16 +33,6 @@ export interface RoundOutcome {
   /** 次の回に渡す前の回の最終報告。書けなければ undefined。 */
   readonly previousReport: string | undefined;
 }
-
-/** セッションの worktree の結果ファイルを回のディレクトリへ写す。`git worktree remove` で消えるため。 */
-const copySessionFiles = (worktree: string, roundDir: string): void => {
-  for (const file of ["report.md", "result.json", "round.md"]) {
-    const source = join(worktree, ".tmp/supervise", file);
-    if (existsSync(source)) {
-      copyFileSync(source, join(roundDir, file));
-    }
-  }
-};
 
 const readIfExists = (path: string): string | undefined =>
   existsSync(path) ? readFileSync(path, "utf8") : undefined;
@@ -67,6 +57,8 @@ interface RoundPaths {
   readonly worktreesDirectory: string;
   /** 回のログの置き場。 */
   readonly roundDir: string;
+  /** セッションの worktree の `.tmp/supervise/` を写す先。 */
+  readonly sessionCopy: string;
   readonly claudeTemp: string;
   readonly temp: string;
 }
@@ -91,6 +83,7 @@ const prepare = (repository: string, logDir: string): RoundPaths => {
     worktree: join(worktreesDirectory, name),
     worktreesDirectory,
     roundDir,
+    sessionCopy: join(roundDir, "supervise"),
     claudeTemp: join(roundDir, "cctmp"),
     temp: join(roundDir, "tmp"),
   };
@@ -167,21 +160,15 @@ const collect = (
   readonly result: ReturnType<typeof parseResultFile> | undefined;
   readonly workers: readonly Worktree[];
 } => {
-  attempt(
-    "結果ファイルを回のログの置き場へ写せなかった",
-    () => {
-      copySessionFiles(paths.worktree, paths.roundDir);
-    },
-    problems,
-  );
+  copySessionFiles(paths.worktree, paths.sessionCopy, problems);
   const report = attempt(
     "report.md を読めなかった",
-    () => readIfExists(join(paths.roundDir, "report.md")),
+    () => readIfExists(join(paths.sessionCopy, "report.md")),
     problems,
   );
   const resultText = attempt(
     "result.json を読めなかった",
-    () => readIfExists(join(paths.roundDir, "result.json")),
+    () => readIfExists(join(paths.sessionCopy, "result.json")),
     problems,
   );
   const workers =

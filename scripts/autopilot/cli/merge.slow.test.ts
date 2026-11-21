@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -133,6 +133,23 @@ test("セッションの worktree が result のブランチをチェックア�
   );
   expect(completionsRun()).toBe(false);
   expect(gitIn(context.repository, ["rev-parse", "main"]).trim()).toBe(mainBefore);
+});
+
+test(".tmp/supervise/ に写せないファイルがあっても、結果ファイルを写して取り込む", () => {
+  scenarios(context, "ready-unreadable");
+  const mainBefore = gitIn(context.repository, ["rev-parse", "main"]).trim();
+  const { status, log } = runDriver(context);
+  expect(status).toBe(0);
+  expect(log).toMatch(/回のログの置き場へ写せなかった: \S+\/\.tmp\/supervise\/a-unreadable: /v);
+  expect(gitIn(context.repository, ["rev-parse", "main~2"]).trim()).toBe(mainBefore);
+  const copy = join(context.logDir, "rounds", round(context, 0), "supervise");
+  // 結果ファイルは、symlink なら指す先の中身を、通常のファイルとして写す。
+  expect(lstatSync(join(copy, "report.md")).isFile()).toBe(true);
+  expect(readFileSync(join(copy, "report.md"), "utf8")).toContain("# 報告");
+  expect(readFileSync(join(copy, "result.json"), "utf8")).toContain('"status":"ready"');
+  // 写せないファイルがあっても、ほかのファイルは写す。
+  expect(readFileSync(join(copy, "round.md"), "utf8")).toContain("judge/1.md");
+  expect(readFileSync(join(copy, "judge/1.md"), "utf8")).toBe("結論: 承認\n");
 });
 
 test("取り込む commit に merge commit があれば、完了を実行せずに取り込まない", () => {
