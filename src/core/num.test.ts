@@ -10,6 +10,7 @@ import {
   div,
   format,
   fromParts,
+  log10,
   max,
   mul,
   num,
@@ -127,6 +128,21 @@ test.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
 test("toNumber は number で表せない大きさを Infinity にする", () => {
   expect(toNumber(num(12.5))).toBe(12.5);
   expect(toNumber(tenTo(400))).toBe(Number.POSITIVE_INFINITY);
+});
+
+test.each([
+  { name: "1000", value: num(1000), expected: 3 },
+  { name: "number を超える大きさ", value: tenTo(400), expected: 400 },
+  { name: "10^10^20", value: tenTo(1e20), expected: 1e20 },
+  { name: "小さい正の数", value: num(1e-300), expected: -300 },
+] as const)("log10 は常用対数（$name）", ({ value, expected }) => {
+  expect(log10(value)).toBeCloseTo(expected, 10);
+});
+
+test("log10 は 0 以下に -Infinity を、対数が number を超える大きさに Infinity を返す", () => {
+  expect(log10(num(0))).toBe(Number.NEGATIVE_INFINITY);
+  expect(log10(num(-5))).toBe(Number.NEGATIVE_INFINITY);
+  expect(log10(pow(tenTo(1e305), 1e10))).toBe(Number.POSITIVE_INFINITY);
 });
 
 /** 表現をそのまま値にする（計算の誤差を含まない大きな値）。読めない表現なら NaN の代わりに 0。 */

@@ -116,6 +116,14 @@ export function toNumber(value: Num): number {
 }
 
 /**
+ * 常用対数。0 以下の値は `-Infinity`（生産量が 0 の時期を、対数で比べる呼び出し側が扱えるように）。対数が number で
+ * 表せない大きさ（10^10^308 程度以上）は `Infinity`。
+ */
+export function log10(value: Num): number {
+  return value.sign > 0 ? toDecimal(value).log10().toNumber() : Number.NEGATIVE_INFINITY;
+}
+
+/**
  * 機械が読むための文字列。break_eternity.js の表記で、`1234.5`、`3.3e-12`、`1.5e400`、`ee20` のような形になる。
  * break_eternity.js の `Decimal.fromString` で同じ値に読み戻せる。break_eternity.js が number 1 つで持つ値
  * （layer 0。大きさがおよそ 1e-16 以上 9e15 未満）は JavaScript の数の表記にする。break_eternity.js の表記は 1e-7 未満
