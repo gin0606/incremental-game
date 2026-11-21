@@ -18,9 +18,9 @@
 
 ゲームづくりでは、メインエージェントが監督役として次の作業を選び、具体的な作業をサブエージェントに任せ、結果を検証して取り込むかを判断する。ユーザーの回答を待たずに判断して進める。
 
-- 監督役は、監督セッション（main checkout から `claude -p --worktree` で起動し、環境変数 `INCREMENTAL_GAME_SUPERVISOR` を設定したセッション）で `/supervise`（`.claude/skills/supervise/SKILL.md`）を 1 回ずつ回す。目標を 1 つ選んで Axon に Group と Issue を登録し、`worker`・`protected-worker` に worktree で完遂させ、検査してセッション用ブランチに集め、`judge` の判断と終了監査を経て、main へ取り込める状態にして報告する。
+- 監督役は、監督セッション（main checkout から `claude -p --worktree` で起動し、環境変数 `INCREMENTAL_GAME_SUPERVISOR` を設定したセッション）で `/supervise`（`.claude/skills/supervise/SKILL.md`）を 1 回ずつ回す。
 - `/supervise` の呼び出しは、セッション用ブランチと worker のブランチへの commit の指示として扱う。
-- main は、セッション用ブランチの fast-forward でだけ動かす。監督役は main の上で commit せず、main checkout に向けた git の操作をしない。取り込みはセッションの外（無人運転ではドライバのシェル）が行う。
+- 監督セッションの成果は、main をセッション用ブランチへ fast-forward して取り込む。監督役は main の上で commit せず、main checkout に向けた git の操作をしない。取り込みと、監督セッションが結果ファイルに挙げた `axon complete`（worktree に隔離されたセッションでは Claude Code に拒否される）は、セッションの外（無人運転ではドライバのシェル）が main checkout で行う。
 
 ## ゲームの設計原則
 
