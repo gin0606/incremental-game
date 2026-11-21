@@ -21,11 +21,19 @@ interface Item {
 
 const always = (): boolean => true;
 
-const items: readonly Item[] = [
-  { id: "collector", action: { type: "buyCollector" }, unlocked: always },
-  { id: "autoBuyer", action: { type: "buyAutoBuyer" }, unlocked: always },
-  { id: "factory", action: { type: "buyFactory" }, unlocked: isFactoryUnlocked },
-];
+/**
+ * core の行動の種類ごとの候補。core に行動を足すと、ここに足すまで型検査が通らない。シミュレーターはこの一覧を通して
+ * しかゲームを見ないため、足し忘れた行動は、ペースの判定から黙って外れる。
+ */
+const byAction: {
+  readonly [K in Action["type"]]: Item & { readonly action: { readonly type: K } };
+} = {
+  buyCollector: { id: "collector", action: { type: "buyCollector" }, unlocked: always },
+  buyAutoBuyer: { id: "autoBuyer", action: { type: "buyAutoBuyer" }, unlocked: always },
+  buyFactory: { id: "factory", action: { type: "buyFactory" }, unlocked: isFactoryUnlocked },
+};
+
+const items: readonly Item[] = Object.values(byAction);
 
 /** 値段と生産量の増分は core の購入の規則（priceOf・withPurchase）から求め、ここで繰り返さない。 */
 const offers = (state: GameState): readonly Offer[] =>
