@@ -18,6 +18,19 @@
       "Bash(git -C * pull *--no-verify*)"
     ]
   },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -z \"${INCREMENTAL_GAME_SUPERVISOR:-}\" ] || node \"$CLAUDE_PROJECT_DIR/scripts/protect/cli/hook.ts\" || exit 2"
+          }
+        ]
+      }
+    ]
+  },
   "worktree": {
     "baseRef": "head"
   }
