@@ -7,7 +7,7 @@ import type { Model } from "./model.ts";
 import type { IdleMeasure } from "./pace.ts";
 import { measure } from "./pace.ts";
 import { checkPace } from "./pace-check.ts";
-import type { Targets } from "./pace-targets.ts";
+import type { Settings, Targets } from "./pace-targets.ts";
 import type { Trial } from "./sets.ts";
 
 /**
@@ -54,18 +54,24 @@ const toy: Model<Toy> = {
   unlocked: (state) => (state.gens >= 1 ? ["gen", "tiny", "more"] : ["gen", "tiny"]),
 };
 
-const targets: Targets = {
+const settings: Settings = {
   duration: 100,
   step: 10,
   sampleEvery: 10,
   reasonable: ["efficiency"],
+  walls: { window: 50, below: 1 },
+  choice: { best: "efficiency", restricted: ["cheapest"] },
+  idle: { phases: [0, 50], window: 50, away: [5, 50] },
+};
+
+const targets: Targets = {
   milestones: { levels: [0.2, 0.4, 1], ratio: { min: 0 } },
   growth: { bounds: [0, 50, 100], speed: { min: 0 }, change: { min: 0 } },
   purchases: { median: { min: 0 }, longest: { min: 0 } },
   novelty: { perDay: { min: 0 }, longestGap: { min: 0 } },
-  walls: { window: 50, below: 1, longest: { min: 0 } },
-  choice: { best: "efficiency", restricted: ["cheapest"], lead: { min: 0 } },
-  idle: { phases: [0, 50], window: 50, efficiency: 0.99, reachBy: 0, reach: 1, away: [5, 50] },
+  walls: { longest: { min: 0 } },
+  choice: { lead: { min: 0 } },
+  idle: { efficiency: 0.99, reachBy: 0, reach: 1 },
 };
 
 const trial = (purchase: PurchaseRule, checkIn: CheckIn, seed = 1): Trial => ({
@@ -79,6 +85,7 @@ test("measure は妥当な規則の常に開いているボットだけで、遊
   // efficiency は 10 秒で gen（10）、25 秒で gen（30）、80 / 3 秒で tiny（5）を買う。
   const { plays } = measure(
     toy,
+    settings,
     targets,
     [
       trial("efficiency", always),
@@ -104,23 +111,15 @@ test("measure は妥当な規則の常に開いているボットだけで、遊
 });
 
 test("measure は解放が無ければ、遊ぶ時間全体を新要素の空白にする", () => {
-  const { plays } = measure(
-    { ...toy, unlocked: () => [] },
-    targets,
-    [trial("efficiency", always)],
-    10,
-  );
+  const locked: Model<Toy> = { ...toy, unlocked: () => [] };
+  const { plays } = measure(locked, settings, targets, [trial("efficiency", always)], 10);
   expect(plays[0]?.perDay).toBe(0);
   expect(plays[0]?.noveltyGap).toBe(100);
 });
 
 test("measure は購入が無ければ購入の間隔を測らない", () => {
-  const { plays } = measure(
-    { ...toy, initial: { coins: ZERO, gens: 2, tiny: true } },
-    targets,
-    [trial("efficiency", always)],
-    10,
-  );
+  const done: Model<Toy> = { ...toy, initial: { coins: ZERO, gens: 2, tiny: true } };
+  const { plays } = measure(done, settings, targets, [trial("efficiency", always)], 10);
   expect(plays[0]?.purchaseMedian).toBeUndefined();
   expect(plays[0]?.purchaseLongest).toBeUndefined();
 });
@@ -128,7 +127,8 @@ test("measure は購入が無ければ購入の間隔を測らない", () => {
 test("measure は最良の規則と選び方を制限した規則の組ごとに、最良の規則が先行した最大の桁数を測る", () => {
   const { choices } = measure(
     toy,
-    { ...targets, choice: { ...targets.choice, restricted: ["cheapest", "newest"] } },
+    { ...settings, choice: { ...settings.choice, restricted: ["cheapest", "newest"] } },
+    targets,
     [trial("efficiency", always), trial("cheapest", always), trial("roi", always)],
     10,
   );
@@ -140,14 +140,15 @@ test("measure は最良の規則と選び方を制限した規則の組ごとに
 });
 
 test("measure は最良の規則のボットが組に無ければ選択の重みを測らない", () => {
-  const { choices } = measure(toy, targets, [trial("cheapest", always)], 10);
+  const { choices } = measure(toy, settings, targets, [trial("cheapest", always)], 10);
   expect(choices).toStrictEqual([]);
 });
 
 test("measure は妥当な規則ごとに、組の間隔（重なりを除いて昇順）で局面ごとの放置の指標を測る", () => {
   const { idles } = measure(
     toy,
-    { ...targets, reasonable: ["efficiency", "roi"] },
+    { ...settings, reasonable: ["efficiency", "roi"] },
+    targets,
     [
       trial("efficiency", { kind: "every", seconds: 60 }),
       trial("efficiency", { kind: "every", seconds: 20 }),
@@ -190,6 +191,7 @@ const decaying: Model<Toy> = {
 test("measure は局面の始まりの状態から、不在を罰しない不変条件の違反を測る", () => {
   const { idles } = measure(
     decaying,
+    settings,
     targets,
     [trial("efficiency", { kind: "every", seconds: 20 })],
     10,
@@ -208,7 +210,8 @@ const randomEvery20 = (seed: number): Trial =>
 const randomIdles = (seeds: readonly number[]): readonly IdleMeasure[] =>
   measure(
     toy,
-    { ...targets, reasonable: ["random"], idle: { ...targets.idle, phases: [7] } },
+    { ...settings, reasonable: ["random"], idle: { ...settings.idle, phases: [7] } },
+    targets,
     seeds.map((seed) => randomEvery20(seed)),
     10,
   ).idles;
@@ -222,14 +225,16 @@ test("measure は放置の指標に、組でその規則を最初に遊ばせる
 });
 
 test("measure は every の予定のボットが組に無い規則の放置の指標を測らない", () => {
-  expect(measure(toy, targets, [trial("efficiency", always)], 10).idles).toStrictEqual([]);
+  const trials = [trial("efficiency", always)];
+  expect(measure(toy, settings, targets, trials, 10).idles).toStrictEqual([]);
 });
 
 test("measure は渡した刻み幅で遊ばせる", () => {
   // 刻み幅が遊ぶ時間より短すぎると、シミュレーターが受け付けない。
-  expect(() => measure(toy, targets, [trial("efficiency", always)], 1e-20)).toThrow(RangeError);
+  const trials = [trial("efficiency", always)];
+  expect(() => measure(toy, settings, targets, trials, 1e-20)).toThrow(RangeError);
   expect(() =>
-    measure(toy, targets, [trial("efficiency", { kind: "every", seconds: 20 })], 1e-20),
+    measure(toy, settings, targets, [trial("efficiency", { kind: "every", seconds: 20 })], 1e-20),
   ).toThrow(RangeError);
 });
 
@@ -244,9 +249,10 @@ const flat: Model<number> = {
   unlocked: () => ["coin"],
 };
 
-test("checkPace は目標値の刻み幅と、その GUARD_FACTOR 倍の刻み幅で測り、比較の結果に刻み幅の守りを足す", () => {
+test("checkPace は測り方の刻み幅と、その GUARD_FACTOR 倍の刻み幅で測り、比較の結果に刻み幅の守りを足す", () => {
   const checks = checkPace(
     flat,
+    settings,
     { ...targets, growth: { ...targets.growth, speed: { min: 0.1 } } },
     [
       { bot: { purchase: "efficiency", checkIn: { kind: "always" }, prestige: "never" }, seed: 1 },
@@ -280,6 +286,6 @@ test("checkPace は 2 つ目の測定を GUARD_FACTOR 倍の刻み幅で遊ば�
       return flat.advance(coins, seconds);
     },
   };
-  checkPace(spy, { ...targets, sampleEvery: 100 }, [trial("efficiency", always)]);
+  checkPace(spy, { ...settings, sampleEvery: 100 }, targets, [trial("efficiency", always)]);
   expect(new Set(advanced)).toStrictEqual(new Set([10, 70, 30]));
 });

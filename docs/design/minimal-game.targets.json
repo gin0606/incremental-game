@@ -1,8 +1,4 @@
 {
-  "duration": 259200,
-  "step": 60,
-  "sampleEvery": 600,
-  "reasonable": ["efficiency", "roi"],
   "milestones": { "levels": [1, 2, 2.5, 2.75], "ratio": { "min": 1, "max": 50 } },
   "growth": {
     "bounds": [0, 3600, 14400, 43200, 86400, 172800, 259200],
@@ -11,18 +7,7 @@
   },
   "purchases": { "median": { "max": 600 }, "longest": { "max": 7200 } },
   "novelty": { "perDay": { "min": 0.3 }, "longestGap": { "max": 259200 } },
-  "walls": { "window": 3600, "below": 0.001, "longest": { "max": 86400 } },
-  "choice": {
-    "best": "efficiency",
-    "restricted": ["cheapest", "newest", "random"],
-    "lead": { "min": 0.005, "max": 0.5 }
-  },
-  "idle": {
-    "phases": [0, 3600, 14400, 43200, 86400, 172800],
-    "window": 86400,
-    "efficiency": 0.995,
-    "reachBy": 43200,
-    "reach": 28800,
-    "away": [60, 600, 3600, 14400, 28800, 86400, 259200]
-  }
+  "walls": { "longest": { "max": 86400 } },
+  "choice": { "lead": { "min": 0.005, "max": 0.5 } },
+  "idle": { "efficiency": 0.995, "reachBy": 43200, "reach": 28800 }
 }

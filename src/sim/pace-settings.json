@@ -1,0 +1,13 @@
+{
+  "duration": 259200,
+  "step": 60,
+  "sampleEvery": 600,
+  "reasonable": ["efficiency", "roi"],
+  "walls": { "window": 3600, "below": 0.001 },
+  "choice": { "best": "efficiency", "restricted": ["cheapest", "newest", "random"] },
+  "idle": {
+    "phases": [0, 3600, 14400, 43200, 86400, 172800],
+    "window": 86400,
+    "away": [60, 600, 3600, 14400, 28800, 86400, 259200]
+  }
+}

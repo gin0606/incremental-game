@@ -4,7 +4,7 @@ import { consecutive, zip } from "./metrics.ts";
 import type { Model } from "./model.ts";
 import type { IdleMeasure, Measurement } from "./pace.ts";
 import { measure } from "./pace.ts";
-import type { Band, Targets } from "./pace-targets.ts";
+import type { Band, Settings, Targets } from "./pace-targets.ts";
 import { returnDrops, returnStalls } from "./idle.ts";
 import type { Trial } from "./sets.ts";
 
@@ -99,7 +99,7 @@ const toleranceShrinks = (idles: readonly IdleMeasure[]): Check => ({
 type PlayMeasure = Measurement["plays"][number];
 
 /** 遊ばせた結果の指標を目標値の帯と比べる。帯の名前、帯、ボットごとの値の組。 */
-const bandChecks = (targets: Targets, measurement: Measurement): Check[] => {
+const bandChecks = (settings: Settings, targets: Targets, measurement: Measurement): Check[] => {
   const { milestones, growth, purchases, novelty, walls } = targets;
   const table: readonly (readonly [
     string,
@@ -114,7 +114,11 @@ const bandChecks = (targets: Targets, measurement: Measurement): Check[] => {
     ["購入の間隔の最長（秒）", purchases.longest, (play) => [play.purchaseLongest]],
     ["1 日あたりの新要素の数", novelty.perDay, (play) => [play.perDay]],
     ["新要素の空白の最長（秒）", novelty.longestGap, (play) => [play.noveltyGap]],
-    [`壁（${walls.below} 桁/時を下回る）の最長（秒）`, walls.longest, (play) => [play.wall]],
+    [
+      `壁（${settings.walls.below} 桁/時を下回る）の最長（秒）`,
+      walls.longest,
+      (play) => [play.wall],
+    ],
   ];
   return table.map(([name, band, values]) =>
     bandCheck(
@@ -126,8 +130,13 @@ const bandChecks = (targets: Targets, measurement: Measurement): Check[] => {
 };
 
 /** 局面ごとの放置の指標を、傾向と不変条件と比べる。 */
-const idleChecks = (targets: Targets, idles: readonly IdleMeasure[]): Check[] => {
-  const { reachBy, reach, away } = targets.idle;
+const idleChecks = (
+  settings: Settings,
+  targets: Targets,
+  idles: readonly IdleMeasure[],
+): Check[] => {
+  const { reachBy, reach } = targets.idle;
+  const { away } = settings.idle;
   return [
     toleranceShrinks(idles),
     idleCheck("傾向", `放置の許容間隔が ${reachBy} 秒以降の局面で ${reach} 秒以上`, idles, (each) =>
@@ -151,16 +160,16 @@ const idleChecks = (targets: Targets, idles: readonly IdleMeasure[]): Check[] =>
   ];
 };
 
-/** 測った指標を目標値と不変条件と比べる。 */
-export function evaluate(targets: Targets, measurement: Measurement): Check[] {
+/** 測り方 `settings` で測った指標を目標値と不変条件と比べる。 */
+export function evaluate(settings: Settings, targets: Targets, measurement: Measurement): Check[] {
   return [
-    ...bandChecks(targets, measurement),
+    ...bandChecks(settings, targets, measurement),
     bandCheck(
       "選択の重み（最良の規則が先行した最大の桁数）",
       targets.choice.lead,
       measurement.choices.map((each) => ({ bot: each.bots.join(" と "), values: [each.lead] })),
     ),
-    ...idleChecks(targets, measurement.idles),
+    ...idleChecks(settings, targets, measurement.idles),
   ];
 }
 
@@ -233,14 +242,19 @@ export function stepGuard(
 }
 
 /**
- * `trials` の組に `model` のゲームを遊ばせ、指標を目標値と不変条件と比べ、刻み幅の守りを足した結果を返す。指標は
- * 目標値の刻み幅と、その {@link GUARD_FACTOR} 倍の刻み幅で測る。
+ * `trials` の組に `model` のゲームを測り方 `settings` で遊ばせ、指標を目標値と不変条件と比べ、刻み幅の守りを足した
+ * 結果を返す。指標は測り方の刻み幅と、その {@link GUARD_FACTOR} 倍の刻み幅で測る。
  */
-export function checkPace<S>(model: Model<S>, targets: Targets, trials: readonly Trial[]): Check[] {
-  const steps = [targets.step, targets.step * GUARD_FACTOR] as const;
-  const first = measure(model, targets, trials, steps[0]);
+export function checkPace<S>(
+  model: Model<S>,
+  settings: Settings,
+  targets: Targets,
+  trials: readonly Trial[],
+): Check[] {
+  const steps = [settings.step, settings.step * GUARD_FACTOR] as const;
+  const first = measure(model, settings, targets, trials, steps[0]);
   return [
-    ...evaluate(targets, first),
-    stepGuard(steps, first, measure(model, targets, trials, steps[1])),
+    ...evaluate(settings, targets, first),
+    stepGuard(steps, first, measure(model, settings, targets, trials, steps[1])),
   ];
 }

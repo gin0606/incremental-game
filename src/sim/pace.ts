@@ -15,7 +15,7 @@ import {
   speedChanges,
 } from "./metrics.ts";
 import type { Model } from "./model.ts";
-import type { Targets } from "./pace-targets.ts";
+import type { Settings, Targets } from "./pace-targets.ts";
 import type { Trial } from "./sets.ts";
 import type { Run } from "./simulate.ts";
 import { simulate } from "./simulate.ts";
@@ -55,18 +55,24 @@ const DAY = 86_400;
 
 const always = (trial: Trial): boolean => trial.bot.checkIn.kind === "always";
 
-const play = <S>(model: Model<S>, targets: Targets, step: number, trial: Trial): Run<S> =>
+const play = <S>(model: Model<S>, settings: Settings, step: number, trial: Trial): Run<S> =>
   simulate(model, trial.bot, {
-    duration: targets.duration,
+    duration: settings.duration,
     step,
-    sampleEvery: targets.sampleEvery,
+    sampleEvery: settings.sampleEvery,
     seed: trial.seed,
   });
 
 /** `initial` は最初から解放されている要素。新要素に数えない。 */
-const playMeasure = <S>(targets: Targets, initial: readonly string[], run: Run<S>): PlayMeasure => {
+const playMeasure = <S>(
+  settings: Settings,
+  targets: Targets,
+  initial: readonly string[],
+  run: Run<S>,
+): PlayMeasure => {
   const { timeline } = run;
-  const { duration, sampleEvery, milestones, growth, walls } = targets;
+  const { duration, sampleEvery, walls } = settings;
+  const { milestones, growth } = targets;
   const times = milestoneTimes(timeline, milestones.levels);
   const speeds = segmentSpeeds(timeline, growth.bounds);
   const purchases = gaps(
@@ -96,6 +102,7 @@ const playMeasure = <S>(targets: Targets, initial: readonly string[], run: Run<S
  */
 const idleMeasures = <S>(
   model: Model<S>,
+  settings: Settings,
   targets: Targets,
   step: number,
   rule: PurchaseRule,
@@ -111,7 +118,7 @@ const idleMeasures = <S>(
   if (first === undefined || intervals.length === 0) {
     return [];
   }
-  const { idle, sampleEvery } = targets;
+  const { idle, sampleEvery } = settings;
   const timing = { step, sampleEvery, seed: first.seed };
   const bots = ["always", ...intervals.map((seconds) => `${seconds}s`)].map(
     (at) => `${rule}@${at}`,
@@ -124,36 +131,46 @@ const idleMeasures = <S>(
       bots,
       phase,
       efficiency,
-      tolerance: tolerance(intervals, efficiency, idle.efficiency),
+      tolerance: tolerance(intervals, efficiency, targets.idle.efficiency),
       returns: returnLevels(model, start, rule, idle.away, timing),
       violations: idleViolations(model, start, idle.away),
     };
   });
 };
 
-/** `trials` の組に `model` のゲームを刻み幅 `step` 秒で遊ばせ、指標を測る。 */
+/** `trials` の組に `model` のゲームを、測り方 `settings` と刻み幅 `step` 秒で遊ばせ、指標を測る。 */
 export function measure<S>(
   model: Model<S>,
+  settings: Settings,
   targets: Targets,
   trials: readonly Trial[],
   step: number,
 ): Measurement {
   const active = trials.filter((trial) => always(trial));
-  const runs = active.map((trial) => play(model, targets, step, trial));
-  const reasonable = (run: Run<S>): boolean => targets.reasonable.includes(run.bot.purchase);
-  const best = runs.find((run) => run.bot.purchase === targets.choice.best);
+  const runs = active.map((trial) => play(model, settings, step, trial));
+  const reasonable = (run: Run<S>): boolean => settings.reasonable.includes(run.bot.purchase);
+  const best = runs.find((run) => run.bot.purchase === settings.choice.best);
   const initial = model.unlocked(model.initial);
   return {
-    plays: runs.filter((run) => reasonable(run)).map((run) => playMeasure(targets, initial, run)),
+    plays: runs
+      .filter((run) => reasonable(run))
+      .map((run) => playMeasure(settings, targets, initial, run)),
     choices:
       best === undefined
         ? []
         : runs
-            .filter((run) => targets.choice.restricted.includes(run.bot.purchase))
+            .filter((run) => settings.choice.restricted.includes(run.bot.purchase))
             .map((run) => ({
               bots: [botName(best.bot), botName(run.bot)],
-              lead: largestLead(best.timeline, run.timeline, targets.sampleEvery, targets.duration),
+              lead: largestLead(
+                best.timeline,
+                run.timeline,
+                settings.sampleEvery,
+                settings.duration,
+              ),
             })),
-    idles: targets.reasonable.flatMap((rule) => idleMeasures(model, targets, step, rule, trials)),
+    idles: settings.reasonable.flatMap((rule) =>
+      idleMeasures(model, settings, targets, step, rule, trials),
+    ),
   };
 }
