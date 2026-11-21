@@ -70,9 +70,9 @@ disable-model-invocation: true
 - **継続**: 前の回のセッション用ブランチが今の HEAD から fast-forward できる場合に限る。「保護範囲を検査する」節の検査（`<worker のブランチ>` を前の回のブランチに読み替える）と「取り込む」節の全検査を、その先端で通してから `git merge --ff-only` で取り込み、`axon storage check` を実行する。前の回の worker のブランチは、取り込まれていない作業として破棄し、その Issue は新しい worker にやり直させる（worker の `axon start` はそのブランチにしか無いので、セッション用ブランチでは `NotStarted` のまま）。
 - **破棄**: 取り込まない。
 
-継続で取り込んだもの以外の前の回の worktree とブランチは、監督の worktree から `git worktree remove <worktree の絶対パス>` と `git branch -D <ブランチ>` で削除する。破棄すると決めた作業なので、未 commit の変更が残って削除できなければ `--force` で削除する。lock が残って削除できないものは、最終報告に一覧を書き、ドライバに任せる。
+継続で取り込んだもの以外の前の回の worktree とブランチは、監督の worktree から `git worktree remove <worktree の絶対パス>` と `git branch -D <ブランチ>` で削除する。破棄すると決めた作業なので、未 commit の変更が残って削除できなければ `--force` で削除する。lock が残って削除できないものは、最終報告に一覧を書き、ドライバに任せる。削除したブランチにしか無かった `Undecided`（前回の最終報告が挙げたもの）は、`axon-kit:capture` で登録し直して commit する。
 
-残りを処理した後に、実行されなかった前の回の `completions` を拾う。3 の印を本文に持つ Group の子で、HEAD にあり完了の Note があるのに `InProgress` の Issue を、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。その後に、印の Group で、終了監査を通したと書いた最終報告の Note があり、直接の子が終わっているか今入れた Issue だけが残るものを入れる。この Group は目標を終えているので、2 で継続する目標にしない。印の無い Group とその子は入れない。
+残りを処理した後に、実行されなかった前の回の `completions` を拾う。3 の印を本文に持つ Group の子で、HEAD にあり完了の Note があるのに `InProgress` の Issue を、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。その後に、印の Group で、終了監査を通したと書いた最終報告の Note があり、直接の子が終わっているか今入れた Issue だけが残るものを入れる。この Group は目標を終えているので、2 で継続する目標にしない。終了監査を通した印の Group で、ほかの子が残って入れられないものや、前の回にも `completions` に入れたのに完了していないものは、最終報告に挙げて `axon-kit:capture` で `Undecided` に登録する。印の無い Group とその子は入れない。
 
 ## 2. 目標を 1 つ決める
 
@@ -114,10 +114,10 @@ Issue を依存の順に 1 件ずつ、`subagent_type` を担当（`worker` か 
 
 返った報告を、Issue の完了条件、worker のブランチの commit（`git log --oneline HEAD..<ブランチ>`）、差分（`git diff HEAD...<ブランチ>`）、完了の Note と照合する。
 
-- **差し戻し**: 足りない完了条件、確かめていない検査、self-review の後の未 review の変更、6・7 で見つかった問題があれば、同じ担当の新しい Agent をフォアグラウンドで起動し、前の worker のブランチを引き継がせて直させる（4 の委譲情報）。返ったら、`git merge-base --is-ancestor <前のブランチ> <新しいブランチ>` で引き継いだことを確かめる。引き継いでいなければ、もう一度差し戻す。引き継いでいれば、前の worker の commit は新しいブランチにあるので、前の worktree を `git worktree remove --force <worktree の絶対パス>`、ブランチを `git branch -D` で削除する。
+- **差し戻し**: 足りない完了条件、確かめていない検査、self-review の後の未 review の変更、6・7 で見つかった問題があれば、同じ担当の新しい Agent をフォアグラウンドで起動し、前の worker のブランチを引き継がせて直させる（4 の委譲情報。前の worker が報告した `git status --short` が空でなければ、残ったファイルの扱いも書く）。返ったら、`git merge-base --is-ancestor <前のブランチ> <新しいブランチ>` で引き継いだことを確かめる。引き継いでいなければ、その新しい worker の worktree とブランチを `git worktree remove --force` と `git branch -D` で削除し、前のブランチを引き継がせてもう一度差し戻す。二度目も引き継がなければ「取り込まない」へ進む。引き継いでいれば、前の worker の commit は新しいブランチにあるので、前の worktree を `git worktree remove --force <worktree の絶対パス>`、ブランチを `git branch -D` で削除する。
 - **要る保護範囲の変更**: worker が、hook に拒否された・保護範囲なので変えなかった変更（変異の受け入れ、`.oxlintrc.json` の見直しなど）を報告したら、採否を決める。worker の Issue がその変更なしに完了条件を満たせないなら、同じ Issue のまま protected-worker に前のブランチを引き継がせ（差し戻しと同じ手順）、その変更を単独の commit でさせる。満たせるなら、取り込んだ後に protected-worker の Issue として登録する（7 の 5）。
 - 報告された計画からの逸脱を一件ずつ採否を決める。
-- **取り込まない**: 差し戻しても直らない、judge が却下した、などで取り込まないと決めたら、理由を最終報告に書き、worker の worktree を `git worktree remove --force`、ブランチを `git branch -D` で削除し、Issue を新しい worker にやり直させるか、`axon-kit:update` で取り消す。worker が登録した `Undecided` と、取り込んだ後に回すと決めた保護範囲の変更は、そのブランチにしか無かったので、報告をもとに `axon-kit:capture` でセッション用ブランチに登録し直して commit する。
+- **取り込まない**: 差し戻しても直らない、judge が却下した、などで取り込まないと決めたら、理由を最終報告に書き、worker の worktree を `git worktree remove --force`、ブランチを `git branch -D` で削除する。続けて、新しい worker を起動する前に、worker が登録した `Undecided` と、取り込んだ後に回すと決めた保護範囲の変更を（そのブランチにしか無かったので）報告をもとに `axon-kit:capture` でセッション用ブランチに登録し直して commit する。その後に、Issue を新しい worker にやり直させるか、`axon-kit:update` で取り消す。
 
 worker のブランチに新しい commit が加わったら（差し戻し、変異の受け入れなど）、この節からやり直す。
 
