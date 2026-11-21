@@ -100,6 +100,15 @@ test.each([
   },
 );
 
+test("増えた台数は、離れる前の台数との差で示す", () => {
+  const before: GameState = { ...saved, mints: 2 };
+  const after: GameState = { ...before, totalEarned: num(120), mints: 3 };
+
+  expect(awayReport(before, after, 3600)).toBe(
+    "離れていた 1 時間 0 分のあいだに、コインを 100 生産した。自動購入で造幣所が 1 台増えた。",
+  );
+});
+
 test("自動購入を持っていれば、離れていた間の購入で増えた施設を添える", () => {
   const rich: GameState = { ...saved, coins: num(1000), totalEarned: num(1000), autoBuyer: true };
   const text = serialize({ state: rich, savedAt });

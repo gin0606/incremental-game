@@ -93,6 +93,12 @@ test("造幣所の無い版 1 の保存データは、造幣所 0 として読�
   });
 });
 
+test.each([8.64e15, -8.64e15])("Date の範囲の端の保存時刻 %s を読み込める", (savedAt) => {
+  const data = { state: initialState, savedAt };
+
+  expect(deserialize(serialize(data))).toStrictEqual({ ok: true, data });
+});
+
 test("0 のコインを読み込める", () => {
   const data = { state: initialState, savedAt: 0 };
 
