@@ -1,7 +1,7 @@
 import type { ViteUserConfig } from "vitest/config";
 import { configDefaults, defineConfig } from "vitest/config";
 
-import type { FastCheckSettings } from "./vitest.provide.d.ts";
+import type { FastCheckSettings, PaceSet } from "./vitest.provide.d.ts";
 
 const readInteger = (name: string, min: number): number | undefined => {
   const raw = process.env[name];
@@ -29,6 +29,21 @@ const fastCheckFromEnv = (): FastCheckSettings => {
   };
 };
 
+/**
+ * ペースの指標のテストが遊ばせるボットの組を環境変数 `PACE_SET` から読む。指定しなければ速い組（commit ごとの検査）。
+ * 全組は取り込み前に `pnpm run test:pace:full` で回す。
+ */
+const paceSetFromEnv = (): PaceSet => {
+  const raw = process.env["PACE_SET"];
+  if (raw === undefined || raw === "" || raw === "fast") {
+    return "fast";
+  }
+  if (raw === "full") {
+    return raw;
+  }
+  throw new TypeError(`PACE_SET は fast か full で指定する: ${raw}`);
+};
+
 // mutator から実行するときの設定（vitest.mutation.config.ts）は、この設定を読み込まずに同じ項目を書く。
 // ここを変えたら、あちらも揃える。
 const config: ViteUserConfig = defineConfig({
@@ -42,7 +57,7 @@ const config: ViteUserConfig = defineConfig({
     allowOnly: false,
     // expect を一度も呼ばないテスト（性質の中で検査を書き忘れたものを含む）を失敗させる。
     expect: { requireAssertions: true },
-    provide: { fastCheck: fastCheckFromEnv() },
+    provide: { fastCheck: fastCheckFromEnv(), paceSet: paceSetFromEnv() },
   },
 });
 

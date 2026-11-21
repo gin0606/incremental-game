@@ -9,8 +9,12 @@ export interface FastCheckSettings {
   readonly numRuns?: number;
 }
 
+/** ペースの指標のテスト（src/sim/pace.slow.test.ts）が遊ばせるボットの組。src/sim/sets.ts の速い組か全組。 */
+export type PaceSet = "fast" | "full";
+
 declare module "vitest" {
   export interface ProvidedContext {
     fastCheck: FastCheckSettings;
+    paceSet: PaceSet;
   }
 }

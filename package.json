@@ -10,6 +10,7 @@
     "typecheck": "tsrs --noEmit -p tsconfig.check.json && tsrs --noEmit -p tsconfig.core.json && tsrs --noEmit -p tsconfig.e2e.json && tsrs --noEmit -p tsconfig.node.json && tsrs --noEmit -p src/sim/cli/tsconfig.json && sh scripts/check-tsconfig-references.sh",
     "test": "vitest run",
     "test:mutation": "mutator",
+    "test:pace:full": "PACE_SET=full vitest run src/sim/pace.slow.test.ts",
     "sim": "node src/sim/cli/main.ts",
     "e2e:install": "PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium --only-shell",
     "test:e2e": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test"

@@ -7,6 +7,10 @@
     "reason": "採集機と工場が同じ時刻に値段に届くときだけ結果が変わる（< では先に並べた採集機、<= では工場を買い、もう一方は次に値段に届いたときに買う）。届く時刻が浮動小数点で一致するのは、許容誤差の境目まで下げた採集機の値段 10 × 1.15^n と工場の値段 150 × 1.2^m（break_eternity.js の冪）から手元のコインを引いて生産量で割った秒数が一致するときだけで、そうなる組をテストで作れない。",
     "where": "src/core/game.ts:194:31 seconds < next.seconds -> seconds <= next.seconds"
   },
+  "1z4ar9linnj": {
+    "reason": "最大値を探すときに同じ値の要素で入れ替えても、返す値は数として等しい（区別できるのは 0 と -0 だけで、指標はその違いを使わない）。",
+    "where": "src/sim/metrics.ts:56:24 value > found -> value >= found"
+  },
   "2bvx0rbnpjx": {
     "reason": "UsageError は parseArgs の中で投げて同じ関数の中で受け取り、外へ出ないため、name の値は観測できない。name を設定するのは lint（unicorn/custom-error-definition）が求めるため。",
     "where": "src/sim/args.ts:38:28 \"UsageError\" -> \"\""

@@ -18,7 +18,7 @@ const config: ViteUserConfig = defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     allowOnly: false,
     expect: { requireAssertions: true },
-    provide: { fastCheck: { seed: 1, numRuns: 100 } },
+    provide: { fastCheck: { seed: 1, numRuns: 100 }, paceSet: "fast" },
   },
 });
 

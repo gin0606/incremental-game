@@ -26,8 +26,10 @@ const trial = (purchase: PurchaseRule, checkIn: CheckIn, seed = 1): Trial => ({
  * （efficiency とほかの規則の比較）を測れる最小の組。
  *
  * 所要時間の目安は、速い組が数秒、全組が数分以内。最小ゲームの 3 日分（刻み幅 1 分）を CLI で回すと、Node.js の起動を
- * 含めて速い組（10 回）が約 1.0 秒、全組（42 回）が約 2.6 秒だった（2026-11 時点、Apple M6）。ゲームを広げて目安を
- * 超えたら、組の分け方か刻み幅を見直す。
+ * 含めて速い組（10 回）が約 1.0 秒、全組（42 回）が約 2.6 秒だった（2026-11 時点、Apple M6）。ペースの指標のテスト
+ * （src/sim/pace.slow.test.ts）は、組のほかに放置の指標のための実行（局面ごと・間隔ごと）と、刻み幅の守りのための
+ * 2 つ目の刻み幅での実行を足すため長くなり、最小ゲームで速い組が約 5 秒、全組が約 17 秒（CPU 時間、2026-11-21）
+ * だった。ゲームを広げて目安を超えたら、組の分け方か刻み幅を見直す。
  */
 export const fastSet: readonly Trial[] = [
   ...checkIns.map((checkIn) => trial("efficiency", checkIn)),
