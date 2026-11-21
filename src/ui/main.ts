@@ -26,6 +26,7 @@ const productionText = requireElement("production");
 const collectors = requireElement("collectors");
 const factories = requireElement("factories");
 const autoBuyer = requireElement("auto-buyer");
+const stats = requireElement("stats");
 const nextPurchase = requireElement("next-purchase");
 const nextUnlockLabel = requireElement("next-unlock-label");
 const nextUnlock = requireElement("next-unlock");
@@ -54,6 +55,9 @@ const showAway = (report: string | undefined): void => {
   awayReport.textContent = report ?? "";
   awayClose.addEventListener("click", () => {
     away.hidden = true;
+    // フォーカスを、知らせの後に続く値の一覧へ移す。「閉じる」が持っていたフォーカスは、移さないとブラウザが文書の
+    // 先頭へ外す。店の品物のボタンへは移さない（閉じた Enter を押し続けると、そのボタンで品物を買う）。
+    stats.focus();
   });
 };
 

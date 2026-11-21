@@ -18,7 +18,8 @@
         <p id="away-report"></p>
         <button type="button" id="away-close">閉じる</button>
       </section>
-      <dl>
+      <!-- 離れていた間に進んだことの知らせを閉じた後に、フォーカスを置く（src/ui/main.ts）。Tab の順には入れない。 -->
+      <dl id="stats" tabindex="-1">
         <dt>コイン</dt>
         <dd id="coins"></dd>
         <dt>これまでに生産したコイン</dt>
