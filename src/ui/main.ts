@@ -23,6 +23,7 @@ const productionText = requireElement("production");
 const collectors = requireElement("collectors");
 const factories = requireElement("factories");
 const autoBuyer = requireElement("auto-buyer");
+const nextPurchase = requireElement("next-purchase");
 const shop = requireElement("shop");
 const notice = requireElement("notice");
 
@@ -62,6 +63,7 @@ const start = (): void => {
     collectors.textContent = current.collectors;
     factories.textContent = current.factories;
     autoBuyer.textContent = current.autoBuyer;
+    nextPurchase.textContent = current.nextPurchase;
     for (const [index, item] of current.shop.entries()) {
       const button = buttons[index];
       if (button !== undefined) {

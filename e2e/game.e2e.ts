@@ -39,6 +39,22 @@ test("ページを開くと資源が増え、購入でき、再読み込みで�
 
 // 時計を止める時刻は install から 60 秒先に置き、テストの実行が止まっても過去を指定しないようにする。
 
+test("次に買えるまでの待ち時間を示し、生産で縮み、届くと買える表示に変わる", async ({ page }) => {
+  // 時計を止めてから開き、コイン 0 から始める。採集機の値段 11.5 に毎秒 1 で届く。
+  await page.clock.install({ time: at(0) });
+  await page.clock.pauseAt(at(60_000));
+  await page.goto("/");
+  await expect(page.locator("#collectors")).toHaveText("1");
+
+  const wait = page.locator("#next-purchase");
+  await expect(wait).toHaveText("今の生産のままで約 12 秒");
+  await page.clock.runFor(5000);
+  await expect(wait).toHaveText("今の生産のままで約 7 秒");
+  await page.clock.runFor(7000);
+  await expect(wait).toHaveText("今買える");
+  await expect(page.getByRole("button", { name: /^採集機を買う/v })).toBeEnabled();
+});
+
 test("閉じている間の時間もオフラインの経過として生産する", async ({ context }) => {
   const first = await context.newPage();
   await first.clock.install({ time: at(0) });

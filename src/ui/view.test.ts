@@ -1,9 +1,9 @@
 import { expect, test } from "vitest";
 
 import type { GameState } from "../core/game.ts";
-import { initialState } from "../core/game.ts";
-import { num } from "../core/num.ts";
-import { view } from "./view.ts";
+import { advance, initialState } from "../core/game.ts";
+import { mul, num } from "../core/num.ts";
+import { formatWait, view } from "./view.ts";
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
@@ -14,6 +14,8 @@ test("初期状態では採集機と自動購入を並べ、工場は解放さ�
     collectors: "1",
     factories: "0",
     autoBuyer: "なし",
+    // 採集機の値段 11.5 に毎秒 1 で届くまで 11.5 秒。切り上げる。
+    nextPurchase: "今の生産のままで約 12 秒",
     shop: [
       {
         action: { type: "buyCollector" },
@@ -54,6 +56,7 @@ test("工場が解放され、買える額があれば買える。自動購入�
     collectors: "3",
     factories: "2",
     autoBuyer: "稼働中",
+    nextPurchase: "今買える",
     shop: [
       {
         action: { type: "buyCollector" },
@@ -75,4 +78,68 @@ test("工場が解放され、買える額があれば買える。自動購入�
       },
     ],
   });
+});
+
+test("待ち時間は、生産でコインが増えるにつれて縮み、届くと買える表示に変わる", () => {
+  // 採集機の値段 11.5 に、採集機 1 台の毎秒 1 で届く。
+  expect(view(advance(initialState, 5)).nextPurchase).toBe("今の生産のままで約 7 秒");
+  expect(view(advance(initialState, 11)).nextPurchase).toBe("今の生産のままで約 1 秒");
+  expect(view(advance(initialState, 11.5)).nextPurchase).toBe("今買える");
+});
+
+test("待ち時間は、見えている品物のうち最も安いものまでの時間", () => {
+  // 採集機は約 662、工場は 150、自動購入は 1000000。工場までの 150 を毎秒 30 で割る。
+  const current = view(state({ totalEarned: num(1000), collectors: 30 }));
+
+  expect(current.nextPurchase).toBe("今の生産のままで約 5 秒");
+});
+
+test("見えていない品物は、より安くても待ち時間に数えない", () => {
+  // 買い終えた自動購入（1000000）は、採集機（約 1.2e7）と工場（約 8.5e6）より安い。工場までを毎秒 700 で割る。
+  const bought = view(
+    state({ totalEarned: num(1e9), collectors: 100, factories: 60, autoBuyer: true }),
+  );
+  // 解放の前の工場（150）は、採集機（約 164）より安い。採集機までを毎秒 20 で割る。
+  const locked = view(state({ collectors: 20 }));
+
+  expect(bought.nextPurchase).toBe("今の生産のままで約 3 時間 22 分");
+  expect(locked.nextPurchase).toBe("今の生産のままで約 9 秒");
+});
+
+test("細かく刻んで進めたときの誤差で、待ち時間を 1 秒長く見せない", () => {
+  let current = initialState;
+  for (let tick = 0; tick < 55; tick += 1) {
+    current = advance(current, 0.1);
+  }
+
+  // コインは 5.5 に誤差が乗った値で、残りは 6 秒。
+  expect(view(current).nextPurchase).toBe("今の生産のままで約 6 秒");
+});
+
+test("生産が無ければ、届かないことを示す", () => {
+  expect(view(state({ collectors: 0 })).nextPurchase).toBe("生産が無いため届かない");
+});
+
+const DAY = 86_400;
+
+test.each([
+  { seconds: 0.2, expected: "1 秒" },
+  { seconds: 59, expected: "59 秒" },
+  { seconds: 59.5, expected: "1 分 0 秒" },
+  { seconds: 61, expected: "1 分 1 秒" },
+  { seconds: 3599, expected: "59 分 59 秒" },
+  { seconds: 3600, expected: "1 時間 0 分" },
+  { seconds: 3601, expected: "1 時間 1 分" },
+  { seconds: DAY - 60, expected: "23 時間 59 分" },
+  { seconds: DAY - 59, expected: "1 日 0 時間" },
+  { seconds: DAY + 3601, expected: "1 日 2 時間" },
+  { seconds: (1e9 - 1) * DAY + 5 * 3600, expected: "999999999 日 5 時間" },
+  { seconds: 1e9 * DAY, expected: "1.00e9 日" },
+  { seconds: 1.2345e9 * DAY, expected: "1.24e9 日" },
+] as const)("待ち時間 $seconds 秒は「$expected」。端数は切り上げる", ({ seconds, expected }) => {
+  expect(formatWait(num(seconds))).toBe(expected);
+});
+
+test("number で表せない長さの待ち時間も、日数で示す", () => {
+  expect(formatWait(mul(num(1e300), num(1e300)))).toBe("1.16e595 日");
 });
