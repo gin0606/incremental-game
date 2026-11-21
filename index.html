@@ -4,6 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>コイン集め（仮）</title>
+    <style>
+      /* 買えない品物のボタンは、フォーカスを受けられるよう disabled ではなく aria-disabled で示すため、色で押せないことを示す。 */
+      button[aria-disabled="true"] {
+        color: GrayText;
+      }
+    </style>
   </head>
   <body>
     <main>

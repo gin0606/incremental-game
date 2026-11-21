@@ -104,11 +104,7 @@ const rendered = async (page: Readonly<Pick<Page, "screenshot">>): Promise<void>
   await page.screenshot();
 };
 
-// SUSPECTED_BUG: 今はキーボードで自動購入を買うと、そのボタンの行が隠れ、フォーカスが文書の先頭（body）へ外れる。
-// 正しいのは、店の中の続けて操作できる品物のボタンへ移すこと。根拠は WAI-ARIA Authoring Practices の
-// "Developing a Keyboard Interface" の Persistence of focus（隠したり取り除いたりした要素からフォーカスを移さないと
-// body へ移り、フォーカスを失う）。
-test("（不具合の疑い）キーボードで自動購入を買うと、フォーカスが文書の先頭へ外れる", async ({
+test("キーボードで自動購入を買うと、フォーカスを店の中の前にある品物のボタンへ移し、続けて店の中を移れる", async ({
   page,
 }) => {
   await page.addInitScript(putSave, savedWithCoins(1e6));
@@ -116,19 +112,23 @@ test("（不具合の疑い）キーボードで自動購入を買うと、フ�
   await page.clock.pauseAt(at(60_000));
   await page.goto("/");
   await expect(page.locator("#collectors")).toHaveText("1");
+  const collector = page.getByRole("button", { name: /^採集機を買う/v });
+  const factory = page.getByRole("button", { name: /^工場を買う/v });
   const autoBuyer = page.getByRole("button", { name: /^自動購入を買う/v });
+
   await autoBuyer.focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#auto-buyer")).toHaveText("稼働中");
+  await expect(autoBuyer).toBeHidden();
+  // 自動購入は店の最後の品物なので、前にある工場へ移す。コインを使い切って買えなくても、フォーカスは受けられる。
   await rendered(page);
-  await expect(page.locator("body")).toBeFocused();
+  await expect(factory).toBeFocused();
+  await expect(factory).toBeDisabled();
+  await page.keyboard.press("Shift+Tab");
+  await expect(collector).toBeFocused();
 });
 
-// SUSPECTED_BUG: 今はキーボードで採集機を買ってコインが値段に足りなくなると、ボタンが押せなくなり（disabled）、
-// フォーカスが文書の先頭（body）へ外れる。正しいのは、フォーカスをそのボタンに残すこと。根拠は上と同じ
-// Persistence of focus と、同じ文書の Focusability of disabled controls（押せない状態を伝えつつフォーカスを受けられる
-// ようにするには aria-disabled="true" を使う）。
-test("（不具合の疑い）キーボードで採集機を買ってコインが足りなくなると、フォーカスが文書の先頭へ外れる", async ({
+test("キーボードで採集機を買ってコインが足りなくなっても、フォーカスはそのボタンに残り、届けば続けて買える", async ({
   page,
 }) => {
   await page.addInitScript(putSave, savedWithCoins(12));
@@ -137,10 +137,26 @@ test("（不具合の疑い）キーボードで採集機を買ってコイン�
   await page.goto("/");
   await expect(page.locator("#collectors")).toHaveText("1");
   const collector = page.getByRole("button", { name: /^採集機を買う/v });
+
+  const operableColor = await collector.evaluate((button) => getComputedStyle(button).color);
+
+  // 値段 11.5 を払うとコインは 0.5 で、次の値段（約 13.2）に足りない。押せないことは見た目でも示す。
   await collector.focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#collectors")).toHaveText("2");
   await expect(collector).toBeDisabled();
+  await expect(collector).not.toHaveCSS("color", operableColor);
   await rendered(page);
-  await expect(page.locator("body")).toBeFocused();
+  await expect(collector).toBeFocused();
+  // 買えない間に押しても買わない。
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#collectors")).toHaveText("2");
+
+  // 採集機 2 台で毎秒 2。残りの約 12.7 に 7 秒で届き、フォーカスを置いたまま続けて買える。
+  await page.clock.runFor(7000);
+  await expect(collector).toBeEnabled();
+  await expect(collector).toHaveCSS("color", operableColor);
+  await expect(collector).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#collectors")).toHaveText("3");
 });

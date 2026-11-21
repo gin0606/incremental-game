@@ -1,10 +1,11 @@
 // 画面の要素、localStorage、時計、タイマー、Web Locks をゲームにつなぐ。判断は session.ts・restore.ts・
-// notices.ts・tab-lock.ts・view.ts に置いてユニットテストとミューテーションテストで確かめ、ここには置かない
-// （このファイルはミューテーションテストの対象外で、E2E テストだけが確かめる）。
+// notices.ts・tab-lock.ts・view.ts・shop-focus.ts に置いてユニットテストとミューテーションテストで確かめ、
+// ここには置かない（このファイルはミューテーションテストの対象外で、E2E テストだけが確かめる）。
 import type { Action } from "../core/game.ts";
 import { createNotices } from "./notices.ts";
 import { startSession } from "./session.ts";
 import type { SaveStorage, Session } from "./session.ts";
+import { shopFocus } from "./shop-focus.ts";
 import { playInOneTab, webLocks } from "./tab-lock.ts";
 import { view } from "./view.ts";
 
@@ -117,14 +118,25 @@ const start = (): void => {
     nextUnlockLabel.hidden = current.nextUnlock === undefined;
     nextUnlock.hidden = current.nextUnlock === undefined;
     nextUnlock.textContent = current.nextUnlock ?? "";
+    let focused = -1;
     for (const [index, item] of current.shop.entries()) {
       const offer = offers[index];
       if (offer !== undefined) {
+        if (offer.button === document.activeElement) {
+          focused = index;
+        }
         offer.button.textContent = item.label;
-        offer.button.disabled = !item.affordable;
+        // disabled だとフォーカスを受けられず、買って足りなくなると外れる。押せば押した時刻に買えるときだけ買う。
+        // ariaDisabled の反映は Firefox 119 からで、ビルドの対象（Firefox 114 から）に無いため setAttribute で書く。
+        offer.button.setAttribute("aria-disabled", String(!item.affordable));
         offer.effect.textContent = item.effect;
         offer.row.hidden = !item.visible;
       }
+    }
+    // 隠した品物のボタンがフォーカスを持っていたら、ブラウザが文書の先頭へ外す前に店の中へ移す。
+    const target = shopFocus(current.shop, focused);
+    if (target !== undefined) {
+      offers[target]?.button.focus();
     }
   }
 
