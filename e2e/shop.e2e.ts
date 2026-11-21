@@ -3,6 +3,28 @@ import { expect, test } from "@playwright/test";
 
 import { at } from "./clock.ts";
 
+/**
+ * コイン `coins` を持つ保存データ（保存形式の版 1）。時計を止める時刻 `at(60_000)` に保存したものとし、その時刻に
+ * 開けば離れていた時間が無く、コインは保存したまま始まる。採集機 1 台、工場 0 台、自動購入なしで、これまでに生産した
+ * コインは 1000000（工場は解放済み）。
+ */
+const savedWithCoins = (coins: number): string =>
+  JSON.stringify({
+    version: 1,
+    savedAt: at(60_000).getTime(),
+    state: {
+      coins: { sign: 1, layer: 0, mag: coins },
+      totalEarned: { sign: 1, layer: 0, mag: 1e6 },
+      collectors: 1,
+      factories: 0,
+      autoBuyer: false,
+    },
+  });
+
+const putSave = (save: string): void => {
+  localStorage.setItem("incremental-game:save", save);
+};
+
 test("品物ごとに買うと得られるものを示し、工場の分は解放されるまで隠す", async ({ page }) => {
   // 時計を止めてから開き、コイン 0 から始める。採集機 1 台で毎秒 1。
   await page.clock.install({ time: at(0) });
@@ -42,23 +64,8 @@ test("品物ごとに買うと得られるものを示し、工場の分は解�
 });
 
 test("自動購入を買うと、そのボタンと説明を隠す", async ({ page }) => {
-  // 自動購入の値段 1000000 ちょうどのコインを持つ保存データ（保存形式の版 1）を、開く時刻に保存したものとして置く。
-  await page.addInitScript(
-    (save) => {
-      localStorage.setItem("incremental-game:save", save);
-    },
-    JSON.stringify({
-      version: 1,
-      savedAt: at(0).getTime(),
-      state: {
-        coins: { sign: 1, layer: 0, mag: 1e6 },
-        totalEarned: { sign: 1, layer: 0, mag: 1e6 },
-        collectors: 1,
-        factories: 0,
-        autoBuyer: false,
-      },
-    }),
-  );
+  // 自動購入の値段 1000000 ちょうどのコインを持つ保存データを、開く時刻に保存したものとして置く。
+  await page.addInitScript(putSave, savedWithCoins(1e6));
   await page.clock.install({ time: at(0) });
   await page.clock.pauseAt(at(60_000));
   await page.goto("/");
@@ -72,28 +79,6 @@ test("自動購入を買うと、そのボタンと説明を隠す", async ({ pa
   await expect(work).toHaveCount(1);
   await expect(work).toBeHidden();
 });
-
-/**
- * コイン `coins` を持つ保存データ（保存形式の版 1）。時計を止める時刻 `at(60_000)` に保存したものとし、その時刻に
- * 開けば離れていた時間が無く、コインは保存したまま始まる。採集機 1 台、工場 0 台、自動購入なしで、これまでに生産した
- * コインは 1000000（工場は解放済み）。
- */
-const savedWithCoins = (coins: number): string =>
-  JSON.stringify({
-    version: 1,
-    savedAt: at(60_000).getTime(),
-    state: {
-      coins: { sign: 1, layer: 0, mag: coins },
-      totalEarned: { sign: 1, layer: 0, mag: 1e6 },
-      collectors: 1,
-      factories: 0,
-      autoBuyer: false,
-    },
-  });
-
-const putSave = (save: string): void => {
-  localStorage.setItem("incremental-game:save", save);
-};
 
 /**
  * ブラウザに描画の更新をさせる。フォーカスを持つ要素が隠れたり押せなくなったりしたときにフォーカスを外す処理は、
