@@ -1,0 +1,3 @@
+#!/bin/sh
+# 無人運転のドライバのテストで使う模擬の pnpm。呼び出しを記録する。
+echo "cwd=$(pwd) args=$*" >> "$MOCK_DIR/pnpm.log"

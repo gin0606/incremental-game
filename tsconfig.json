@@ -31,13 +31,15 @@
   // 新しいディレクトリのコードが黙って型検査から外れないよう、全体を含める。ただし TypeScript の glob は
   // ドットで始まるディレクトリを辿らないため、そこには TypeScript のコードを置かない。
   // Node.js で動く設定ファイルは tsconfig.node.json、E2E テスト（e2e/）は tsconfig.e2e.json、シミュレーターの CLI
-  // （src/sim/cli）と保護範囲の検出の CLI（scripts/protect/cli）はそのディレクトリの tsconfig.json で検査する。
+  // （src/sim/cli）と保護範囲の検出の CLI（scripts/protect/cli）と無人運転のドライバの CLI（scripts/autopilot/cli）は
+  // そのディレクトリの tsconfig.json で検査する。
   "include": ["**/*.ts", "**/*.mts", "**/*.cts", "**/*.tsx"],
   "exclude": [
     "*.config.ts",
     "e2e",
     "src/sim/cli",
     "scripts/protect/cli",
+    "scripts/autopilot/cli",
     "node_modules",
     "dist",
     "coverage"

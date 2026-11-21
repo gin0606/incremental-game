@@ -1,0 +1,15 @@
+{
+  "$schema": "https://www.schemastore.org/tsconfig",
+  // 無人運転のドライバの CLI（Node.js で動く）を、Node.js の型を読んで検査する。判断の規則（scripts/autopilot の
+  // 直下）は Node.js の API を使わないコードとして tsconfig.json で検査し、CLI だけを分ける（scripts/protect/cli と
+  // 同じ構成）。ここが CLI のファイルに最も近い tsconfig.json なので、oxlint の型情報を使うルールもこの設定で CLI を
+  // 検査する。`pnpm run typecheck` が `-p` で指定して検査する。
+  "extends": "../../../tsconfig.check.json",
+  "compilerOptions": {
+    "lib": ["es2024"],
+    "types": ["node"]
+  },
+  // 継承した include・exclude は継承元のディレクトリからの相対パスになるため、ここで置き換える。
+  "include": ["**/*.ts", "**/*.mts", "**/*.cts", "**/*.tsx"],
+  "exclude": []
+}

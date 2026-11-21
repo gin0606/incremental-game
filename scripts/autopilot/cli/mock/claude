@@ -1,0 +1,131 @@
+#!/bin/sh
+# 無人運転のドライバのテストで、監督セッション（claude -p --worktree <名前> ...）の代わりに動く。Claude Code の
+# --worktree と同じ名前で worktree とブランチを作って lock し、$MOCK_DIR/scenarios の先頭の行が示す終わり方をする。
+set -eu
+name=""
+previous=""
+for arg in "$@"; do
+  if [ "$previous" = "--worktree" ]; then name="$arg"; fi
+  previous="$arg"
+done
+scenario=$(head -n 1 "$MOCK_DIR/scenarios")
+tail -n +2 "$MOCK_DIR/scenarios" > "$MOCK_DIR/scenarios.next"
+mv "$MOCK_DIR/scenarios.next" "$MOCK_DIR/scenarios"
+{
+  echo "round=$name scenario=$scenario"
+  echo "locked-at-start=$(git worktree list --porcelain | grep '^locked' | wc -l | tr -d ' ')"
+  echo "args=$*"
+  for variable in INCREMENTAL_GAME_SUPERVISOR CLAUDECODE CLAUDE_CODE_RETRY_WATCHDOG CLAUDE_CODE_OAUTH_TOKEN BASH_DEFAULT_TIMEOUT_MS BASH_MAX_TIMEOUT_MS CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS CLAUDE_CODE_TMPDIR TMPDIR INCREMENTAL_GAME_PREVIOUS_REPORT; do
+    eval "echo $variable=\${$variable-unset}"
+  done
+  if [ -n "${INCREMENTAL_GAME_PREVIOUS_REPORT:-}" ]; then
+    echo "previous-report-begin"
+    cat "$INCREMENTAL_GAME_PREVIOUS_REPORT"
+    echo "previous-report-end"
+  fi
+} >> "$MOCK_DIR/calls.log"
+touch "$TMPDIR/left-by-session" "$CLAUDE_CODE_TMPDIR/left-by-session"
+git worktree add --quiet -b "worktree-$name" ".claude/worktrees/$name" HEAD
+if [ -e "$MOCK_DIR/odd-lock" ]; then
+  git worktree lock --reason "claude session $name" ".claude/worktrees/$name"
+else
+  git worktree lock --reason "claude session $name (pid $$ start $(date))" ".claude/worktrees/$name"
+fi
+cd ".claude/worktrees/$name"
+mkdir -p .tmp/supervise
+base=$(git rev-parse HEAD)
+echo '{"type":"system","subtype":"init"}'
+result() {
+  head=$(git rev-parse HEAD)
+  printf '{"status":"%s","branch":"worktree-%s","base":"%s","head":"%s","group":null,"completions":%s,"summary":"s"}\n' "$1" "$name" "$base" "$head" "$2" > .tmp/supervise/result.json
+}
+COMPLETIONS='[{"id":"task-1","reason":"--reason with a leading hyphen"},{"id":"fail-1","reason":"r"},{"id":"group-1","reason":"all done"}]'
+work() {
+  echo "$name" > "work-$name.txt"
+  git add "work-$name.txt"
+  git commit --quiet -m "work"
+  printf '# 報告\n\nほかの worktree（対話のセッション）: agent-other は変えなかった。\n' > .tmp/supervise/report.md
+}
+case "$scenario" in
+  ready|ready-stop|move-main|switch-branch|ready-stray|ready-detached|ready-off-branch)
+    work
+    result ready "$COMPLETIONS"
+    case "$scenario" in
+      move-main) git -C "$MOCK_REPOSITORY" commit --quiet --allow-empty -m moved ;;
+      switch-branch) git -C "$MOCK_REPOSITORY" switch --quiet -c other ;;
+      ready-stray) echo x > stray.txt ;;
+      ready-detached) git checkout --quiet --detach HEAD~1 ;;
+      ready-off-branch) git checkout --quiet --detach HEAD ;;
+    esac
+    case "$scenario" in ready|move-main) ;; *) touch "$MOCK_STOP" ;; esac
+    ;;
+  ready-noreport)
+    work
+    rm .tmp/supervise/report.md
+    result ready "$COMPLETIONS"
+    ;;
+  ready-deps)
+    echo '{}' > package.json
+    git add package.json
+    git commit --quiet -m "deps"
+    printf '# 報告\n' > .tmp/supervise/report.md
+    result ready '[]'
+    touch "$MOCK_STOP"
+    ;;
+  nothing-rename)
+    # 記録の外のファイルを .axon/ へ移す（rename として見ると .axon/ の変更だけに見える）。
+    mkdir -p .axon
+    git mv README.md .axon/README.md
+    git commit --quiet -m "move"
+    printf '# 報告\n' > .tmp/supervise/report.md
+    result nothing '[]'
+    touch "$MOCK_STOP"
+    ;;
+  nothing-fail)
+    # 前の回から拾った完了が失敗し、何も取り込まない。
+    printf '# 報告\n' > .tmp/supervise/report.md
+    result nothing '[{"id":"fail-1","reason":"r"}]'
+    ;;
+  nothing-work)
+    work
+    result nothing '[]'
+    touch "$MOCK_STOP"
+    ;;
+  worker-finished)
+    # worker が終わって lock を外してから、セッションが終わる。
+    git worktree add --quiet -b worktree-agent-w1 ../agent-w1 HEAD
+    git worktree lock --reason "claude agent w1 (pid $$ start $(date))" ../agent-w1
+    sleep "$MOCK_WORKER_SECONDS"
+    git worktree unlock ../agent-w1
+    printf '# 報告\n' > .tmp/supervise/report.md
+    result nothing '[]'
+    touch "$MOCK_STOP"
+    ;;
+  stray-session)
+    # 別の監督セッションが動いているように見せる（持ち主はドライバのプロセス）。
+    git worktree add --quiet --detach ../supervise-stray HEAD
+    git worktree lock --reason "claude session supervise-stray (pid $PPID start $(date))" ../supervise-stray
+    printf '# 報告\n' > .tmp/supervise/report.md
+    result nothing '[]'
+    ;;
+  nothing|nothing-stop)
+    printf '# 報告\n\n何もしなかった。\n' > .tmp/supervise/report.md
+    result nothing '[]'
+    if [ "$scenario" = nothing-stop ]; then touch "$MOCK_STOP"; fi
+    ;;
+  no-report)
+    ;;
+  hang)
+    git worktree add --quiet -b worktree-agent-k1 ../agent-k1 HEAD
+    git worktree lock --reason "claude agent k1 (pid $$ start $(date))" ../agent-k1
+    echo $$ > "$MOCK_DIR/hang.pid.next"
+    mv "$MOCK_DIR/hang.pid.next" "$MOCK_DIR/hang.pid"
+    exec sleep 600
+    ;;
+  limit)
+    echo '{"type":"assistant","error":"rate_limit"}'
+    echo '{"type":"result","subtype":"success","is_error":true,"api_error_status":429}'
+    exit 1
+    ;;
+esac
+echo '{"type":"result","subtype":"success","is_error":false,"permission_denials":[{"tool_name":"Bash"}],"subagent_stats":{"spawned":1}}'

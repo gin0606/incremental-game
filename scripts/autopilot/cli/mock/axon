@@ -1,0 +1,23 @@
+#!/bin/sh
+# 無人運転のドライバのテストで使う模擬の axon。呼び出しを記録し、complete は .axon/ に記録を書く。ID が fail- で
+# 始まる完了は失敗させる。$MOCK_DIR/storage-fail があれば storage check を失敗させ、$MOCK_DIR/switch-on-storage が
+# あれば storage check の間に main checkout のブランチを切り替え、$MOCK_DIR/move-on-storage があれば main を進める。
+set -eu
+echo "cwd=$(pwd) args=$*" >> "$MOCK_DIR/axon.log"
+if [ "$1" = complete ]; then
+  for id in "$@"; do :; done
+  case "$id" in fail-*) echo "failed $id" >&2; exit 1 ;; esac
+  mkdir -p .axon
+  # 記録者が起動元のセッションでなくドライバであることを確かめられるように、記録に残す。
+  echo "$* actor=${AXON_ACTOR-unset} claudecode=${CLAUDECODE-unset}" > ".axon/$id"
+fi
+if [ "$1" = storage ] && [ -e "$MOCK_DIR/switch-on-storage" ]; then
+  git -C "$MOCK_REPOSITORY" switch --quiet -c other
+fi
+if [ "$1" = storage ] && [ -e "$MOCK_DIR/move-on-storage" ]; then
+  git -C "$MOCK_REPOSITORY" commit --quiet --allow-empty -m moved
+fi
+if [ "$1" = storage ] && [ -e "$MOCK_DIR/storage-fail" ]; then
+  echo "conflicted" >&2
+  exit 1
+fi
