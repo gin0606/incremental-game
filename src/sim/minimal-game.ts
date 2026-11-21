@@ -3,6 +3,7 @@ import {
   advance,
   initialState,
   isFactoryUnlocked,
+  isMintUnlocked,
   perform,
   priceOf,
   production,
@@ -31,6 +32,7 @@ const byAction: {
   buyCollector: { id: "collector", action: { type: "buyCollector" }, unlocked: always },
   buyAutoBuyer: { id: "autoBuyer", action: { type: "buyAutoBuyer" }, unlocked: always },
   buyFactory: { id: "factory", action: { type: "buyFactory" }, unlocked: isFactoryUnlocked },
+  buyMint: { id: "mint", action: { type: "buyMint" }, unlocked: isMintUnlocked },
 };
 
 const items: readonly Item[] = Object.values(byAction);

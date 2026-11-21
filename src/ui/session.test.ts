@@ -17,6 +17,7 @@ const saved: GameState = {
   totalEarned: num(100),
   collectors: 2,
   factories: 0,
+  mints: 0,
   autoBuyer: false,
 };
 

@@ -16,10 +16,11 @@ import {
 /**
  * 判定の仕組み（シミュレーター、指標のテスト）を確かめるための仮の最小ゲーム。
  *
- * - 資源はコインの 1 つ。採集機と工場がコインを毎秒生む。
- * - 工場は、累計で稼いだコインが {@link FACTORY_UNLOCK_EARNED} に達すると解放される。
- * - 自動購入を買うと、採集機と工場を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。買える額に達した
- *   もののうち、値段あたりの生産量の増分が大きいものから買う。
+ * - 資源はコインの 1 つ。採集機・工場・造幣所がコインを毎秒生む。
+ * - 工場は、累計で稼いだコインが {@link FACTORY_UNLOCK_EARNED} に、造幣所は {@link MINT_UNLOCK_EARNED} に達すると
+ *   解放される。
+ * - 自動購入を買うと、採集機・工場・造幣所を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。買える額に
+ *   達したもののうち、値段あたりの生産量の増分が大きいものから買う。
  *
  * 時間の経過は {@link advance} だけで進める。オフラインの経過も同じ関数で一度に計算する。
  */
@@ -29,12 +30,14 @@ export interface GameState {
   readonly totalEarned: Num;
   readonly collectors: number;
   readonly factories: number;
+  readonly mints: number;
   readonly autoBuyer: boolean;
 }
 
 export type Action =
   | { readonly type: "buyCollector" }
   | { readonly type: "buyFactory" }
+  | { readonly type: "buyMint" }
   | { readonly type: "buyAutoBuyer" };
 
 const COLLECTOR_BASE_COST = num(10);
@@ -43,8 +46,12 @@ const COLLECTOR_PRODUCTION = num(1);
 const FACTORY_BASE_COST = num(150);
 const FACTORY_COST_GROWTH = num(1.2);
 const FACTORY_PRODUCTION = num(10);
+const MINT_BASE_COST = num(5e6);
+const MINT_COST_GROWTH = num(1.1);
+const MINT_PRODUCTION = num(30);
 
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
+export const MINT_UNLOCK_EARNED: Num = num(5e7);
 export const AUTO_BUYER_COST: Num = num(1e6);
 
 export const initialState: GameState = {
@@ -52,6 +59,7 @@ export const initialState: GameState = {
   totalEarned: ZERO,
   collectors: 1,
   factories: 0,
+  mints: 0,
   autoBuyer: false,
 };
 
@@ -63,15 +71,26 @@ export function factoryCost(state: GameState): Num {
   return mul(FACTORY_BASE_COST, pow(FACTORY_COST_GROWTH, state.factories));
 }
 
+export function mintCost(state: GameState): Num {
+  return mul(MINT_BASE_COST, pow(MINT_COST_GROWTH, state.mints));
+}
+
 export function isFactoryUnlocked(state: GameState): boolean {
   return atLeast(state.totalEarned, FACTORY_UNLOCK_EARNED);
+}
+
+export function isMintUnlocked(state: GameState): boolean {
+  return atLeast(state.totalEarned, MINT_UNLOCK_EARNED);
 }
 
 /** 毎秒のコインの生産量。 */
 export function production(state: GameState): Num {
   return add(
-    mul(COLLECTOR_PRODUCTION, num(state.collectors)),
-    mul(FACTORY_PRODUCTION, num(state.factories)),
+    add(
+      mul(COLLECTOR_PRODUCTION, num(state.collectors)),
+      mul(FACTORY_PRODUCTION, num(state.factories)),
+    ),
+    mul(MINT_PRODUCTION, num(state.mints)),
   );
 }
 
@@ -90,6 +109,10 @@ const purchases: Readonly<Record<Action["type"], Purchase>> = {
   buyFactory: {
     price: (state) => (isFactoryUnlocked(state) ? factoryCost(state) : undefined),
     receive: (state) => ({ ...state, factories: state.factories + 1 }),
+  },
+  buyMint: {
+    price: (state) => (isMintUnlocked(state) ? mintCost(state) : undefined),
+    receive: (state) => ({ ...state, mints: state.mints + 1 }),
   },
   buyAutoBuyer: {
     price: (state) => (state.autoBuyer ? undefined : AUTO_BUYER_COST),
@@ -136,18 +159,37 @@ function produce(state: GameState, seconds: number): GameState {
 }
 
 /**
- * 自動購入が買うものと、その値段。工場は解放の前でも値段を返す。工場の値段（150 以上）は解放に要る累計の生産量
- * （{@link FACTORY_UNLOCK_EARNED}）以上で、手元のコインは累計の生産量を超えないため、コインが工場の値段に届いた
- * ときには解放されている。解放の時刻を別に区切らなくても、買える額に届く時刻は進め方によらない。
+ * 自動購入が買うものと、その値段と解放の条件。値段は解放の前でも返す。造幣所の値段（5e6 から）は解放に要る累計の
+ * 生産量（{@link MINT_UNLOCK_EARNED}）より安く、解放の前にコインが値段に届きうる。そのため、買う時刻は、コインが値段に
+ * 届く時刻と、累計の生産量が解放の条件に届く時刻の遅いほうにする（{@link nextAutoBuy}）。累計の生産量もコインと同じ
+ * 速さで増えるため、どちらの時刻も進め方によらない。
  */
 const automated: readonly {
   readonly action: Action;
   readonly cost: (state: GameState) => Num;
   /** 1 つ買ったときの生産量の増分。 */
   readonly gain: Num;
+  /** 解放に要る累計の生産量。 */
+  readonly unlock: Num;
 }[] = [
-  { action: { type: "buyCollector" }, cost: collectorCost, gain: COLLECTOR_PRODUCTION },
-  { action: { type: "buyFactory" }, cost: factoryCost, gain: FACTORY_PRODUCTION },
+  {
+    action: { type: "buyCollector" },
+    cost: collectorCost,
+    gain: COLLECTOR_PRODUCTION,
+    unlock: ZERO,
+  },
+  {
+    action: { type: "buyFactory" },
+    cost: factoryCost,
+    gain: FACTORY_PRODUCTION,
+    unlock: FACTORY_UNLOCK_EARNED,
+  },
+  {
+    action: { type: "buyMint" },
+    cost: mintCost,
+    gain: MINT_PRODUCTION,
+    unlock: MINT_UNLOCK_EARNED,
+  },
 ];
 
 /**
@@ -184,7 +226,7 @@ function autoBuy(state: GameState): GameState {
 /**
  * 次に自動購入が起きるまでの秒数と、そのとき買うもの。起きなければ `undefined`。{@link perform} と同じく、コインが
  * 値段に許容誤差の範囲で届いた時刻を返す。値段そのものに届く時刻にすると、刻んで進めたときだけ区切りの時点で早めに
- * 買えてしまう。
+ * 買えてしまう。解放の前のものは、累計の生産量が解放の条件に許容誤差の範囲で届く時刻まで待つ。
  */
 function nextAutoBuy(
   state: GameState,
@@ -195,7 +237,10 @@ function nextAutoBuy(
   }
   let next: { readonly seconds: number; readonly buy: (typeof automated)[number] } | undefined;
   for (const buy of automated) {
-    const seconds = toNumber(div(sub(toleranceFloor(buy.cost(state)), state.coins), rate));
+    const seconds = Math.max(
+      toNumber(div(sub(toleranceFloor(buy.cost(state)), state.coins), rate)),
+      toNumber(div(sub(toleranceFloor(buy.unlock), state.totalEarned), rate)),
+    );
     if (next === undefined || seconds < next.seconds) {
       next = { seconds, buy };
     }

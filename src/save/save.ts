@@ -2,8 +2,13 @@ import type { GameState } from "../core/game.ts";
 import type { Num, NumParts } from "../core/num.ts";
 import { atLeast, fromParts, toParts } from "../core/num.ts";
 
-/** 保存形式の版。形式を変えるときは版を上げ、古い版を読み込んで今の状態へ変換する処理を足す。 */
-export const SAVE_VERSION = 1;
+/**
+ * 保存形式の版。形式を変えるときは版を上げ、古い版を読み込んで今の状態へ変換する処理を足す。
+ *
+ * - 1: 採集機・工場・自動購入。
+ * - 2: 1 に造幣所の数（`mints`）を足した。1 の保存は造幣所 0 として読む。
+ */
+export const SAVE_VERSION = 2;
 
 /** 保存する内容。オフラインの経過時間を求めるため、保存した時刻（Unix 時刻のミリ秒）を持つ。 */
 export interface SaveData {
@@ -15,23 +20,24 @@ export type LoadResult =
   | { readonly ok: true; readonly data: SaveData }
   | { readonly ok: false; readonly error: string };
 
-interface SavedStateV1 {
+interface SavedStateV2 {
   readonly coins: NumParts;
   readonly totalEarned: NumParts;
   readonly collectors: number;
   readonly factories: number;
+  readonly mints: number;
   readonly autoBuyer: boolean;
 }
 
-interface SaveFileV1 {
-  readonly version: 1;
+interface SaveFileV2 {
+  readonly version: 2;
   readonly savedAt: number;
-  readonly state: SavedStateV1;
+  readonly state: SavedStateV2;
 }
 
 export function serialize(data: SaveData): string {
   const { state, savedAt } = data;
-  const file: SaveFileV1 = {
+  const file: SaveFileV2 = {
     version: SAVE_VERSION,
     savedAt,
     state: {
@@ -39,6 +45,7 @@ export function serialize(data: SaveData): string {
       totalEarned: toParts(state.totalEarned),
       collectors: state.collectors,
       factories: state.factories,
+      mints: state.mints,
       autoBuyer: state.autoBuyer,
     },
   };
@@ -63,7 +70,15 @@ const readAmount = (value: unknown): Num | undefined => {
   return sign >= 0 ? fromParts({ sign, layer, mag }) : undefined;
 };
 
-const readState = (value: unknown): GameState | string => {
+const readMints = (value: Readonly<Record<string, unknown>>, version: 1 | 2): number | string => {
+  if (version === 1) {
+    return 0;
+  }
+  const { mints } = value;
+  return isCount(mints) ? mints : "mints が 0 以上の整数でない";
+};
+
+const readState = (value: unknown, version: 1 | 2): GameState | string => {
   if (!isRecord(value)) {
     return "state がオブジェクトでない";
   }
@@ -82,10 +97,14 @@ const readState = (value: unknown): GameState | string => {
   if (!isCount(factories)) {
     return "factories が 0 以上の整数でない";
   }
+  const mints = readMints(value, version);
+  if (typeof mints === "string") {
+    return mints;
+  }
   if (typeof autoBuyer !== "boolean") {
     return "autoBuyer が真偽値でない";
   }
-  return { coins, totalEarned, collectors, factories, autoBuyer };
+  return { coins, totalEarned, collectors, factories, mints, autoBuyer };
 };
 
 // 版の値はどんな JSON でもありうる。`String(value)` は `{"toString": null}` のようなオブジェクトで例外を投げるため、
@@ -122,7 +141,7 @@ export function deserialize(text: string): LoadResult {
     return { ok: false, error: "保存データがオブジェクトでない" };
   }
   const { version, savedAt } = parsed;
-  if (version !== SAVE_VERSION) {
+  if (version !== 1 && version !== SAVE_VERSION) {
     return { ok: false, error: `未知の版: ${describeVersion(version)}` };
   }
   // Date.now() が返しうる値に限る。それより先の時刻を受け入れると、時計が追いつくまで生産が止まる。
@@ -133,7 +152,7 @@ export function deserialize(text: string): LoadResult {
   ) {
     return { ok: false, error: "savedAt が Date の範囲の整数ミリ秒でない" };
   }
-  const state = readState(parsed["state"]);
+  const state = readState(parsed["state"], version);
   if (typeof state === "string") {
     return { ok: false, error: state };
   }

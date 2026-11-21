@@ -16,12 +16,14 @@ export const gameState: fc.Arbitrary<GameState> = fc
     spent: nonNegativeNum,
     collectors: fc.nat({ max: 300 }),
     factories: fc.nat({ max: 100 }),
+    mints: fc.nat({ max: 100 }),
     autoBuyer: fc.boolean(),
   })
-  .map(({ coins, spent, collectors, factories, autoBuyer }) => ({
+  .map(({ coins, spent, collectors, factories, mints, autoBuyer }) => ({
     coins,
     totalEarned: add(coins, spent),
     collectors,
     factories,
+    mints,
     autoBuyer,
   }));

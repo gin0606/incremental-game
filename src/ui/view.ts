@@ -89,6 +89,7 @@ const productionGain = (state: GameState, action: Action): string =>
 const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = {
   buyCollector: (state) => productionGain(state, { type: "buyCollector" }),
   buyFactory: (state) => productionGain(state, { type: "buyFactory" }),
+  buyMint: (state) => productionGain(state, { type: "buyMint" }),
   buyAutoBuyer: () => "採集機と工場を、買える額に達するたびに自動で買う",
 };
 

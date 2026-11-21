@@ -41,6 +41,7 @@ const validFile = {
     totalEarned: { sign: 1, layer: 0, mag: 10 },
     collectors: 2,
     factories: 1,
+    mints: 3,
     autoBuyer: true,
   },
 };
@@ -61,7 +62,33 @@ test("正しい形式の保存データを読み込める", () => {
     ok: true,
     data: {
       savedAt: 1000,
-      state: { coins: num(5), totalEarned: num(10), collectors: 2, factories: 1, autoBuyer: true },
+      state: {
+        coins: num(5),
+        totalEarned: num(10),
+        collectors: 2,
+        factories: 1,
+        mints: 3,
+        autoBuyer: true,
+      },
+    },
+  });
+});
+
+test("造幣所の無い版 1 の保存データは、造幣所 0 として読み込める", () => {
+  const { mints: _mints, ...stateV1 } = validFile.state;
+
+  expect(deserialize(JSON.stringify({ ...validFile, version: 1, state: stateV1 }))).toStrictEqual({
+    ok: true,
+    data: {
+      savedAt: 1000,
+      state: {
+        coins: num(5),
+        totalEarned: num(10),
+        collectors: 2,
+        factories: 1,
+        mints: 0,
+        autoBuyer: true,
+      },
     },
   });
 });
@@ -78,7 +105,8 @@ test.each([
     text: JSON.stringify({ ...validFile, version: undefined }),
     error: "未知の版: undefined",
   },
-  { name: "未来の版", text: JSON.stringify({ ...validFile, version: 2 }), error: "未知の版: 2" },
+  { name: "未来の版", text: JSON.stringify({ ...validFile, version: 3 }), error: "未知の版: 3" },
+  { name: "版 0", text: JSON.stringify({ ...validFile, version: 0 }), error: "未知の版: 0" },
   {
     name: "版が文字列",
     text: JSON.stringify({ ...validFile, version: "1" }),
@@ -200,6 +228,21 @@ test.each([
     name: "factories が負",
     text: withState({ factories: -1 }),
     error: "factories が 0 以上の整数でない",
+  },
+  {
+    name: "mints が無い",
+    text: withState({ mints: undefined }),
+    error: "mints が 0 以上の整数でない",
+  },
+  {
+    name: "mints が負",
+    text: withState({ mints: -1 }),
+    error: "mints が 0 以上の整数でない",
+  },
+  {
+    name: "mints が整数でない",
+    text: withState({ mints: 0.5 }),
+    error: "mints が 0 以上の整数でない",
   },
   { name: "autoBuyer が数", text: withState({ autoBuyer: 1 }), error: "autoBuyer が真偽値でない" },
 ] as const)("壊れたデータは読み込みに失敗する: $name", ({ text, error }) => {
