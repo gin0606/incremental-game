@@ -5,5 +5,5 @@
   "novelty": { "perDay": { "min": 0.6 }, "longestGap": { "max": 216000 } },
   "walls": { "longest": { "max": 86400 } },
   "choice": { "lead": { "min": 0.005, "max": 0.5 } },
-  "idle": { "efficiency": 0.995, "reachBy": 43200, "reach": 28800 }
+  "idle": { "efficiency": 0.995, "reachBy": 14400, "reach": 28800 }
 }
