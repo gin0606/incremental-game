@@ -18,8 +18,10 @@
         <p id="away-report"></p>
         <button type="button" id="away-close">閉じる</button>
       </section>
-      <!-- 離れていた間に進んだことの知らせを閉じた後に、フォーカスを置く（src/ui/main.ts）。Tab の順には入れない。 -->
-      <dl id="stats" tabindex="-1">
+      <h2 id="stats-heading">コインと施設</h2>
+      <!-- 離れていた間に進んだことの知らせを閉じた後に、フォーカスを置く（src/ui/main.ts）。Tab の順には入れない。
+           フォーカスが移ったときに何の一覧か伝わるよう、見出しで名前を付ける（docs/design/away-focus.md）。 -->
+      <dl id="stats" tabindex="-1" aria-labelledby="stats-heading">
         <dt>コイン</dt>
         <dd id="coins"></dd>
         <dt>これまでに生産したコイン</dt>
@@ -37,6 +39,8 @@
         <dt id="next-unlock-label" hidden>次の解放</dt>
         <dd id="next-unlock" hidden></dd>
       </dl>
+      <!-- 値の一覧の見出しが店まで及ばないよう、店にも見出しを置く。 -->
+      <h2>店</h2>
       <div id="shop"></div>
       <p id="notice" role="status" style="white-space: pre-line"></p>
     </main>

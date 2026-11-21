@@ -55,8 +55,9 @@ const showAway = (report: string | undefined): void => {
   awayReport.textContent = report ?? "";
   awayClose.addEventListener("click", () => {
     away.hidden = true;
-    // フォーカスを、知らせの後に続く値の一覧へ移す。「閉じる」が持っていたフォーカスは、移さないとブラウザが文書の
-    // 先頭へ外す。店の品物のボタンへは移さない（閉じた Enter を押し続けると、そのボタンで品物を買う）。
+    // フォーカスを、知らせの後に続く値の一覧（その見出しで名前を付けたもの）へ移す。「閉じる」が持っていた
+    // フォーカスは、移さないとブラウザが文書の先頭へ外す。店の品物のボタンへは移さない（閉じた Enter を押し続けると、
+    // そのボタンで品物を買う）。
     stats.focus();
   });
 };

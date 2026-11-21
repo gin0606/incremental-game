@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { focusedAccessibleNode } from "./accessibility.ts";
 import { at } from "./clock.ts";
 import { rendered } from "./rendered.ts";
 
@@ -59,7 +60,7 @@ test("離れていた後に開くと、離れていた時間と生産したコ�
   await expect(away).toBeHidden();
 });
 
-test("キーボードで「閉じる」を押すと、フォーカスを知らせの後に続く値の一覧へ移し、次の Tab で店へ進める", async ({
+test("キーボードで「閉じる」を押すと、フォーカスを知らせの後に続く、何の一覧かを示す名前を持つ値の一覧へ移し、次の Tab で店へ進める", async ({
   page,
 }) => {
   // 自動購入が無いので、離れていた間に貯まったコインで採集機を買える。
@@ -85,6 +86,14 @@ test("キーボードで「閉じる」を押すと、フォーカスを知ら�
   await rendered(page);
   await expect(stats).toBeFocused();
   await expect(stats.and(page.locator(":focus-visible"))).toHaveCount(1);
+  await expect(stats).toHaveAccessibleName("コインと施設");
+  // Playwright の計算ではなく、Chromium が支援技術へ渡す名前でも確かめる。DescriptionList は Chromium での `<dl>` の役割。
+  const cdp = await page.context().newCDPSession(page);
+  expect(await focusedAccessibleNode(cdp)).toStrictEqual({
+    role: "DescriptionList",
+    name: "コインと施設",
+  });
+  await cdp.detach();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: /^採集機を買う/v })).toBeFocused();
 });
