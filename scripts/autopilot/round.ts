@@ -187,7 +187,7 @@ export const stopReason = (facts: StopFacts): Stop | undefined => {
     return failed(`取り込めた回を挟まずに ${String(facts.consecutiveFailures)} 回失敗した`);
   }
   if (facts.consecutiveIdle >= facts.maxIdle) {
-    // 監督役が目標を進めない回を、終了時刻まで起動し続けない（方向性の書き忘れや、目標が尽きたとき）。
+    // 監督役が目標を進めない回を、終了時刻まで起動し続けない（進められる目標が尽きたときなど）。
     return failed(`取り込めた回を挟まずに ${String(facts.consecutiveIdle)} 回 nothing で終わった`);
   }
   if (facts.freeBytes < facts.minFreeBytes) {

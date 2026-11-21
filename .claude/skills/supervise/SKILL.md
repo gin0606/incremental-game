@@ -89,7 +89,7 @@ disable-model-invocation: true
 
 1. 監督セッションであることを確かめる: `INCREMENTAL_GAME_SUPERVISOR` が設定され、作業ディレクトリが main checkout の `.claude/worktrees/<回の名前>` で、回の名前が `supervise-` で始まり、ブランチが `worktree-<回の名前>`、`git status --short` が空、`git rev-parse HEAD` と `git rev-parse main` が同じであること。どれかが違えば、何も変えずに `failed` の結果ファイルを書いて終わる（保護範囲の hook が働かない、main を動かしうる、または分岐元が main でないため）。`git rev-parse HEAD` を `base` として控える。
 2. 監督の worktree で `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行する。
-3. AGENTS.md と `docs/design/` の設計記録を読む。AGENTS.md に「現在の段階」節が残っている間は、基盤の試運転だと方向性の引数に書かれた回だけを進める。書かれていなければ `nothing` で終わる。
+3. AGENTS.md と `docs/design/` の設計記録を読む。
 4. Axon の作業中・未着手の作業を `axon list` で読む。前回の最終報告として、環境変数 `INCREMENTAL_GAME_PREVIOUS_REPORT` が示すファイル（設定されていなければ無い）と、直近の監督セッションの目標の Group（3 の印を本文に持つもの。完了していないものを含む）の最終報告の Note を読む。完了していない目標の Group（終了監査を通したと書いた最終報告の Note があるものを除く）があれば、その残りを継続するかを、下の前の回の残りの扱いの中で、2 の基準で決める。
    - ドライバが前の回の後に渡すファイルは、前の回の `report.md` の後に、ドライバが「ドライバの記録」の節を足したもの（`report.md` が無かった回では、書かれなかった旨の 1 行の後に節が続く）。節には、回の名前、セッションの終わり方、取り込みの結果（取り込んだ commit か、取り込まなかった理由）、実行できなかった完了の ID（result.json を読めなかった回では挙がらない）、その回の worker の worktree とブランチが入る。ドライバの最初の回に利用者が渡したファイルには、この節が無い。
 5. `git worktree list` と `git branch --list 'worktree-*'` で、前の回の残りを調べる。前の回の残りとして扱うのは、この回以外の `worktree-supervise-*` のセッション用ブランチと worktree と、前回の最終報告（「ドライバの記録」の節を含む）か残った worktree の `.tmp/supervise/report.md` が、その回の worker のものとして名前を挙げた `worktree-agent-*` のブランチと worktree だけにする。ほかの worktree とブランチ（対話のセッションや、報告の無い回の worker のもの）は変えずに、最終報告に一覧を書く。
