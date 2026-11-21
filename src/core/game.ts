@@ -18,7 +18,8 @@ import {
  *
  * - 資源はコインの 1 つ。採集機と工場がコインを毎秒生む。
  * - 工場は、累計で稼いだコインが {@link FACTORY_UNLOCK_EARNED} に達すると解放される。
- * - 自動購入を買うと、採集機を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。
+ * - 自動購入を買うと、採集機と工場を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。買える額に達した
+ *   もののうち、値段あたりの生産量の増分が大きいものから買う。
  *
  * 時間の経過は {@link advance} だけで進める。オフラインの経過も同じ関数で一度に計算する。
  */
@@ -44,7 +45,7 @@ const FACTORY_COST_GROWTH = num(1.2);
 const FACTORY_PRODUCTION = num(10);
 
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
-export const AUTO_BUYER_COST: Num = num(300);
+export const AUTO_BUYER_COST: Num = num(1e6);
 
 export const initialState: GameState = {
   coins: ZERO,
@@ -134,36 +135,72 @@ function produce(state: GameState, seconds: number): GameState {
   };
 }
 
-const buyCollector: Action = { type: "buyCollector" };
+/**
+ * 自動購入が買うものと、その値段。工場は解放の前でも値段を返す。工場の値段（150 以上）は解放に要る累計の生産量
+ * （{@link FACTORY_UNLOCK_EARNED}）以上で、手元のコインは累計の生産量を超えないため、コインが工場の値段に届いた
+ * ときには解放されている。解放の時刻を別に区切らなくても、買える額に届く時刻は進め方によらない。
+ */
+const automated: readonly {
+  readonly action: Action;
+  readonly cost: (state: GameState) => Num;
+  /** 1 つ買ったときの生産量の増分。 */
+  readonly gain: Num;
+}[] = [
+  { action: { type: "buyCollector" }, cost: collectorCost, gain: COLLECTOR_PRODUCTION },
+  { action: { type: "buyFactory" }, cost: factoryCost, gain: FACTORY_PRODUCTION },
+];
 
-/** 自動購入を持っていれば、買えるだけ採集機を買う。 */
+/**
+ * 自動購入が次に買った後の状態。買える額に達したもののうち、値段あたりの生産量の増分が最も大きいものを買う。
+ * 同じ値（許容誤差の範囲）なら先のもの。買えるものが無ければ `undefined`。
+ */
+function autoBuyOnce(state: GameState): GameState | undefined {
+  // 手元のコインが多いと何千回も買うため、生産量を求め直さず、増分を値段で割るだけで比べる。
+  let best: { readonly action: Action; readonly price: Num; readonly value: Num } | undefined;
+  for (const { action, gain } of automated) {
+    const price = priceOf(state, action);
+    if (price !== undefined && atLeast(state.coins, price)) {
+      const value = div(gain, price);
+      if (best === undefined || !atLeast(best.value, value)) {
+        best = { action, price, value };
+      }
+    }
+  }
+  return best === undefined ? undefined : pay(state, best.action, best.price);
+}
+
+/** 自動購入を持っていれば、買えるだけ買う。 */
 function autoBuy(state: GameState): GameState {
   if (!state.autoBuyer) {
     return state;
   }
   let current = state;
-  for (;;) {
-    const next = perform(current, buyCollector);
-    if (next === undefined) {
-      return current;
-    }
+  for (let next = autoBuyOnce(current); next !== undefined; next = autoBuyOnce(current)) {
     current = next;
   }
+  return current;
 }
 
 /**
- * 次に自動購入が起きるまでの秒数。起きなければ `Infinity`。{@link perform} と同じく、コインが値段に許容誤差の
- * 範囲で届いた時刻を返す。値段そのものに届く時刻にすると、刻んで進めたときだけ区切りの時点で早めに買えてしまう。
+ * 次に自動購入が起きるまでの秒数と、そのとき買うもの。起きなければ `undefined`。{@link perform} と同じく、コインが
+ * 値段に許容誤差の範囲で届いた時刻を返す。値段そのものに届く時刻にすると、刻んで進めたときだけ区切りの時点で早めに
+ * 買えてしまう。
  */
-function secondsUntilAutoBuy(state: GameState): number {
-  if (!state.autoBuyer) {
-    return Number.POSITIVE_INFINITY;
-  }
+function nextAutoBuy(
+  state: GameState,
+): { readonly seconds: number; readonly buy: (typeof automated)[number] } | undefined {
   const rate = production(state);
-  if (toNumber(rate) === 0) {
-    return Number.POSITIVE_INFINITY;
+  if (!state.autoBuyer || toNumber(rate) === 0) {
+    return undefined;
   }
-  return toNumber(div(sub(toleranceFloor(collectorCost(state)), state.coins), rate));
+  let next: { readonly seconds: number; readonly buy: (typeof automated)[number] } | undefined;
+  for (const buy of automated) {
+    const seconds = toNumber(div(sub(toleranceFloor(buy.cost(state)), state.coins), rate));
+    if (next === undefined || seconds < next.seconds) {
+      next = { seconds, buy };
+    }
+  }
+  return next;
 }
 
 /**
@@ -182,14 +219,15 @@ export function advance(state: GameState, seconds: number): GameState {
   let current = autoBuy(state);
   let remaining = seconds;
   for (;;) {
-    const wait = secondsUntilAutoBuy(current);
-    if (wait > remaining) {
+    const next = nextAutoBuy(current);
+    if (next === undefined || next.seconds > remaining) {
       return autoBuy(produce(current, remaining));
     }
     // 届いた時刻のコインは丸め誤差で額をわずかに下回りうるため、比べずに買う。届く時刻が区切りの終わりと
-    // ちょうど重なるときも、この時刻に買う。
-    const reached = produce(current, wait);
-    current = autoBuy(pay(reached, buyCollector, collectorCost(reached)));
-    remaining -= wait;
+    // ちょうど重なるときも、この時刻に買う。ほかのものは届く前に買い終えているので、値段あたりの増分で選び直さない。
+    const reached = produce(current, next.seconds);
+    const { action, cost } = next.buy;
+    current = autoBuy(pay(reached, action, cost(reached)));
+    remaining -= next.seconds;
   }
 }

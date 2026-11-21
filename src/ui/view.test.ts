@@ -29,7 +29,7 @@ test("初期状態では採集機と自動購入を並べ、工場は解放さ�
       },
       {
         action: { type: "buyAutoBuyer" },
-        label: "自動購入を買う（300 コイン）",
+        label: "自動購入を買う（1000000 コイン）",
         visible: true,
         affordable: false,
       },
@@ -69,7 +69,7 @@ test("工場が解放され、買える額があれば買える。自動購入�
       },
       {
         action: { type: "buyAutoBuyer" },
-        label: "自動購入を買う（300 コイン）",
+        label: "自動購入を買う（1000000 コイン）",
         visible: false,
         affordable: false,
       },

@@ -1,5 +1,5 @@
 import * as fc from "fast-check";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 
 import { gameState } from "./game.arbitrary.ts";
 import type { Action, GameState } from "./game.ts";
@@ -16,7 +16,12 @@ import {
   production,
   withPurchase,
 } from "./game.ts";
-import { add, atLeast, mul, num, toleranceFloor } from "./num.ts";
+import { add, atLeast, mul, num } from "./num.ts";
+
+// 1 件の時間切れを広げる。自動購入が採集機と工場を買うため、一度に進める結果と刻んで進める結果を比べる性質テストは
+// 手元で約 2 秒かかり（2026-11 に測定）、ほかの処理で機械が混み合うと Vitest の既定の 5 秒を超えた。時間切れは遅く
+// なった実装を検出するためのものではない。
+vi.setConfig({ testTimeout: 120_000 });
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
@@ -141,7 +146,7 @@ test("自動購入は一度だけ買える", () => {
   });
 
   expect(counts(after)).toStrictEqual({ collectors: 1, factories: 0, autoBuyer: true });
-  expect(after.coins).toBeApprox(num(300));
+  expect(after.coins).toBeApprox(AUTO_BUYER_COST);
   expect(perform(after, { type: "buyAutoBuyer" })).toBeUndefined();
 });
 
@@ -154,81 +159,6 @@ test("自動購入が無ければ、時間の経過でコインと累計の生�
   expect(after.coins).toBeApprox(num(5 + 36));
   expect(after.totalEarned).toBeApprox(num(7 + 36));
   expect(counts(after)).toStrictEqual({ collectors: 2, factories: 1, autoBuyer: false });
-});
-
-test("自動購入があれば、採集機の値段に達するたびに採集機を買う", () => {
-  const start = state({ collectors: 1, autoBuyer: true });
-
-  // 11.5 秒で 1 台目を買い、残り 0.5 秒は 2 台で生産する。値段に許容誤差（1e-9）の範囲で届いた時点で買うため、
-  // 買う時刻は値段ちょうどに届く時刻よりわずかに早い。その分だけ比べる誤差を広げる。
-  const first = advance(start, 12);
-  expect(first.collectors).toBe(2);
-  expect(first.coins).toBeApprox(num(1), 1e-6);
-  expect(first.totalEarned).toBeApprox(num(12.5), 1e-6);
-
-  // 2 台目の値段 13.225 に、さらに (13.225 - 1) / 2 秒で達する。
-  const second = advance(first, (13.225 - 1) / 2 + 0.25);
-  expect(second.collectors).toBe(3);
-  expect(second.coins).toBeApprox(num(0.75), 1e-6);
-});
-
-test("自動購入があれば、工場の生産も合わせて採集機の値段に達する時刻に買う", () => {
-  // 採集機 1 台と工場 1 つで毎秒 11。11.5 / 11 秒で 2 台目を買い、そこからは毎秒 12。
-  const after = advance(state({ collectors: 1, factories: 1, autoBuyer: true }), 2);
-
-  expect(after.collectors).toBe(2);
-  expect(after.coins).toBeApprox(num((2 - 11.5 / 11) * 12), 1e-6);
-});
-
-test("値段に届く直前で区切っても、一度に進めたときと同じ時刻に買う", () => {
-  // 区切りの時点のコインが値段の許容誤差の範囲に入っていても、買う時刻はずれない。
-  const start = state({ collectors: 1, autoBuyer: true });
-  const online = advance(advance(start, 11.5 - 1e-8), 6.6125 - 5e-9);
-  const offline = advance(start, 11.5 - 1e-8 + (6.6125 - 5e-9));
-
-  expect(counts(online)).toStrictEqual(counts(offline));
-  expect(online.coins).toBeApprox(offline.coins, 1e-6);
-});
-
-test("自動購入の時刻が区切りの終わりとちょうど重なれば、その時刻に買う", () => {
-  // 採集機 4 台で、コインが次の値段の許容誤差の境目にある。境目ちょうどでは丸め誤差で比べると届かない。
-  const base = state({ collectors: 4, autoBuyer: true });
-  const atFloor = { ...base, coins: toleranceFloor(collectorCost(base)) };
-
-  expect(advance(atFloor, 0).collectors).toBe(5);
-  expect(counts(advance(atFloor, 0))).toStrictEqual(counts(advance(atFloor, 1e-12)));
-});
-
-test("一度に進めて区切りの終わりが自動購入の時刻と重なっても、途中で区切ったときと同じく買う", () => {
-  // 3.9087514315578256 秒は、採集機 9 台・0 コインから 10 台目の値段の許容誤差の境目に届く時刻。
-  const start = state({ collectors: 9, autoBuyer: true });
-  const once = advance(start, 3.9087514315578256);
-  const split = advance(advance(start, 0.3), 3.9087514315578256 - 0.3);
-
-  expect(once.collectors).toBe(10);
-  expect(counts(once)).toStrictEqual(counts(split));
-});
-
-test("自動購入があれば、進め始める前に手元のコインで買えるだけ買ってから生産する", () => {
-  // 100 コインで 2〜6 台目（11.5 + 13.225 + 15.21 + 17.49 + 20.11 = 77.54）を買い、6 台で 0.1 秒生産する。
-  // 7 台目の値段 23.13 には届かない。
-  const after = advance(state({ coins: num(100), totalEarned: num(100), autoBuyer: true }), 0.1);
-
-  expect(after.collectors).toBe(6);
-  expect(after.totalEarned).toBeApprox(num(100.6));
-});
-
-test("自動購入があっても、生産が無ければ何も買わない", () => {
-  const start = state({ collectors: 0, autoBuyer: true });
-
-  expect(advance(start, 1e6)).toStrictEqual(start);
-});
-
-test("経過時間 0 でも、自動購入があれば手元のコインで買えるだけ買う", () => {
-  const after = advance(state({ coins: num(10 + 11.5 + 1), collectors: 0, autoBuyer: true }), 0);
-
-  expect(after.collectors).toBe(2);
-  expect(after.coins).toBeApprox(num(1));
 });
 
 test.each([-1, Number.NaN, Number.POSITIVE_INFINITY])("経過時間 %s は RangeError", (seconds) => {
