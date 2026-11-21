@@ -126,6 +126,10 @@ const finite: Reader<number> = (value, path) =>
 const positive: Reader<number> = (value, path) =>
   finite(value, path) > 0 ? finite(value, path) : fail(path, "正の数で書く");
 
+/** 0 より大きく 1 以下の割合。効率の基準が 0 以下なら検査にならず、1 を超えると損をしない以上を求める。 */
+const fraction: Reader<number> = (value, path) =>
+  positive(value, path) <= 1 ? positive(value, path) : fail(path, "0 より大きく 1 以下で書く");
+
 const list =
   <T>(item: Reader<T>): Reader<readonly T[]> =>
   (value, path) =>
@@ -269,7 +273,7 @@ const idle =
     // 最後の局面より後の reachBy では、許容間隔の到達を確かめる局面が無く、検査が何もしないまま通る。
     return reachBy > largest(phases)
       ? fail(`${path}.reachBy`, "測り方の最後の局面（settings.idle.phases の最後）以下にする")
-      : { efficiency: field("efficiency", finite), reachBy, reach: field("reach", positive) };
+      : { efficiency: field("efficiency", fraction), reachBy, reach: field("reach", positive) };
   };
 
 /**

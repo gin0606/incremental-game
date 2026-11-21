@@ -218,6 +218,12 @@ test.each([
     message: "targets.choice.lead: オブジェクトで書く",
   },
   { path: ["idle", "efficiency"], value: "1", message: "targets.idle.efficiency: 有限の数で書く" },
+  { path: ["idle", "efficiency"], value: 0, message: "targets.idle.efficiency: 正の数で書く" },
+  {
+    path: ["idle", "efficiency"],
+    value: 1.01,
+    message: "targets.idle.efficiency: 0 より大きく 1 以下で書く",
+  },
   { path: ["idle", "reachBy"], value: "1", message: "targets.idle.reachBy: 有限の数で書く" },
   { path: ["idle", "reach"], value: 0, message: "targets.idle.reach: 正の数で書く" },
   {
@@ -267,14 +273,14 @@ test("TargetsError の名前は TargetsError", () => {
   expect(new TargetsError("x").name).toBe("TargetsError");
 });
 
-test("parseTargets は min と max が等しい帯と、0 以下の効率・時刻を受け付ける", () => {
+test("parseTargets は min と max が等しい帯と、1 の効率と、0 以下の時刻を受け付ける", () => {
   const early = parseSettings(replaced(validSettings, ["idle", "phases"], [-1, 0]));
   const targets = parseTargets(
-    replaced(validTargets, ["idle"], { ...validTargets.idle, efficiency: 0, reachBy: -1 }),
+    replaced(validTargets, ["idle"], { ...validTargets.idle, efficiency: 1, reachBy: -1 }),
     early,
   );
   expect(early.idle.phases).toStrictEqual([-1, 0]);
-  expect(targets.idle).toStrictEqual({ ...validTargets.idle, efficiency: 0, reachBy: -1 });
+  expect(targets.idle).toStrictEqual({ ...validTargets.idle, efficiency: 1, reachBy: -1 });
   expect(
     parseTargets(replaced(validTargets, ["milestones", "ratio"], { min: 1, max: 1 }), settings),
   ).toHaveProperty("milestones.ratio", { min: 1, max: 1 });
