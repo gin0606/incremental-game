@@ -1,9 +1,9 @@
-// 画面の要素、localStorage、時計、タイマー、Web Locks をゲームにつなぐ。判断は session.ts・notices.ts・
-// tab-lock.ts・view.ts に置いてユニットテストとミューテーションテストで確かめ、ここには置かない
+// 画面の要素、localStorage、時計、タイマー、Web Locks をゲームにつなぐ。判断は session.ts・restore.ts・
+// notices.ts・tab-lock.ts・view.ts に置いてユニットテストとミューテーションテストで確かめ、ここには置かない
 // （このファイルはミューテーションテストの対象外で、E2E テストだけが確かめる）。
 import { createNotices } from "./notices.ts";
 import { startSession } from "./session.ts";
-import type { SaveStorage } from "./session.ts";
+import type { SaveStorage, Session } from "./session.ts";
 import { playInOneTab, webLocks } from "./tab-lock.ts";
 import { view } from "./view.ts";
 
@@ -29,6 +29,9 @@ const nextUnlockLabel = requireElement("next-unlock-label");
 const nextUnlock = requireElement("next-unlock");
 const shop = requireElement("shop");
 const notice = requireElement("notice");
+const away = requireElement("away");
+const awayReport = requireElement("away-report");
+const awayClose = requireElement("away-close");
 
 const notices = createNotices((text) => {
   notice.textContent = text;
@@ -43,11 +46,35 @@ const storage: SaveStorage = {
   },
 };
 
+/** 離れていた間に進んだこと（無ければ `undefined` で、隠したままにする）を、プレイヤーが閉じるまで出しておく。 */
+const showAway = (report: string | undefined): void => {
+  away.hidden = report === undefined;
+  awayReport.textContent = report ?? "";
+  awayClose.addEventListener("click", () => {
+    away.hidden = true;
+  });
+};
+
+/** 時計に合わせて進めて描き直し、自動保存し、ページを離れるときに保存する。 */
+const keepPlaying = (session: Session, render: () => void): void => {
+  setInterval(() => {
+    session.tick(Date.now());
+    render();
+  }, TICK_MS);
+  setInterval(() => {
+    session.save(Date.now());
+  }, AUTOSAVE_MS);
+  globalThis.addEventListener("pagehide", () => {
+    session.save(Date.now());
+  });
+};
+
 // 時刻は Date.now() で測る。performance.now() は端末のスリープ中に進まないことがあり、その間の生産が失われる。
 const start = (): void => {
   const session = startSession(storage, notices, Date.now());
   // 最初の自動保存より前にページが失われても、次に開いたときに閉じていた間を数えられるよう、すぐ保存する。
   session.save(Date.now());
+  showAway(session.away);
 
   const buttons = view(session.state()).shop.map((item) => {
     const button = document.createElement("button");
@@ -83,16 +110,7 @@ const start = (): void => {
 
   shop.append(...buttons);
   render();
-  setInterval(() => {
-    session.tick(Date.now());
-    render();
-  }, TICK_MS);
-  setInterval(() => {
-    session.save(Date.now());
-  }, AUTOSAVE_MS);
-  globalThis.addEventListener("pagehide", () => {
-    session.save(Date.now());
-  });
+  keepPlaying(session, render);
 };
 
 // ロックは遊んでいる間ずっと持つため、この await はページを閉じるまで終わらない。

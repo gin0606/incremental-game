@@ -82,6 +82,7 @@ test("保存データが無ければ初期状態から始め、保存すると�
 
   const session = startSession(fake.storage, notices, T0);
   expect(session.state()).toBe(initialState);
+  expect(session.away).toBeUndefined();
   session.save(T0 + 2000);
 
   expect(fake.items.get(SAVE_KEY)).toBe(
@@ -96,6 +97,7 @@ test("保存データから、保存してから今までの時間を進めて�
   const session = startSession(fake.storage, recordingNotices().notices, T0 + 60_000);
 
   expect(session.state()).toStrictEqual(advance(saved, 60));
+  expect(session.away).toBe("離れていた 1 分 0 秒のあいだに、コインを 120 生産した。");
   expect(fake.writes).toStrictEqual([]);
 });
 

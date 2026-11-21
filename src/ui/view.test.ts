@@ -4,7 +4,7 @@ import { assert, expect, test } from "vitest";
 import type { GameState } from "../core/game.ts";
 import { advance, initialState, perform } from "../core/game.ts";
 import { mul, num } from "../core/num.ts";
-import { formatWait, view } from "./view.ts";
+import { formatDuration, view } from "./view.ts";
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
@@ -218,10 +218,30 @@ test.each([
   { seconds: (1e9 - 1) * DAY + 5 * 3600, expected: "999999999 日 5 時間" },
   { seconds: 1e9 * DAY, expected: "1.00e9 日" },
   { seconds: 1.2345e9 * DAY, expected: "1.24e9 日" },
-] as const)("待ち時間 $seconds 秒は「$expected」。端数は切り上げる", ({ seconds, expected }) => {
-  expect(formatWait(num(seconds))).toBe(expected);
+] as const)("切り上げると $seconds 秒は「$expected」", ({ seconds, expected }) => {
+  expect(formatDuration(num(seconds), "up")).toBe(expected);
 });
 
-test("number で表せない長さの待ち時間も、日数で示す", () => {
-  expect(formatWait(mul(num(1e300), num(1e300)))).toBe("1.16e595 日");
+test.each([
+  { seconds: 0.9, expected: "0 秒" },
+  // 有効数字 12 桁に丸めてから切り捨て、誤差で 1 秒短く見せない。
+  { seconds: 6 - 4e-14, expected: "6 秒" },
+  { seconds: 59.9, expected: "59 秒" },
+  { seconds: 60, expected: "1 分 0 秒" },
+  { seconds: 3599.9, expected: "59 分 59 秒" },
+  { seconds: 3659.9, expected: "1 時間 0 分" },
+  { seconds: 3660, expected: "1 時間 1 分" },
+  { seconds: DAY - 1, expected: "23 時間 59 分" },
+  { seconds: DAY, expected: "1 日 0 時間" },
+  { seconds: 2 * DAY - 1, expected: "1 日 23 時間" },
+  { seconds: (1e9 - 1) * DAY + 5 * 3600, expected: "999999999 日 5 時間" },
+  { seconds: 1e9 * DAY, expected: "1.00e9 日" },
+  { seconds: 1.2349e9 * DAY, expected: "1.23e9 日" },
+] as const)("切り捨てると $seconds 秒は「$expected」", ({ seconds, expected }) => {
+  expect(formatDuration(num(seconds), "down")).toBe(expected);
+});
+
+test("number で表せない長さも、日数で示す", () => {
+  expect(formatDuration(mul(num(1e300), num(1e300)), "up")).toBe("1.16e595 日");
+  expect(formatDuration(mul(num(1e300), num(1e300)), "down")).toBe("1.15e595 日");
 });

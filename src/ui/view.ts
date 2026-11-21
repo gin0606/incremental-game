@@ -8,7 +8,7 @@ import {
   perform,
   production,
 } from "../core/game.ts";
-import type { Num } from "../core/num.ts";
+import type { Num, Rounding } from "../core/num.ts";
 import { add, atLeast, div, format, num, sub, toNumber } from "../core/num.ts";
 
 export interface ShopItem {
@@ -42,30 +42,37 @@ const SECONDS_PER_DAY = 86_400;
 /** これ以上の日数は、時間を付けずに日数だけを数の表記（{@link format}）で示す。 */
 const LARGE_DAYS = 1e9;
 
+const roundings: Readonly<Record<Rounding, (value: number) => number>> = {
+  down: Math.trunc,
+  up: Math.ceil,
+};
+
 /**
- * 待ち時間の表示。端数は切り上げ、表示した時間が経てば届くようにする。1 分未満は秒、1 時間未満は分と秒、
+ * 時間の長さの表示。端数は `rounding` の方向へ丸める（待ち時間は切り上げて、表示した時間が経てば届くように
+ * し、経った時間は切り捨てて、経っていない時間を経ったように見せない）。1 分未満は秒、1 時間未満は分と秒、
  * 1 日未満は時間と分、それ以上は日と時間で示す。
  */
-export function formatWait(seconds: Num): string {
-  // format と同じく、切り上げる前に有効数字 12 桁に丸め、6.000…04 のような誤差で 1 秒長く見せない。
-  const wholeSeconds = Math.ceil(Number(toNumber(seconds).toPrecision(12)));
+export function formatDuration(seconds: Num, rounding: Rounding): string {
+  const round = roundings[rounding];
+  // format と同じく、丸める前に有効数字 12 桁に丸め、6.000…04 や 5.999…96 のような誤差で 1 秒ずらさない。
+  const wholeSeconds = round(Number(toNumber(seconds).toPrecision(12)));
   if (wholeSeconds < 60) {
     return `${wholeSeconds} 秒`;
   }
   if (wholeSeconds < 3600) {
     return `${Math.floor(wholeSeconds / 60)} 分 ${wholeSeconds % 60} 秒`;
   }
-  const minutes = Math.ceil(wholeSeconds / 60);
+  const minutes = round(wholeSeconds / 60);
   if (minutes < 1440) {
     return `${Math.floor(minutes / 60)} 時間 ${minutes % 60} 分`;
   }
-  const hours = Math.ceil(minutes / 60);
+  const hours = round(minutes / 60);
   const days = Math.floor(hours / 24);
   if (days < LARGE_DAYS) {
     return `${days} 日 ${hours % 24} 時間`;
   }
   // number で表せない長さ（Infinity）もここへ来るため、日数は Num のまま求める。
-  return `${format(div(seconds, num(SECONDS_PER_DAY)), "up")} 日`;
+  return `${format(div(seconds, num(SECONDS_PER_DAY)), rounding)} 日`;
 }
 
 /** 品物と、その値段。値段は、品物が見えていないとき（解放の前や買い終えた後）も求まる。 */
@@ -112,9 +119,9 @@ function nextPurchase(state: GameState, offers: readonly Offer[], pausedSeconds:
   const wait = div(sub(cheapest, state.coins), rate);
   if (pausedSeconds > 0) {
     const paused = num(pausedSeconds);
-    return `時計が戻ったため生産が止まっている（再開まで約 ${formatWait(paused)}）。止まっている間を含めて約 ${formatWait(add(paused, wait))}`;
+    return `時計が戻ったため生産が止まっている（再開まで約 ${formatDuration(paused, "up")}）。止まっている間を含めて約 ${formatDuration(add(paused, wait), "up")}`;
   }
-  return `今の生産のままで約 ${formatWait(wait)}`;
+  return `今の生産のままで約 ${formatDuration(wait, "up")}`;
 }
 
 /**

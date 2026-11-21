@@ -22,6 +22,8 @@ export interface Session {
   readonly perform: (action: Action, now: number) => void;
   /** 時刻 `now` まで進めて、状態とその時刻を組で保存する。保存できなければ、そのことを知らせる。 */
   readonly save: (now: number) => void;
+  /** 読み込んだときに、離れていた間に進んだこと（{@link Restored}）。知らせることが無ければ `undefined`。 */
+  readonly away: string | undefined;
 }
 
 const read = (
@@ -103,5 +105,6 @@ export function startSession(storage: SaveStorage, notices: Notices, now: number
       }
     },
     save,
+    away: restored.away,
   };
 }
