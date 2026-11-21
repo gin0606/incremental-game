@@ -85,13 +85,14 @@ test("生産したコインは、手元のコインではなく、これまで�
 });
 
 test.each([
-  { collectors: 5, factories: 1, added: "採集機が 3 台" },
-  { collectors: 2, factories: 4, added: "工場が 3 台" },
-  { collectors: 3, factories: 2, added: "採集機が 1 台、工場が 1 台" },
+  { collectors: 5, factories: 1, mints: 0, added: "採集機が 3 台" },
+  { collectors: 2, factories: 4, mints: 0, added: "工場が 3 台" },
+  { collectors: 2, factories: 1, mints: 2, added: "造幣所が 2 台" },
+  { collectors: 3, factories: 2, mints: 1, added: "採集機が 1 台、工場が 1 台、造幣所が 1 台" },
 ] as const)(
-  "自動購入で増えた施設だけを示す（採集機 $collectors 台、工場 $factories 台）",
-  ({ collectors, factories, added }) => {
-    const after: GameState = { ...saved, totalEarned: num(120), collectors, factories };
+  "自動購入で増えた施設だけを示す（採集機 $collectors 台、工場 $factories 台、造幣所 $mints 台）",
+  ({ collectors, factories, mints, added }) => {
+    const after: GameState = { ...saved, totalEarned: num(120), collectors, factories, mints };
 
     expect(awayReport(saved, after, 86_400 * 2 + 3600 * 5 + 59)).toBe(
       `離れていた 2 日 5 時間のあいだに、コインを 100 生産した。自動購入で${added}増えた。`,

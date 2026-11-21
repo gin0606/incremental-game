@@ -37,7 +37,7 @@ test("品物ごとに買うと得られるものを示し、工場の分は解�
   const autoBuyer = page.getByRole("button", { name: /^自動購入を買う/v });
   const collectorGain = "買うと毎秒の生産が 1 増える";
   const factoryGain = "買うと毎秒の生産が 10 増える";
-  const autoBuyerWork = "採集機と工場を、買える額に達するたびに自動で買う";
+  const autoBuyerWork = "採集機・工場・造幣所を、買える額に達するたびに自動で買う";
 
   // 説明は品物のボタンの説明としても読め、ボタンの隣に見えている。
   await expect(collector).toHaveAccessibleDescription(collectorGain);
@@ -71,7 +71,7 @@ test("自動購入を買うと、そのボタンと説明を隠す", async ({ pa
   await page.goto("/");
 
   const autoBuyer = page.getByRole("button", { name: /^自動購入を買う/v });
-  const work = page.getByText("採集機と工場を、買える額に達するたびに自動で買う");
+  const work = page.getByText("採集機・工場・造幣所を、買える額に達するたびに自動で買う");
   await expect(work).toBeVisible();
   await autoBuyer.click();
   await expect(page.locator("#auto-buyer")).toHaveText("稼働中");
@@ -96,7 +96,8 @@ test("キーボードで自動購入を買うと、フォーカスを店の中�
   await page.keyboard.press("Enter");
   await expect(page.locator("#auto-buyer")).toHaveText("稼働中");
   await expect(autoBuyer).toBeHidden();
-  // 自動購入は店の最後の品物なので、前にある工場へ移す。コインを使い切って買えなくても、フォーカスは受けられる。
+  // 自動購入は店の最後の品物なので、前にある見えている品物のうち最も近い工場へ移す（造幣所は解放の前で隠れている）。
+  // コインを使い切って買えなくても、フォーカスは受けられる。
   await rendered(page);
   await expect(factory).toBeFocused();
   await expect(factory).toBeDisabled();

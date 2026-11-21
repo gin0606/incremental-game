@@ -35,10 +35,12 @@ test("見えている品物が無いときと、店の品物がフォーカス�
   expect(shopFocus(shopOf(true), 1)).toBeUndefined();
 });
 
-test("自動購入を買い終えると、フォーカスは工場へ、工場が解放の前なら採集機へ移す", () => {
+test("自動購入を買い終えると、フォーカスは前で最も近い見えている品物（造幣所、工場、採集機の順）へ移す", () => {
+  const mintUnlocked = view({ ...initialState, totalEarned: num(5e7), autoBuyer: true }).shop;
   const unlocked = view({ ...initialState, totalEarned: num(1000), autoBuyer: true }).shop;
   const locked = view({ ...initialState, autoBuyer: true }).shop;
 
-  expect(shopFocus(unlocked, 2)).toBe(1);
-  expect(shopFocus(locked, 2)).toBe(0);
+  expect(shopFocus(mintUnlocked, 3)).toBe(2);
+  expect(shopFocus(unlocked, 3)).toBe(1);
+  expect(shopFocus(locked, 3)).toBe(0);
 });

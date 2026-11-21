@@ -2,9 +2,12 @@ import type { Action, GameState } from "../core/game.ts";
 import {
   AUTO_BUYER_COST,
   FACTORY_UNLOCK_EARNED,
+  MINT_UNLOCK_EARNED,
   collectorCost,
   factoryCost,
   isFactoryUnlocked,
+  isMintUnlocked,
+  mintCost,
   perform,
   production,
   withPurchase,
@@ -15,7 +18,7 @@ import { add, atLeast, div, format, num, sub, toNumber } from "../core/num.ts";
 export interface ShopItem {
   readonly action: Action;
   readonly label: string;
-  /** 買うと得られるもの。採集機と工場は増える毎秒の生産、自動購入は働き。 */
+  /** 買うと得られるもの。採集機・工場・造幣所は増える毎秒の生産、自動購入は働き。 */
   readonly effect: string;
   /** 解放されていて、まだ買える（一度きりの品物を買い終えていない）。 */
   readonly visible: boolean;
@@ -29,6 +32,7 @@ export interface View {
   readonly production: string;
   readonly collectors: string;
   readonly factories: string;
+  readonly mints: string;
   readonly autoBuyer: string;
   /**
    * 次に何かを買えるまでの待ち時間。今買えるときと、生産が無くて届かないときは、その旨。時計が戻って生産が
@@ -90,7 +94,7 @@ const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = 
   buyCollector: (state) => productionGain(state, { type: "buyCollector" }),
   buyFactory: (state) => productionGain(state, { type: "buyFactory" }),
   buyMint: (state) => productionGain(state, { type: "buyMint" }),
-  buyAutoBuyer: () => "採集機と工場を、買える額に達するたびに自動で買う",
+  buyAutoBuyer: () => "採集機・工場・造幣所を、買える額に達するたびに自動で買う",
 };
 
 /** 品物と、その値段。値段は、品物が見えていないとき（解放の前や買い終えた後）も求まる。 */
@@ -143,15 +147,27 @@ function nextPurchase(state: GameState, offers: readonly Offer[], pausedSeconds:
   return `今の生産のままで約 ${formatDuration(wait, "up")}`;
 }
 
+/** 後から解放される要素。解放される順に並べる。 */
+const unlocks: readonly {
+  readonly name: string;
+  readonly earned: Num;
+  readonly unlocked: (state: GameState) => boolean;
+}[] = [
+  { name: "工場", earned: FACTORY_UNLOCK_EARNED, unlocked: isFactoryUnlocked },
+  { name: "造幣所", earned: MINT_UNLOCK_EARNED, unlocked: isMintUnlocked },
+];
+
 /**
- * 次の解放の表示。条件の値と残りは切り上げ、表示した量を生産すれば解放されるようにする。
+ * 次の解放の表示。まだ解放されていない要素のうち最初のものを示す。条件の値と残りは切り上げ、表示した量を生産すれば
+ * 解放されるようにする。
  */
 function nextUnlock(state: GameState): string | undefined {
-  if (isFactoryUnlocked(state)) {
+  const next = unlocks.find(({ unlocked }) => !unlocked(state));
+  if (next === undefined) {
     return undefined;
   }
-  const remaining = sub(FACTORY_UNLOCK_EARNED, state.totalEarned);
-  return `工場: これまでに生産したコインが ${format(FACTORY_UNLOCK_EARNED, "up")} に達すると解放（あと ${format(remaining, "up")}）`;
+  const remaining = sub(next.earned, state.totalEarned);
+  return `${next.name}: これまでに生産したコインが ${format(next.earned, "up")} に達すると解放（あと ${format(remaining, "up")}）`;
 }
 
 /** 状態 `state` の表示。`pausedSeconds` は、時計が戻って止めている生産を再開するまでの秒数。 */
@@ -159,6 +175,7 @@ export function view(state: GameState, pausedSeconds = 0): View {
   const offers = [
     offer(state, { type: "buyCollector" }, "採集機", collectorCost(state), true),
     offer(state, { type: "buyFactory" }, "工場", factoryCost(state), isFactoryUnlocked(state)),
+    offer(state, { type: "buyMint" }, "造幣所", mintCost(state), isMintUnlocked(state)),
     offer(state, { type: "buyAutoBuyer" }, "自動購入", AUTO_BUYER_COST, !state.autoBuyer),
   ];
   return {
@@ -167,6 +184,7 @@ export function view(state: GameState, pausedSeconds = 0): View {
     production: format(production(state)),
     collectors: state.collectors.toString(),
     factories: state.factories.toString(),
+    mints: state.mints.toString(),
     autoBuyer: state.autoBuyer ? "稼働中" : "なし",
     nextPurchase: nextPurchase(state, offers, pausedSeconds),
     nextUnlock: nextUnlock(state),

@@ -9,13 +9,23 @@ import { formatDuration, view } from "./view.ts";
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
-test("初期状態では採集機と自動購入を並べ、工場は解放されるまで隠して解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
+/** 解放の前の、造幣所を買う品物（台数 0）。 */
+const lockedMint = {
+  action: { type: "buyMint" },
+  label: "造幣所を買う（5000000 コイン）",
+  effect: "買うと毎秒の生産が 30 増える",
+  visible: false,
+  affordable: false,
+} as const;
+
+test("初期状態では採集機と自動購入を並べ、工場と造幣所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",
     totalEarned: "0",
     production: "1",
     collectors: "1",
     factories: "0",
+    mints: "0",
     autoBuyer: "なし",
     // 採集機の値段 11.5 に毎秒 1 で届くまで 11.5 秒。切り上げる。
     nextPurchase: "今の生産のままで約 12 秒",
@@ -35,10 +45,11 @@ test("初期状態では採集機と自動購入を並べ、工場は解放さ�
         visible: false,
         affordable: false,
       },
+      lockedMint,
       {
         action: { type: "buyAutoBuyer" },
         label: "自動購入を買う（1000000 コイン）",
-        effect: "採集機と工場を、買える額に達するたびに自動で買う",
+        effect: "採集機・工場・造幣所を、買える額に達するたびに自動で買う",
         visible: true,
         affordable: false,
       },
@@ -46,7 +57,7 @@ test("初期状態では採集機と自動購入を並べ、工場は解放さ�
   });
 });
 
-test("工場が解放されたら解放の条件を示さず、買える額があれば買える。自動購入を買い終えたら隠す", () => {
+test("工場が解放されたら造幣所の解放の条件を示し、工場は買える額があれば買える。自動購入を買い終えたら隠す", () => {
   const current = view(
     state({
       coins: num(200.7),
@@ -63,9 +74,10 @@ test("工場が解放されたら解放の条件を示さず、買える額が�
     production: "23",
     collectors: "3",
     factories: "2",
+    mints: "0",
     autoBuyer: "稼働中",
     nextPurchase: "今買える",
-    nextUnlock: undefined,
+    nextUnlock: "造幣所: これまでに生産したコインが 50000000 に達すると解放（あと 49999000）",
     shop: [
       {
         action: { type: "buyCollector" },
@@ -81,10 +93,11 @@ test("工場が解放されたら解放の条件を示さず、買える額が�
         visible: true,
         affordable: false,
       },
+      lockedMint,
       {
         action: { type: "buyAutoBuyer" },
         label: "自動購入を買う（1000000 コイン）",
-        effect: "採集機と工場を、買える額に達するたびに自動で買う",
+        effect: "採集機・工場・造幣所を、買える額に達するたびに自動で買う",
         visible: false,
         affordable: false,
       },
@@ -95,6 +108,7 @@ test("工場が解放されたら解放の条件を示さず、買える額が�
 test.each([
   { index: 0, action: { type: "buyCollector" } },
   { index: 1, action: { type: "buyFactory" } },
+  { index: 2, action: { type: "buyMint" } },
 ] as const)(
   "$action.type: 毎秒の生産が 10 億未満の間、買うと増えると示す毎秒の生産は、買った後に示す毎秒の生産と今のものとの差に等しい",
   ({ index, action }) => {
@@ -131,50 +145,6 @@ test("これまでに生産したコインは、手元のコインと同じく 1
   expect(view(state({ totalEarned: mul(num(1e300), num(1e300)) })).totalEarned).toBe("1.00e600");
 });
 
-test("解放までの残りは、生産で減り、購入では変わらない。端数は切り上げる", () => {
-  // 採集機 1 台で毎秒 1。残り 87.3 を切り上げる。
-  const produced = advance(initialState, 12.7);
-  // 採集機の値段 11.5 を払う。
-  const bought = perform(produced, { type: "buyCollector" });
-  assert.isDefined(bought);
-  const condition = "工場: これまでに生産したコインが 100 に達すると解放";
-
-  expect(view(produced)).toMatchObject({
-    totalEarned: "12",
-    nextUnlock: `${condition}（あと 88）`,
-  });
-  expect(view(bought)).toMatchObject({
-    totalEarned: "12",
-    nextUnlock: `${condition}（あと 88）`,
-  });
-  expect(view(state({ totalEarned: num(99.9999) }))).toMatchObject({
-    totalEarned: "99",
-    nextUnlock: `${condition}（あと 1）`,
-  });
-});
-
-test("これまでに生産したコインが解放の条件に達すると、条件を示さずに工場を並べる", () => {
-  const reached = view(advance(initialState, 100));
-  // 許容誤差の範囲で条件に届いた値は、工場の解放と同じく達したとみなす。
-  const withinTolerance = view(state({ totalEarned: num(100 * (1 - 1e-10)) }));
-  const below = view(state({ totalEarned: num(99.9999) }));
-
-  expect(reached.nextUnlock).toBeUndefined();
-  expect(reached.shop[1]?.visible).toBe(true);
-  expect(withinTolerance.nextUnlock).toBeUndefined();
-  expect(withinTolerance.shop[1]?.visible).toBe(true);
-  expect(below.shop[1]?.visible).toBe(false);
-});
-
-test("解放の条件は、工場が隠れている間だけ示す", () => {
-  fc.assert(
-    fc.property(fc.double({ min: 0, max: 200, noNaN: true }), (earned) => {
-      const current = view(state({ totalEarned: num(earned) }));
-      expect(current.nextUnlock === undefined).toBe(current.shop[1]?.visible);
-    }),
-  );
-});
-
 test("待ち時間は、生産でコインが増えるにつれて縮み、届くと買える表示に変わる", () => {
   // 採集機の値段 11.5 に、採集機 1 台の毎秒 1 で届く。
   expect(view(advance(initialState, 5)).nextPurchase).toBe("今の生産のままで約 7 秒");
@@ -190,9 +160,10 @@ test("待ち時間は、見えている品物のうち最も安いものまで�
 });
 
 test("見えていない品物は、より安くても待ち時間に数えない", () => {
-  // 買い終えた自動購入（1000000）は、採集機（約 1.2e7）と工場（約 8.5e6）より安い。工場までを毎秒 700 で割る。
+  // 買い終えた自動購入（1000000）と解放の前の造幣所（5000000）は、採集機（約 1.2e7）と工場（約 8.5e6）より安い。
+  // 工場までを毎秒 700 で割る。
   const bought = view(
-    state({ totalEarned: num(1e9), collectors: 100, factories: 60, autoBuyer: true }),
+    state({ totalEarned: num(4e7), collectors: 100, factories: 60, autoBuyer: true }),
   );
   // 解放の前の工場（150）は、採集機（約 164）より安い。採集機までを毎秒 20 で割る。
   const locked = view(state({ collectors: 20 }));

@@ -43,6 +43,7 @@ export function awayReport(
     [
       { name: "採集機", count: after.collectors - before.collectors },
       { name: "工場", count: after.factories - before.factories },
+      { name: "造幣所", count: after.mints - before.mints },
     ] as const
   )
     .filter(({ count }) => count > 0)

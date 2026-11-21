@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { at } from "./clock.ts";
 
-test("工場が解放される前は解放の条件と残りを示し、解放されると条件を隠して工場を並べる", async ({
+test("工場が解放される前は解放の条件と残りを示し、解放されると工場を並べて次の造幣所の条件を示す", async ({
   page,
 }) => {
   // 時計を止めてから開き、コイン 0 から始める。採集機 1 台で毎秒 1。
@@ -37,8 +37,61 @@ test("工場が解放される前は解放の条件と残りを示し、解放�
 
   // 採集機 2 台で毎秒 2。残りの 88 に 44 秒で届く。
   await page.clock.runFor(44_000);
+  await expect(factory).toBeVisible();
+  await expect(label).toBeVisible();
+  await expect(condition).toBeVisible();
+  await expect(condition).toHaveText(
+    "造幣所: これまでに生産したコインが 50000000 に達すると解放（あと 49999900）",
+  );
+});
+
+test("造幣所が解放される前は店に並べず、解放されると条件を隠して並べ、買うと造幣所の数と毎秒の生産が増える", async ({
+  page,
+}) => {
+  // 解放の条件まであと 30 で、造幣所の値段 5000000 を持つ、採集機 10 台と工場 2 つ（毎秒 30）の保存データ（保存形式の
+  // 版 2）を、開く時刻に保存したものとして置く。工場の数を造幣所と違えて、造幣所の欄が造幣所の数を示すことを確かめる。
+  await page.addInitScript(
+    (save: string) => {
+      localStorage.setItem("incremental-game:save", save);
+    },
+    JSON.stringify({
+      version: 2,
+      savedAt: at(60_000).getTime(),
+      state: {
+        coins: { sign: 1, layer: 0, mag: 5_000_000 },
+        totalEarned: { sign: 1, layer: 0, mag: 49_999_970 },
+        collectors: 10,
+        factories: 2,
+        mints: 0,
+        autoBuyer: false,
+      },
+    }),
+  );
+  await page.clock.install({ time: at(0) });
+  await page.clock.pauseAt(at(60_000));
+  await page.goto("/");
+  await expect(page.locator("#collectors")).toHaveText("10");
+
+  const label = page.locator('dt:text-is("次の解放")');
+  const condition = page.locator('dt:text-is("次の解放") + dd');
+  const mint = page.getByRole("button", { name: /^造幣所を買う/v });
+  await expect(condition).toHaveText(
+    "造幣所: これまでに生産したコインが 50000000 に達すると解放（あと 30）",
+  );
+  await expect(page.locator("#mints")).toHaveText("0");
+  await expect(mint).toBeHidden();
+
+  // 毎秒 30 で残りの 30 に 1 秒で届く。
+  await page.clock.runFor(1000);
   await expect(label).toBeHidden();
   // 中身が空の要素は隠さなくても toBeHidden を満たすため、隠したことは hidden 属性で確かめる。
   await expect(condition).toHaveAttribute("hidden");
-  await expect(factory).toBeVisible();
+  await expect(mint).toBeVisible();
+  await expect(mint).toHaveText("造幣所を買う（5000000 コイン）");
+  await expect(mint).toHaveAccessibleDescription("買うと毎秒の生産が 30 増える");
+
+  await mint.click();
+  await expect(page.locator("#mints")).toHaveText("1");
+  await expect(page.locator("#factories")).toHaveText("2");
+  await expect(page.locator("#production")).toHaveText("60");
 });

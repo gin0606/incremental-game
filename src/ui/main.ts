@@ -7,6 +7,7 @@ import { startSession } from "./session.ts";
 import type { SaveStorage, Session } from "./session.ts";
 import { shopFocus } from "./shop-focus.ts";
 import { playInOneTab, webLocks } from "./tab-lock.ts";
+import type { View } from "./view.ts";
 import { view } from "./view.ts";
 
 const TICK_MS = 100;
@@ -25,6 +26,7 @@ const totalEarned = requireElement("total-earned");
 const productionText = requireElement("production");
 const collectors = requireElement("collectors");
 const factories = requireElement("factories");
+const mints = requireElement("mints");
 const autoBuyer = requireElement("auto-buyer");
 const stats = requireElement("stats");
 const nextPurchase = requireElement("next-purchase");
@@ -97,6 +99,21 @@ const addOffer = (
   return { row, button, effect };
 };
 
+/** 値の一覧（店より前の部分）を描く。 */
+const renderStats = (current: View): void => {
+  coins.textContent = current.coins;
+  totalEarned.textContent = current.totalEarned;
+  productionText.textContent = current.production;
+  collectors.textContent = current.collectors;
+  factories.textContent = current.factories;
+  mints.textContent = current.mints;
+  autoBuyer.textContent = current.autoBuyer;
+  nextPurchase.textContent = current.nextPurchase;
+  nextUnlockLabel.hidden = current.nextUnlock === undefined;
+  nextUnlock.hidden = current.nextUnlock === undefined;
+  nextUnlock.textContent = current.nextUnlock ?? "";
+};
+
 // 時刻は Date.now() で測る。performance.now() は端末のスリープ中に進まないことがあり、その間の生産が失われる。
 const start = (): void => {
   const session = startSession(storage, notices, Date.now());
@@ -113,16 +130,7 @@ const start = (): void => {
 
   function render(): void {
     const current = view(session.state(), session.pausedFor(Date.now()));
-    coins.textContent = current.coins;
-    totalEarned.textContent = current.totalEarned;
-    productionText.textContent = current.production;
-    collectors.textContent = current.collectors;
-    factories.textContent = current.factories;
-    autoBuyer.textContent = current.autoBuyer;
-    nextPurchase.textContent = current.nextPurchase;
-    nextUnlockLabel.hidden = current.nextUnlock === undefined;
-    nextUnlock.hidden = current.nextUnlock === undefined;
-    nextUnlock.textContent = current.nextUnlock ?? "";
+    renderStats(current);
     let focused = -1;
     for (const [index, item] of current.shop.entries()) {
       const offer = offers[index];
