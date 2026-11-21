@@ -19,6 +19,7 @@ const requireElement = (id: string): HTMLElement => {
 };
 
 const coins = requireElement("coins");
+const totalEarned = requireElement("total-earned");
 const productionText = requireElement("production");
 const collectors = requireElement("collectors");
 const factories = requireElement("factories");
@@ -59,6 +60,7 @@ const start = (): void => {
   function render(): void {
     const current = view(session.state());
     coins.textContent = current.coins;
+    totalEarned.textContent = current.totalEarned;
     productionText.textContent = current.production;
     collectors.textContent = current.collectors;
     factories.textContent = current.factories;

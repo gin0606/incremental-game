@@ -1,7 +1,7 @@
-import { expect, test } from "vitest";
+import { assert, expect, test } from "vitest";
 
 import type { GameState } from "../core/game.ts";
-import { advance, initialState } from "../core/game.ts";
+import { advance, initialState, perform } from "../core/game.ts";
 import { mul, num } from "../core/num.ts";
 import { formatWait, view } from "./view.ts";
 
@@ -10,6 +10,7 @@ const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, 
 test("初期状態では採集機と自動購入を並べ、工場は解放されるまで隠す。どれもまだ買えない", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",
+    totalEarned: "0",
     production: "1",
     collectors: "1",
     factories: "0",
@@ -52,6 +53,7 @@ test("工場が解放され、買える額があれば買える。自動購入�
 
   expect(current).toStrictEqual({
     coins: "200",
+    totalEarned: "1000",
     production: "23",
     collectors: "3",
     factories: "2",
@@ -78,6 +80,26 @@ test("工場が解放され、買える額があれば買える。自動購入�
       },
     ],
   });
+});
+
+test("これまでに生産したコインは、生産で増え、購入で手元のコインが減っても減らない", () => {
+  // 採集機 1 台で毎秒 1。手元のコインと同じく、端数は切り捨てる。
+  const produced = advance(initialState, 12.7);
+  // 採集機の値段 11.5 を払う。
+  const bought = perform(produced, { type: "buyCollector" });
+  assert.isDefined(bought);
+  // 採集機 2 台で毎秒 2。
+  const later = advance(bought, 5);
+
+  expect(view(produced)).toMatchObject({ coins: "12", totalEarned: "12" });
+  expect(view(bought)).toMatchObject({ coins: "1", totalEarned: "12" });
+  expect(view(later)).toMatchObject({ coins: "11", totalEarned: "22" });
+});
+
+test("これまでに生産したコインは、手元のコインと同じく 10 億から指数表記で示す", () => {
+  expect(view(state({ totalEarned: num(999_999_999.9) })).totalEarned).toBe("999999999");
+  expect(view(state({ totalEarned: num(1.2345e9) })).totalEarned).toBe("1.23e9");
+  expect(view(state({ totalEarned: mul(num(1e300), num(1e300)) })).totalEarned).toBe("1.00e600");
 });
 
 test("待ち時間は、生産でコインが増えるにつれて縮み、届くと買える表示に変わる", () => {

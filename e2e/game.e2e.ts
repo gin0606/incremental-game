@@ -55,6 +55,35 @@ test("次に買えるまでの待ち時間を示し、生産で縮み、届く�
   await expect(page.getByRole("button", { name: /^採集機を買う/v })).toBeEnabled();
 });
 
+test("これまでに生産したコインを見出しとともに示し、生産で増え、購入では減らない", async ({
+  page,
+}) => {
+  // 時計を止めてから開き、コイン 0 から始める。採集機 1 台で毎秒 1。
+  await page.clock.install({ time: at(0) });
+  await page.clock.pauseAt(at(60_000));
+  await page.goto("/");
+  await expect(page.locator("#collectors")).toHaveText("1");
+
+  // 見出しの直後の値を読み、見出しと値の組で確かめる。
+  const total = page.locator('dt:text-is("これまでに生産したコイン") + dd');
+  const coins = page.locator("#coins");
+  await expect(total).toHaveText("0");
+  await page.clock.runFor(12_000);
+  await expect(total).toHaveText("12");
+  await expect(coins).toHaveText("12");
+
+  // 採集機の値段 11.5 を払うと、手元のコインは減り、累計は変わらない。
+  await page.getByRole("button", { name: /^採集機を買う/v }).click();
+  await expect(page.locator("#collectors")).toHaveText("2");
+  await expect(coins).toHaveText("0");
+  await expect(total).toHaveText("12");
+
+  // 採集機 2 台で毎秒 2。
+  await page.clock.runFor(5000);
+  await expect(total).toHaveText("22");
+  await expect(coins).toHaveText("10");
+});
+
 test("閉じている間の時間もオフラインの経過として生産する", async ({ context }) => {
   const first = await context.newPage();
   await first.clock.install({ time: at(0) });

@@ -21,6 +21,7 @@ export interface ShopItem {
 /** 画面に出す文字列と、ボタンの状態。 */
 export interface View {
   readonly coins: string;
+  readonly totalEarned: string;
   readonly production: string;
   readonly collectors: string;
   readonly factories: string;
@@ -113,6 +114,7 @@ export function view(state: GameState): View {
   ];
   return {
     coins: format(state.coins),
+    totalEarned: format(state.totalEarned),
     production: format(production(state)),
     collectors: state.collectors.toString(),
     factories: state.factories.toString(),
