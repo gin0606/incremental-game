@@ -23,7 +23,7 @@ isolation: worktree
 
 ## `axon complete`
 
-worktree に隔離されたサブエージェントでは、`axon complete` が Claude Code の隔離の検査に拒否される。実行せず、スクリプトに書くなどの形で迂回もしない。`ax:start` の手順は完了の Note の記録と commit まで進め、Issue を `InProgress` のまま残す。報告に、完了させてよいことと、`axon complete -r` に渡す理由（改行を含まない 500 文字以内の 1 行）を書く。監督役が、取り込む側に完了させる Entity として結果ファイルに挙げる。
+worktree に隔離されたサブエージェントでは、`axon complete` が Claude Code の隔離の検査に拒否される。実行せず、スクリプトに書くなどの形で迂回もしない。`ax:start` の手順は完了の Note の記録と commit まで進め、Issue を `InProgress` のまま残す。報告に、完了させてよいことと、`axon complete --reason` に渡す理由（空白だけでなく、改行・タブなどの制御文字を含まない 500 文字以内の 1 行）を書く。監督役が、取り込む側に完了させる Entity として結果ファイルに挙げる。
 
 ## 検査
 

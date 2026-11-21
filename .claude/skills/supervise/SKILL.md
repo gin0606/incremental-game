@@ -19,7 +19,7 @@ disable-model-invocation: true
 - **拒否されたコマンドを迂回しない。** 権限ルールや worktree の隔離の検査に拒否されたコマンドを、スクリプトに書いて実行するなどの形で通さない。複合のコマンド（`&&` などでつないだもの）が拒否されたら、単独のコマンドに分けて試す。それでも拒否されたら、その操作をせずに最終報告に書く。
 - **長い検査は Bash の timeout を明示する。** 明示しないと `BASH_DEFAULT_TIMEOUT_MS` を超えた実行がバックグラウンドに移り、セッションが完了前に終わりうる。値は `BASH_MAX_TIMEOUT_MS` 以内にする。
 - **サブエージェントはフォアグラウンドで起動し、完了を待つ。** バックグラウンドで起動しない。終わったサブエージェントに SendMessage で送ると、バックグラウンドで再開する（Claude Code の文書）ため、差し戻しにも使わない（「結果を照合する」節）。judge は `subagent_type: judge` で新しく起動し、fork しない。
-- **worker の Issue は、起動から取り込みまで Note 以外で変えない。** 両方のブランチで同じ Entity のタイトル・本文・状態を変えると、git の rebase が成功したまま Axon の Entity が `Conflicted` になる。この間はセッション用ブランチに commit しない。
+- **worker の起動から取り込みまで、Axon の記録を変えない。** 両方のブランチで同じ Entity のタイトル・本文・状態を変えると、git の rebase が成功したまま Axon の Entity が `Conflicted` になる。また 6・7 は作業ツリーが空の状態で `<base>` などへ detach する。この間はセッション用ブランチに commit せず、Note も足さない。残す事実は回の記録に書く。
 - **`axon complete` はセッションの外に任せる。** 基盤の試運転では、worktree に隔離されたセッションとサブエージェントで、Claude Code の隔離の検査が `axon complete ...` を shell の組み込みの `complete` を実行するコマンドと読んで拒否した（引数を引用した形、`env`・`command` を前に置いた形も拒否された）。監督役も worker も `axon complete` を実行せず、スクリプトに書くなどの形で迂回もしない。完了させる Entity と理由を結果ファイルの `completions` に書き、取り込む側が取り込む前に実行する（「結果ファイル」節）。完了はセッションが終わった後になるので、同じ回の Issue の間に dependency を付けない（前の Issue が `InProgress` のままで、後の Issue の `axon start` が拒否される）。実行の順序は監督役が決める。
 - **判断を残す。** ユーザーに聞かずに下した判断と理由、差し戻しと理由を、関係する commit message と最終報告に残す（AGENTS.md「判断の記録」）。
 
@@ -40,27 +40,37 @@ disable-model-invocation: true
   "completions": [
     {
       "id": "<完了させる Entity の ID>",
-      "reason": "<axon complete の -r に渡す理由。改行を含まない 500 文字以内の 1 行>"
+      "reason": "<axon complete の --reason に渡す理由。下の制約を満たす 1 行>"
     }
   ],
   "summary": "<1 行の要約>"
 }
 ```
 
-`completions` は、`axon complete` する Entity を、実行する順（子の Issue、その後に Group）に並べる。取り込む側（隔離されていないシェル）は、セッションの worktree の HEAD が `head` であることを確かめ、その worktree で、並びの順に `axon complete <id> -r <reason>`（`reason` はそのまま 1 つの引数として渡す）を実行してそれぞれ終了コードを確かめる。どれかが失敗しても残りを続け、失敗した ID を回のログに残す（失敗した子を持つ Group の完了も失敗する。失敗した完了は次の回が拾い直すので、一つの失敗でほかの完了を止めない）。続けて `axon storage check` を実行し、`.axon/` の記録だけを commit して（その commit の差分が `.axon/` だけであることを確かめる）、その commit へ main を `git merge --ff-only` で進める（記録の変更が無ければ commit せずに `head` へ進める）。main は fast-forward でだけ動く。`axon storage check`・commit・fast-forward のどれかが失敗したら、その worktree を `git reset --hard <head>` と `git clean -fd -- .axon` で `head` に戻し（未 commit の記録と、作った commit を捨てる）、`head` を `git merge --ff-only` で取り込む。`head` も取り込めなければ何も取り込まず、失敗として扱う。実行されなかった完了は、次の回が「状態を読む」で拾い直す。
+`completions` の `id` は英数字で始まり、英数字・`_`・`-` だけからなる。`reason` は `axon complete` の `--reason` の制約に従い、空白だけでなく、改行・タブなどの制御文字を含まない 500 文字以内（UTF-16 の単位で数える）の 1 行にする。worker の報告が書いた理由も、この制約を確かめてから入れる。1 件でも満たさないと、ドライバは result.json 全体を読めないものとし、回を失敗にする（下のドライバが失敗にする回）。
+
+`completions` は、`axon complete` する Entity を、実行する順（子の Issue、その後に Group）に並べる。取り込む側（隔離されていないシェル）は、セッションの worktree の HEAD が `head` であることを確かめ、その worktree で、並びの順に `axon complete --reason=<reason> <id>`（`reason` はそのまま 1 つの引数として渡す）を実行してそれぞれ終了コードを確かめる。どれかが失敗しても残りを続け、失敗した ID を回のログに残す（失敗した子を持つ Group の完了も失敗する。失敗した完了は次の回が拾い直すので、一つの失敗でほかの完了を止めない）。続けて `axon storage check` を実行し、`.axon/` の記録だけを commit して（その commit の差分が `.axon/` だけであることを確かめる）、その commit へ main を `git merge --ff-only` で進める（記録の変更が無ければ commit せずに `head` へ進める）。main は fast-forward でだけ動く。`axon storage check`・commit・fast-forward のどれかが失敗したら、その worktree を `git reset --hard <head>` と `git clean -fd -- .axon` で `head` に戻し（未 commit の記録と、作った commit を捨てる）、`head` を `git merge --ff-only` で取り込む。`head` も取り込めなければ何も取り込まず、失敗として扱う。実行されなかった完了は、次の回が「状態を読む」で拾い直す。
 
 `status` は次のどれか。
 
-- `ready`: 目標を終え、`head`（セッション用ブランチの HEAD）が「取り込める状態を確かめる」節をすべて満たした。ドライバは `git merge --ff-only <head>` で取り込める。
-- `nothing`: 目標を進めなかった（進められる目標が無い、前の回の残りの処理だけで終わった、など）。理由を `summary` と最終報告に書く。`head` は `base` と同じか、`base` の上に Axon の記録だけの commit（未判断の登録、前の回の後始末の記録など）を持つ。記録の commit があれば、`ready` と同じ条件を満たしたうえで、ドライバが取り込める。`completions`（前の回から拾ったもの）があれば、`head` が `base` と同じでも、取り込む側が上の手順で実行する。
+- `ready`: 目標を終えたか、終えた目標を持つ前の回のブランチを 1 の継続で取り込み、`head`（セッション用ブランチの HEAD）が「取り込める状態を確かめる」節をすべて満たした。ドライバは `git merge --ff-only <head>` で取り込める。
+- `nothing`: 目標を進めず、1 の継続でも取り込まなかった（進められる目標が無い、前の回の残りの処理だけで終わった、など）。理由を `summary` と最終報告に書く。`head` は `base` と同じか、`base` の上に Axon の記録だけの commit（未判断の登録、前の回の後始末の記録など）を持つ。記録の commit があれば、`ready` と同じ条件を満たしたうえで、ドライバが取り込める。`completions`（前の回から拾ったもの）があれば、`head` が `base` と同じでも、取り込む側が上の手順で実行する。
 - `failed`: 取り込める状態にできなかった。セッション用ブランチを取り込ませない。最終報告に、止まった理由、commit 済みのもの、Axon の状態、残った worktree とブランチ、次の回が継続するのに要ることを書く。
+
+ドライバは、次のどれかに当たる回も、`status` によらず失敗にし、セッション用ブランチと worktree を次の回に残す。
+
+- result.json が無いか読めない（項目が欠けた、型が違う、`completions` が上の制約を満たさない）か、report.md が無い。
+- `branch` がこの回のセッション用ブランチでない、`head` がその先端と違う、`base` が回の開始時の main と違う。セッションの worktree が `head` のセッション用ブランチをチェックアウトしていない。
+- `nothing` の回の `base..head` の commit が `.axon/` の外を変えた。`ready` の回で main が進まなかった。
+
+ほかに、セッションの終わり方（終了コード 0 以外、シグナル、1 回の時間の上限）、main checkout と main の状態、ドライバ自身の処理の失敗でも失敗にする。理由は次の回に渡す「ドライバの記録」に書かれる。
 
 ## 回の記録
 
 取り込みの判断に使う事実を、`.tmp/supervise/round.md` に起きた順に書き足す。「取り込める状態を確かめる」と「やり直しの上限」は、この記録で照合して数える。
 
 - Issue ごとの worker の起動（最初の起動、差し戻し、やり直し）と、そのブランチ名。
-- 「保護範囲を検査する」で検査した worker のブランチの hash、検査の標準出力、judge に判断させた commit の hash ごとの結論と、judge の出力を保存したファイルのパス。
+- 「保護範囲を検査する」で検査した worker のブランチの hash、検査の標準出力、当たる commit（検出の行から辿ったものと、worker の報告が挙げたもの）、judge に判断させた commit の hash ごとの結論と、judge の出力を保存したファイルのパス。
 - 「取り込む」で全検査を通した hash と、取り込んだ commit（`git rev-list <取り込む前の HEAD>..HEAD`）。1 の継続で取り込んだ前の回のブランチの commit も同じく書く。
 - 終了監査の周と結論、時間切れで再実行した検査。
 
@@ -79,17 +89,18 @@ disable-model-invocation: true
 1. 監督セッションであることを確かめる: `INCREMENTAL_GAME_SUPERVISOR` が設定され、作業ディレクトリが main checkout の `.claude/worktrees/<回の名前>` で、回の名前が `supervise-` で始まり、ブランチが `worktree-<回の名前>`、`git status --short` が空、`git rev-parse HEAD` と `git rev-parse main` が同じであること。どれかが違えば、何も変えずに `failed` の結果ファイルを書いて終わる（保護範囲の hook が働かない、main を動かしうる、または分岐元が main でないため）。`git rev-parse HEAD` を `base` として控える。
 2. 監督の worktree で `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行する。
 3. AGENTS.md と `docs/design/` の設計記録を読む。AGENTS.md に「現在の段階」節が残っている間は、基盤の試運転だと方向性の引数に書かれた回だけを進める。書かれていなければ `nothing` で終わる。
-4. Axon の作業中・未着手の作業を `axon list` で読む。前回の最終報告として、環境変数 `INCREMENTAL_GAME_PREVIOUS_REPORT` が示すファイル（ドライバが前の回の `report.md` を保存した場所）と、直近の監督セッションの目標の Group（3 の印を本文に持つもの。完了していないものを含む）の最終報告の Note を読む。完了していない目標の Group（終了監査を通したと書いた最終報告の Note があるものを除く）があれば、その残りを継続するかを、下の前の回の残りの扱いの中で、2 の基準で決める。
-5. `git worktree list` と `git branch --list 'worktree-*'` で、前の回の残りを調べる。前の回の残りとして扱うのは、この回以外の `worktree-supervise-*` のセッション用ブランチと worktree と、前回の最終報告か残った worktree の `.tmp/supervise/report.md` が、その回の worker のものとして名前を挙げた `worktree-agent-*` のブランチと worktree だけにする。ほかの worktree とブランチ（対話のセッションや、報告の無い回の worker のもの）は変えずに、最終報告に一覧を書く。
+4. Axon の作業中・未着手の作業を `axon list` で読む。前回の最終報告として、環境変数 `INCREMENTAL_GAME_PREVIOUS_REPORT` が示すファイル（設定されていなければ無い）と、直近の監督セッションの目標の Group（3 の印を本文に持つもの。完了していないものを含む）の最終報告の Note を読む。完了していない目標の Group（終了監査を通したと書いた最終報告の Note があるものを除く）があれば、その残りを継続するかを、下の前の回の残りの扱いの中で、2 の基準で決める。
+   - ドライバが前の回の後に渡すファイルは、前の回の `report.md` の後に、ドライバが「ドライバの記録」の節を足したもの（`report.md` が無かった回では、書かれなかった旨の 1 行の後に節が続く）。節には、回の名前、セッションの終わり方、取り込みの結果（取り込んだ commit か、取り込まなかった理由）、実行できなかった完了の ID（result.json を読めなかった回では挙がらない）、その回の worker の worktree とブランチが入る。ドライバの最初の回に利用者が渡したファイルには、この節が無い。
+5. `git worktree list` と `git branch --list 'worktree-*'` で、前の回の残りを調べる。前の回の残りとして扱うのは、この回以外の `worktree-supervise-*` のセッション用ブランチと worktree と、前回の最終報告（「ドライバの記録」の節を含む）か残った worktree の `.tmp/supervise/report.md` が、その回の worker のものとして名前を挙げた `worktree-agent-*` のブランチと worktree だけにする。ほかの worktree とブランチ（対話のセッションや、報告の無い回の worker のもの）は変えずに、最終報告に一覧を書く。
 
-前の回の残りは、継続するか破棄するかを決める。継続を選ぶのは、前の回のセッション用ブランチが今の HEAD から fast-forward でき、前回の最終報告がそのブランチの commit と止まった理由を挙げていて、その目標を継続すると決めた場合（2 の基準で、この時点で決める）に限る。それ以外と、継続の検査が通らなかった場合は破棄する。ドライバは回を順に起動し、次の回の前に、前の回のセッション用の worktree と、その回の報告が挙げた worker の worktree の lock を外すので、前の回のセッションと worker は終わっている。
+前の回の残りは、継続するか破棄するかを決める。継続を選ぶのは、前の回のセッション用ブランチが今の HEAD から fast-forward でき、前回の最終報告がそのブランチの commit と止まった理由を挙げていて、その目標を継続すると決めた場合（2 の基準で、この時点で決める）に限る。前回の最終報告が `ready`（目標を終え、終了監査を通した）なのにドライバの記録が取り込まなかったとする回は、2 の基準によらず継続を選ぶ（終えた作業なので）。この継続で取り込んだら、2〜8 で新しい目標を始めず、「取り込める状態を確かめる」を経て `ready` で終える（新しい目標が `failed` になると、終えた作業も取り込まれなくなるため）。ほかの継続では、継続した目標を 8 の終了監査まで終えて `ready` にし、終えられなければ `failed` にする。ただし、前の回のブランチが検出の規則か一覧を変えていれば（`git diff --quiet HEAD <ブランチ> -- scripts/protect foundation-paths.txt` が差分ありで終わる）、継続しない。6 は前の回のブランチを 1 本のブランチとして `HEAD` の規則と一覧で検査するので、前の回の途中で一覧に足したパスへの後の変更を検出しないため。この理由で終えた目標を破棄したら、その目標と破棄した理由を挙げた `Undecided` を `axon-kit:capture` で登録する（目標の Group と Issue は破棄したブランチにしか無いため）。それ以外と、継続の検査が通らなかった場合は破棄する。ドライバは回を順に起動し、前の回のセッションが終わってから次の回を起動するので、前の回のセッションと worker は終わっている。ドライバは、回の後にその回のセッション用の worktree と worker の worktree の lock を外し、次の回の前に、lock の持ち主（lock の理由が示すプロセス）が終わった `supervise-*` の worktree と、そのプロセスが lock した `agent-*` の worktree の lock を外す。報告が挙げた名前では選ばない。ほかの lock（持ち主を読めない、持ち主が動いている、持ち主が監督セッションのプロセスでない）は外さない。
 
 前の回のセッション用ブランチが HEAD の祖先（`git merge-base --is-ancestor <ブランチ> HEAD` が成功）なら、取り込み済みなので、継続も破棄も選ばずに下の方法で削除する。
 
-- **継続**: 前の回のセッション用ブランチが今の HEAD から fast-forward できる場合に限る。「保護範囲を検査する」節の検査（`<worker のブランチ>` を前の回のブランチに読み替える）と「取り込む」節の全検査を、その先端で通してから `git merge --ff-only` で取り込み、`axon storage check` を実行する。依存が変わっていれば `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行する。検出に当たる commit が「承認」以外になれば（差し戻す worker がいない）、継続せずに破棄する。前の回の worker のブランチは、取り込まれていない作業として破棄し、その Issue は新しい worker にやり直させる（worker の `axon start` はそのブランチにしか無いので、セッション用ブランチでは `NotStarted` のまま）。
+- **継続**: 前の回のセッション用ブランチが今の HEAD から fast-forward できる場合に限る。「保護範囲を検査する」節の検査（`<worker のブランチ>` を前の回のブランチに、worker の報告を前回の最終報告に読み替える。前回の最終報告が挙げた hash のうち、`HEAD..<前の回のブランチ>` に無いものは取り込まれないので加えない）と「取り込む」節の全検査を、その先端で通してから `git merge --ff-only` で取り込み、`axon storage check` を実行する。依存が変わっていれば `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行する。検査の結果が、取り込まないか差し戻すことになれば（merge commit がある、当たる commit が「承認」以外になった、全検査が落ちた、など。差し戻す worker がいない）、継続せずに破棄する。前の回の worker のブランチは、取り込まれていない作業として破棄し、その Issue は新しい worker にやり直させる（worker の `axon start` はそのブランチにしか無いので、セッション用ブランチでは `NotStarted` のまま）。
 - **破棄**: 取り込まない。
 
-継続で取り込んだもの以外の前の回の worktree とブランチは、監督の worktree から `git worktree remove <worktree の絶対パス>` と `git branch -D <ブランチ>` で削除する。破棄すると決めた作業なので、未 commit の変更が残って削除できなければ `--force` で削除する。lock が残って削除できないものは、最終報告に一覧を書き、ドライバに任せる。削除したブランチにしか無かった `Undecided`（前回の最終報告が挙げたもの）は、`axon-kit:capture` で登録し直して commit する。
+継続で取り込んだもの以外の前の回の worktree とブランチは、監督の worktree から `git worktree remove <worktree の絶対パス>` と `git branch -D <ブランチ>` で削除する。破棄すると決めた作業なので、未 commit の変更が残って削除できなければ `--force` で削除する。lock が残って削除できないものは、`git worktree unlock` で外さず（持ち主を確かめられない lock を外すと、動いているセッションを壊しうる）、最終報告に一覧と lock の理由（`git worktree list --porcelain` の `locked` の行）を書く。削除したブランチにしか無かった `Undecided`（前回の最終報告が挙げたもの）は、`axon-kit:capture` で登録し直して commit する。
 
 残りを処理した後に、実行されなかった前の回の `completions` を拾う。3 の印を本文に持つ Group の子で、HEAD にあり完了の Note があるのに `InProgress` の Issue を、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。その後に、印の Group で、終了監査を通したと書いた最終報告の Note があり、直接の子が終わっているか今入れた Issue だけが残るものを入れる。この Group は目標を終えているので、2 で継続する目標にしない。前の回が取り込まれていて（前回の最終報告の `status` が `failed` でなく、その `head` が `base` の祖先。`git merge-base --is-ancestor <前回の head> <base>`）、拾った Entity が前回の最終報告の `completions` にも挙がっていたなら（取り込む側の完了が失敗した）、最終報告に挙げ、その Entity を挙げた `Undecided` がまだ無ければ `axon-kit:capture` で登録する。終了監査を通した印の Group で、ほかの子が残って入れられないものは、`completions` に入れずに最終報告に挙げ、その Entity を挙げた `Undecided` がまだ無ければ `axon-kit:capture` で登録する。この段落で登録する `Undecided` には Parent を付けない（Group の配下に置くと、その Group が完了できなくなる）。印の無い Group とその子は入れない。
 
@@ -100,7 +111,7 @@ disable-model-invocation: true
 - 1 回のセッションで、検査を含めて終わる大きさにする。大きければ最初の一歩だけを目標にする。
 - 未判断の Entity を目標にするのは、ユーザーの決定と保護範囲を緩めることにかかわらないものに限る。
 - 保護範囲（AGENTS.md「保護範囲」節）を緩める変更は目標にしない。必要なら `axon-kit:capture` で `Undecided` に登録して最終報告に挙げる。
-- 進められる目標が無ければ `nothing` で終わる。
+- 進められる目標が無ければ `nothing` で終わる（1 の継続で取り込んだ回は、1 の継続の段落による）。
 
 ## 3. 計画を登録する
 
@@ -149,27 +160,34 @@ worker のブランチに新しい commit が加わったら（差し戻し、�
 
 検出の規則・一覧と検査の入口は、取り込み先の main の版（`<base>`）で動かす。この回で取り込んだ規則の変更はまだ main に無く、セッション用ブランチの版で動かすと、その変更に検出の漏れがあれば後の worker のブランチの変更を見逃す。規則か一覧が `<base>` の版と違う作業ツリーでは終了コード 2 で止まるので、worker のブランチを checkout して実行したり、commit ごとに親を `<base>` にして実行したりしない。
 
-監督の worktree の作業ツリーが空の状態で、`git rev-parse <worker のブランチ>` と `git rev-parse HEAD` を回の記録に書く。以下の `<その hash>` は前者、`<取り込み先の hash>` は後者を指す（検査の途中でブランチが進んでも、検査する版がずれない）。`git switch --detach <base>` し（`package.json` か `pnpm-lock.yaml` が `<base>` と `<取り込み先の hash>` で違えば、`pnpm install --frozen-lockfile` を実行してから。`pnpm run` は、入っている依存が lockfile と合わないと、検査を始めずに終了コード 1 で終わる）、次の 2 つを実行して標準出力を回の記録に書き、`git switch <セッション用ブランチ>` で戻る（依存を入れ直していたら、戻った後にもう一度 `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行する）。
+監督の worktree の作業ツリーが空（`git status --short`）であることを確かめる。この間に監督役が残す変更は無いので、空でなければ、`git status --short` と `git diff HEAD` を `.tmp/supervise/` のファイルに控えて回の記録に書き、監督の worktree のルートで `git restore --staged --worktree -- .` と `git clean -fd` を実行して捨ててから進める。捨てた後も空でなければ（コマンドが拒否された場合を含む）、取り込まず、新しい worker を起動せずに `failed` にする（作業ツリーが空にならない限り、どの worker のブランチも検査できないため）。`git rev-parse <worker のブランチ>` と `git rev-parse HEAD` を回の記録に書く。以下の `<その hash>` は前者、`<取り込み先の hash>` は後者を指す（検査の途中でブランチが進んでも、検査する版がずれない）。`git switch --detach <base>` し（`package.json` か `pnpm-lock.yaml` が `<base>` と `<取り込み先の hash>` で違えば、`pnpm install --frozen-lockfile` を実行してから。`pnpm run` は、入っている依存が lockfile と合わないと、検査を始めずに終了コード 1 で終わる）、回全体の検査とブランチの検査を実行して標準出力を回の記録に書き、`git switch <セッション用ブランチ>` で戻る（依存を入れ直していたら、戻った後にもう一度 `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行する）。ブランチの検査を使えないときは、戻った後に、取り込み先の規則での検査も実行して標準出力を回の記録に書く。
 
 - 回全体の検査: `pnpm run check:protected <base> <その hash>`。この回で前に取り込んだ Issue の検出も出る。
-- ブランチの検査: `pnpm run check:protected <取り込み先の hash> <その hash>`。worker のブランチが加えた差分だけを `<base>` の規則で見る。この回で `scripts/protect/` か `foundation-paths.txt` を変えた commit を取り込んでいれば、規則が `<取り込み先の hash>` の版と違うので終了コード 2 で止まる。そのとき（`git diff --quiet <base> <取り込み先の hash> -- scripts/protect foundation-paths.txt` が差分ありで終わるとき）はブランチの検査を使わない。ほかのときのブランチの検査の 2 は、回全体の検査の 2 と同じに扱う。
+- ブランチの検査: `pnpm run check:protected <取り込み先の hash> <その hash>`。worker のブランチが加えた差分だけを `<base>` の規則で見る。この回で `scripts/protect/` か `foundation-paths.txt` を変えた commit を取り込んでいれば、規則か一覧が `<取り込み先の hash>` の版と違うので終了コード 2 で止まる。そのとき（`git diff --quiet <base> <取り込み先の hash> -- scripts/protect foundation-paths.txt` が差分ありで終わるとき）はブランチの検査を使わない。
+- 取り込み先の規則での検査: ブランチの検査を使えないときだけ、セッション用ブランチの作業ツリー（HEAD が `<取り込み先の hash>`）で `pnpm run check:protected <取り込み先の hash> <その hash>` を実行する。worker のブランチが加えた差分を、この回で取り込んだ規則と一覧で見る。回全体の検査は `<base>` の一覧を読むので、この回で一覧に足したパスへの変更を検出しないため。
 
-どちらの検査も、終了コード 0 は標準出力の最初の行が「保護範囲に当たる変更は無い」で始まるとき、1 は「保護範囲に当たる変更がある」で始まり `- ` で始まる行（検出の行）が 1 つ以上あるときだけ、その終了コードとして扱い、ほかは 2 として扱う。この確かめの後で、Axon の記録のファイル（パスが `.axon/records/<2 文字>/<64 文字の 16 進数>` で、拡張子が無いもの）への、行の内容による検出の行（種類が「抑制の印」か「ミューテーションテストの設定と除外」で、パスの後の括弧の中が「追加した行:」か「…を消した行:」で始まるもの）を無いものとして扱い、残る検出の行が無ければ終了コード 0 として扱う（Axon の記録は保護範囲でなく、本文や Note が抑制の印などを書き写すと検出される。`.axon/` の下のほかのファイルへの検出と、パスによる検出（入れ子の CLAUDE.md など）は残す）。以下の終了コードは回全体の検査のもの。「最後に取り込んだブランチの回全体の検査の出力」は、この回で最後に取り込んだ hash（1 の継続で取り込んだ前の回のブランチを含む）について回の記録に書いた出力を指し、まだ何も取り込んでいなければ検出の行の無い出力とする。
+どの検査も、終了コード 0 は標準出力の最初の行が「保護範囲に当たる変更は無い」で始まるとき、1 は「保護範囲に当たる変更がある」で始まり `- ` で始まる行（検出の行）が 1 つ以上あるときだけ、その終了コードとして扱い、ほかは 2 として扱う。この確かめの後で、Axon の記録のファイル（パスが `.axon/records/<2 文字>/<64 文字の 16 進数>` で、拡張子が無いもの）への、行の内容による検出の行（種類が「抑制の印」か「ミューテーションテストの設定と除外」で、パスの後の括弧の中が「追加した行:」か「…を消した行:」で始まるもの）を無いものとして扱い、残る検出の行が無ければ終了コード 0 として扱う（Axon の記録は保護範囲でなく、本文や Note が抑制の印などを書き写すと検出される。`.axon/` の下のほかのファイルへの検出と、パスによる検出（入れ子の CLAUDE.md など）は残す）。「最後に取り込んだブランチの回全体の検査の出力」は、この回で最後に取り込んだ hash（1 の継続で取り込んだ前の回のブランチを含む）について回の記録に書いた出力を指し、まだ何も取り込んでいなければ検出の行の無い出力とする。
 
-- 終了コード 0: 検出なし。
-- 終了コード 1: 検出あり。結果はパスと種類ごとに出る。worker のブランチの commit から検出に当たる commit を、行ごとに `git log --format=%H <取り込み先の hash>..<その hash> -- <パス>`（追加した行の印は、大文字と小文字を区別しない `git log -i -G<印> <取り込み先の hash>..<その hash> -- <パス>`）で特定する。この方法は、検出に当たる部分を変えていない commit も拾うが、それも judge に判断させる。辿る行は次のとおり。
-  - ブランチの検査を使えるとき: ブランチの検査の検出の行を辿る。回全体の検査の行のうち、ブランチの検査に無く、この回で最後に取り込んだブランチの回全体の検査の出力（回の記録）にも無い行があれば、取り込まない。
-  - 使えないとき: 回全体の検査の行をすべて辿る（前に取り込んだ Issue の検出と同じ行でも、そのパスに触れた commit を judge に判断させる）。当たる commit が無い行は、最後に取り込んだブランチの回全体の検査の出力に同じ行があるときだけ許し、無ければ取り込まない。
+実行した検査（使えないときのブランチの検査を除く）のどれかが終了コード 2 なら、検査が失敗した。原因（規則の未 commit の変更など）を調べ、監督役が直せるもの（自分の未 commit のファイル、`<base>` の lockfile と合わない依存は `pnpm install --frozen-lockfile`）なら直して 1 回だけ再実行する。直せないか、再実行も 2 なら取り込まない。
 
-  当たる commit のうち、その行の挙げる項目・節・印を変えるものに、ほかの変更が混ざっていれば差し戻して分けさせる（worker.md・protected-worker.md が 1 つの commit にまとめるとした、分けられない最小の変更は除く）。当たる commit ごとに `git show <commit>` を `.tmp/supervise/` のファイルに書き、judge を起動して、そのファイルのパスと AGENTS.md だけを渡して判断させる（作業の文脈、Issue、worker の報告は渡さない）。同じ hash の commit にこの回で「承認」か、条件を満たした「条件付き承認」を得ていれば、もう一度判断させない。judge の出力は commit の hash ごとのファイルに `.tmp/supervise/` に保存し、結論を回の記録に書いて、次のように扱う。
-  - 「承認」: その commit を取り込める。
-  - 「条件付き承認」: 条件を満たすよう差し戻す。差し戻しから返ってこの節に来たら、その commit を単独では判断させず、その commit と、差し戻しで加わったすべての commit（`git log --format=%H <その commit が最初に条件付き承認を得たときに検査した hash>..<その hash>`。条件に応えた、検出に当たらない commit も含む）の `git show` と、それまでに付いた条件の文すべてを、新しい judge 1 件に渡して再判定させる。再判定の結論を、その commit と、加わった commit のうち検出に当たるものそれぞれの結論として記録する。再判定の「承認」は、条件を満たした「条件付き承認」として扱う。再判定が「条件付き承認」ならもう一度差し戻し、「却下」なら取り込まない。
-  - 「却下」: 取り込まない。やり直しの worker のブランチが、却下された変更と同じ変更（同じパスへの同じ趣旨の変更）を含んでいれば、judge に渡さずに取り込まない。
-  - 無効な結論: judge の実行の失敗、最初の行が judge.md の結論の形（`結論: 承認`・`結論: 条件付き承認`・`結論: 却下`）でない、条件付き承認に条件が無い、渡したもの以外を根拠にした、保護範囲の判断を外れた、のどれか。ただし、judge の実行が失敗した場合を除き、最初の行に「却下」とある出力は、形が違っても「却下」として扱う。新しい judge で一度だけやり直す。やり直しても有効な結論が無ければ取り込まない。
+2 が無ければ、judge に判断させる commit（以下、当たる commit）を、次の 2 つの和として集める。
 
-  取り込むのは、検出に当たる commit がどれも「承認」か、条件を満たした「条件付き承認」の場合だけにする。
+- **検出の行から辿る commit。** 辿る行は次のとおり。
+  - ブランチの検査を使えるとき: ブランチの検査の検出の行。回全体の検査の行のうち、ブランチの検査に無く、最後に取り込んだブランチの回全体の検査の出力にも無い行があれば、取り込まない。
+  - 使えないとき: 回全体の検査の行と、取り込み先の規則での検査の行のすべて（前に取り込んだ Issue の検出と同じ行でも、そのパスに触れた commit を judge に判断させる）。
 
-- 終了コード 2: 検査が失敗した。原因（規則の未 commit の変更など）を調べ、監督役が直せるもの（自分の未 commit のファイル、`<base>` の lockfile と合わない依存は `pnpm install --frozen-lockfile`）なら直して 1 回だけ再実行する。直せないか、再実行も 2 なら取り込まない。
+  行ごとに、worker のブランチの commit から当たる commit を `git log --format=%H <取り込み先の hash>..<その hash> -- <パス>` で特定する。「追加した行:」の行は、大文字と小文字を区別しない `git log --format=%H -i -G<印> <取り込み先の hash>..<その hash> -- <パス>` で絞る（`<印>` は、その行が挙げる追加した行のうち、正規表現の特殊文字を含まない部分。`oxlint-disable` など）。この方法は、検出に当たる部分を変えていない commit も拾うが、それも judge に判断させる。`-G` の `git log` が失敗するか 1 つも返さなければ、`-G` を外してパスで辿り直す。パスでも 1 つも特定できない行は、回全体の検査の行で、最後に取り込んだブランチの回全体の検査の出力に同じ行があるとき（前に取り込んだ Issue の検出）だけ許す。ほかは取り込まない（当たる commit が空のまま「どれも承認」を満たさせない）。
+
+- **worker の報告が保護範囲に当たると挙げた commit。** 検出されていなくても加える。報告が `<取り込み先の hash>..<その hash>` に無い hash を挙げていれば、報告とブランチが合わないので 5 の差し戻しで直させる。
+
+当たる commit が無ければ、judge を起動せずに 7 へ進む。当たる commit のうち、その行の挙げる項目・節・印を変えるものに、ほかの変更が混ざっていれば差し戻して分けさせる（worker.md・protected-worker.md が 1 つの commit にまとめるとした、分けられない最小の変更は除く）。当たる commit ごとに `git show <commit>` を `.tmp/supervise/` のファイルに書き、judge を起動して、そのファイルのパスと AGENTS.md だけを渡して判断させる（作業の文脈、Issue、worker の報告は渡さない）。同じ hash の commit にこの回で「承認」か、条件を満たした「条件付き承認」を得ていれば、もう一度判断させない。judge の出力は commit の hash ごとのファイルに `.tmp/supervise/` に保存し、結論を回の記録に書いて、次のように扱う。
+
+- 「承認」: その commit を取り込める。
+- 「条件付き承認」: 条件を満たすよう差し戻す。差し戻しから返ってこの節に来たら、その commit を単独では判断させず、その commit と、差し戻しで加わったすべての commit（`git log --format=%H <その commit が最初に条件付き承認を得たときに検査した hash>..<その hash>`。条件に応えた、検出に当たらない commit も含む）の `git show` と、それまでに付いた条件の文すべてを、新しい judge 1 件に渡して再判定させる。前のブランチを引き継がせずに作り直させた差し戻し（5）では、その commit が新しいブランチに無いので、代わりに `<取り込み先の hash>..<その hash>` のすべての commit を渡す。再判定の結論を、その commit（作り直しでは渡した commit）と、加わった commit のうち当たる commit それぞれの結論として記録する。再判定の「承認」は、条件を満たした「条件付き承認」として扱う。再判定が「条件付き承認」ならもう一度差し戻し、「却下」なら取り込まない。
+- 「却下」: 取り込まない。やり直しの worker のブランチが、却下された変更と同じ変更（同じパスへの同じ趣旨の変更）を含んでいれば、judge に渡さずに取り込まない。
+- 無効な結論: judge の実行の失敗、最初の行が judge.md の結論の形（`結論: 承認`・`結論: 条件付き承認`・`結論: 却下`）でない、条件付き承認に条件が無い、渡したもの以外を根拠にした、保護範囲の判断を外れた、のどれか。ただし、judge の実行が失敗した場合を除き、最初の行に「却下」とある出力は、形が違っても「却下」として扱う。新しい judge で一度だけやり直す。やり直しても有効な結論が無ければ取り込まない。
+
+取り込むのは、当たる commit がどれも「承認」か、条件を満たした「条件付き承認」の場合だけにする。
 
 ## 7. 取り込む
 
@@ -182,14 +200,14 @@ worker のブランチの HEAD で全検査を回す。監督の worktree で `g
 - `pnpm run test:e2e`
 - `pnpm run test:mutation`
 
-検査の後に `git status --short` が空であることを確かめる（検査が作業ツリーを書き換えていれば落ちたものとして扱う）。時間切れだけで落ちたら、`uptime` で負荷を確かめ、待って再実行する（「やり直しの上限」）。すべて通ったら、検査した hash（`git rev-parse HEAD`）を回の記録に書く。生存変異は、テストを足すか、等価変異として理由付きで受け入れるかを worker に判断させる。受け入れは保護範囲の変更なので protected-worker に任せる。
+検査の後に `git status --short` が空であることを確かめる（検査が作業ツリーを書き換えていれば落ちたものとして扱い、6 と同じく控えて捨ててから戻る。捨てられなければ、新しい worker を起動せずに `failed` にする）。時間切れだけで落ちたら、`uptime` で負荷を確かめ、待って再実行する（「やり直しの上限」）。すべて通ったら、検査した hash（`git rev-parse HEAD`）を回の記録に書く。生存変異は、テストを足すか、等価変異として理由付きで受け入れるかを worker に判断させる。受け入れは保護範囲の変更なので protected-worker に任せる。
 
 検査が終わったら、成否によらず、サブエージェントを起動する前に `git switch <セッション用ブランチ>` で戻る（detach したままだと、hook が worker の版の規則を読み、新しい worker も worker の HEAD から分岐する）。依存を入れ直していたら、戻った後に `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行し直す。どれかが落ちたら 5 の差し戻しへ進む。
 
 全検査が通ったら、次の順で取り込む。
 
 1. worker の worktree を、監督の worktree から `git worktree remove <worktree の絶対パス>` で削除する。未 commit の変更や追跡外のファイルが残って失敗したら、5 の差し戻しで commit か破棄をさせる（新しい commit が加われば 5 からやり直す）。`--force` は、中身を確かめて不要と判断した場合だけ使う。
-2. `git rev-parse <worker のブランチ>` が、6 で検査した hash と、全検査を通した hash の両方と同じことを確かめる。違えば（検査の後にブランチが動いた）、5 の「取り込まない」へ進む。`git merge --ff-only <その hash>` で取り込み、取り込んだ commit を回の記録に書き、依存が変わっていれば `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行する。worker の起動後にセッション用ブランチへ commit していなければ fast-forward できる。できなければ、5 の「取り込まない」へ進む。
+2. `git rev-parse <worker のブランチ>` が、6 で検査した hash と、全検査を通した hash の両方と同じことを確かめる。違えば（検査の後にブランチが動いた）、5 の「取り込まない」へ進む。回の記録で、その hash の 6 で当たる commit としたものが、どれも「承認」か、条件を満たした「条件付き承認」を得ていることを照合する。得ていないものがあれば、6 に戻る。`git merge --ff-only <その hash>` で取り込み、取り込んだ commit を回の記録に書き、依存が変わっていれば `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行する。worker の起動後にセッション用ブランチへ commit していなければ fast-forward できる。できなければ、5 の「取り込まない」へ進む。
 3. `axon storage check` を実行する。`Conflicted` が出たら `axon-kit:resolve` で解消する。
 4. `git branch -d <worker のブランチ>` で削除する。
 5. 次の Issue へ進む前に、取り込んだ記録を処分する。5 で控えた記録を登録し直す。worker が Group の配下に登録した `Undecided` は、`ax:start-group` と同じく処分する（既存の Issue の本文へ取り込んで取り消す、採用して実行の順に組み込む、基準に当たらず Group の完了の前にユーザーの判断も要らなければ Parent を外す）。5 で取り込んだ後に回すと決めた保護範囲の変更を、protected-worker の Issue として登録する。worker が採用済みの Entity や dependency を足していれば、この回で実行できるように直す。変えた記録を commit する。
@@ -204,7 +222,7 @@ judge を 2 件、順に起動する（`ax:start-group` の終了監査と同じ
 
 ### 取り込める状態を確かめる
 
-- 作業ツリーが空（`git status --short`）で、`axon storage check` が通る。
+- 監督の worktree がセッション用ブランチをチェックアウトし（`git symbolic-ref --short HEAD`）、作業ツリーが空（`git status --short`）で、`axon storage check` が通る。
 - `git merge-base --is-ancestor <base> HEAD` が成功し、`git rev-parse main` が `base` と同じ（main が動いていない。動いていれば `failed` にする）。
 - この回の worker の worktree とブランチが残っていない（`git worktree list`、`git branch --list 'worktree-agent-*'`）。
 - `completions` に、前の回から拾ったものと、取り込んだ子の Issue（完了の Note があり `InProgress`）と、目標を終えた Group が、実行する順に並んでいる。
@@ -212,9 +230,9 @@ judge を 2 件、順に起動する（`ax:start-group` の終了監査と同じ
 - `base` から HEAD までの回全体を、次で覆う。監督役が worker の取り込みの間にセッション用ブランチへ commit した変更は、6 の検査も 7 の全検査も経ていないため。
   - `git rev-list --merges <base>..HEAD` が空。
   - `git rev-list <base>..HEAD` の commit が、どれも、回の記録に書いた取り込んだ commit か、`.axon/` だけを変える commit（`git diff-tree --no-commit-id --name-only -r <commit> -- . ':!.axon'` が空）。
-  - `git rev-parse HEAD` を控え、6 の回全体の検査と同じ方法（依存の入れ直しと、標準出力による終了コードの確かめを含む）で `<base>` に detach して `pnpm run check:protected <base> <控えた hash>` を実行し、戻る。終了コードが 0 か 1 で、検出の行の並びが、6 の「最後に取り込んだブランチの回全体の検査の出力」と同じ（どちらも、6 で無いものとして扱う Axon の記録の行を除く）（何も取り込んでいなければ、検出が無い）。最後に取り込んだ commit から後は Axon の記録だけなので、違えば、6 を経ていない変更か、記録の誤りがある。2 なら満たさない。
+  - `git rev-parse HEAD` を控え、6 の回全体の検査と同じ方法（依存の入れ直しと、標準出力による終了コードの確かめを含む）で `<base>` に detach して `pnpm run check:protected <base> <控えた hash>` を実行し、戻る。終了コードが 0 か 1 で、検出の行の並びが、6 の「最後に取り込んだブランチの回全体の検査の出力」と同じ（どちらも、6 で無いものとして扱う Axon の記録の行を除く）（何も取り込んでいなければ、検出が無い）。最後に取り込んだ commit から後は Axon の記録だけなので、違えば、6 を経ていない変更か、記録の誤りがある。2 なら満たさない。戻った後に、セッション用ブランチをチェックアウトし、作業ツリーが空であることを確かめ直す。
 
-満たせば `ready`（目標を進めなかったなら `nothing`）、満たせなければ `failed` の結果ファイルを書いて終わる。
+満たせば `ready`（目標を進めず、1 の継続でも取り込まなかったなら `nothing`）、満たせなければ `failed` の結果ファイルを書いて終わる。
 
 ## 最終報告
 
