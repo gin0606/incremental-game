@@ -1,6 +1,7 @@
 // 画面の要素、localStorage、時計、タイマー、Web Locks をゲームにつなぐ。判断は session.ts・restore.ts・
 // notices.ts・tab-lock.ts・view.ts に置いてユニットテストとミューテーションテストで確かめ、ここには置かない
 // （このファイルはミューテーションテストの対象外で、E2E テストだけが確かめる）。
+import type { Action } from "../core/game.ts";
 import { createNotices } from "./notices.ts";
 import { startSession } from "./session.ts";
 import type { SaveStorage, Session } from "./session.ts";
@@ -69,6 +70,27 @@ const keepPlaying = (session: Session, render: () => void): void => {
   });
 };
 
+/** 店に品物の行を足す。得られるものの説明は、支援技術でもボタンと一緒に読めるようボタンの説明にもする。 */
+const addOffer = (
+  action: Action,
+  buy: () => void,
+): {
+  readonly row: HTMLElement;
+  readonly button: HTMLButtonElement;
+  readonly effect: HTMLElement;
+} => {
+  const row = document.createElement("p");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.addEventListener("click", buy);
+  const effect = document.createElement("span");
+  effect.id = `effect-${action.type}`;
+  button.setAttribute("aria-describedby", effect.id);
+  row.append(button, " ", effect);
+  shop.append(row);
+  return { row, button, effect };
+};
+
 // 時刻は Date.now() で測る。performance.now() は端末のスリープ中に進まないことがあり、その間の生産が失われる。
 const start = (): void => {
   const session = startSession(storage, notices, Date.now());
@@ -76,15 +98,12 @@ const start = (): void => {
   session.save(Date.now());
   showAway(session.away);
 
-  const buttons = view(session.state()).shop.map((item) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.addEventListener("click", () => {
+  const offers = view(session.state()).shop.map((item) =>
+    addOffer(item.action, () => {
       session.perform(item.action, Date.now());
       render();
-    });
-    return button;
-  });
+    }),
+  );
 
   function render(): void {
     const current = view(session.state(), session.pausedFor(Date.now()));
@@ -99,16 +118,16 @@ const start = (): void => {
     nextUnlock.hidden = current.nextUnlock === undefined;
     nextUnlock.textContent = current.nextUnlock ?? "";
     for (const [index, item] of current.shop.entries()) {
-      const button = buttons[index];
-      if (button !== undefined) {
-        button.textContent = item.label;
-        button.hidden = !item.visible;
-        button.disabled = !item.affordable;
+      const offer = offers[index];
+      if (offer !== undefined) {
+        offer.button.textContent = item.label;
+        offer.button.disabled = !item.affordable;
+        offer.effect.textContent = item.effect;
+        offer.row.hidden = !item.visible;
       }
     }
   }
 
-  shop.append(...buttons);
   render();
   keepPlaying(session, render);
 };

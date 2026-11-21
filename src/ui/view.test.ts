@@ -2,13 +2,14 @@ import * as fc from "fast-check";
 import { assert, expect, test } from "vitest";
 
 import type { GameState } from "../core/game.ts";
-import { advance, initialState, perform } from "../core/game.ts";
+import { gameState } from "../core/game.arbitrary.ts";
+import { advance, initialState, perform, withPurchase } from "../core/game.ts";
 import { mul, num } from "../core/num.ts";
 import { formatDuration, view } from "./view.ts";
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
-test("初期状態では採集機と自動購入を並べ、工場は解放されるまで隠して解放の条件を示す。どれもまだ買えない", () => {
+test("初期状態では採集機と自動購入を並べ、工場は解放されるまで隠して解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",
     totalEarned: "0",
@@ -23,18 +24,21 @@ test("初期状態では採集機と自動購入を並べ、工場は解放さ�
       {
         action: { type: "buyCollector" },
         label: "採集機を買う（12 コイン）",
+        effect: "買うと毎秒の生産が 1 増える",
         visible: true,
         affordable: false,
       },
       {
         action: { type: "buyFactory" },
         label: "工場を買う（150 コイン）",
+        effect: "買うと毎秒の生産が 10 増える",
         visible: false,
         affordable: false,
       },
       {
         action: { type: "buyAutoBuyer" },
         label: "自動購入を買う（1000000 コイン）",
+        effect: "採集機と工場を、買える額に達するたびに自動で買う",
         visible: true,
         affordable: false,
       },
@@ -66,24 +70,46 @@ test("工場が解放されたら解放の条件を示さず、買える額が�
       {
         action: { type: "buyCollector" },
         label: "採集機を買う（16 コイン）",
+        effect: "買うと毎秒の生産が 1 増える",
         visible: true,
         affordable: true,
       },
       {
         action: { type: "buyFactory" },
         label: "工場を買う（216 コイン）",
+        effect: "買うと毎秒の生産が 10 増える",
         visible: true,
         affordable: false,
       },
       {
         action: { type: "buyAutoBuyer" },
         label: "自動購入を買う（1000000 コイン）",
+        effect: "採集機と工場を、買える額に達するたびに自動で買う",
         visible: false,
         affordable: false,
       },
     ],
   });
 });
+
+test.each([
+  { index: 0, action: { type: "buyCollector" } },
+  { index: 1, action: { type: "buyFactory" } },
+] as const)(
+  "$action.type: 毎秒の生産が 10 億未満の間、買うと増えると示す毎秒の生産は、買った後に示す毎秒の生産と今のものとの差に等しい",
+  ({ index, action }) => {
+    fc.assert(
+      fc.property(gameState, (current) => {
+        const before = Number(view(current).production);
+        const after = Number(view(withPurchase(current, action)).production);
+
+        expect(view(current).shop[index]?.effect).toBe(
+          `買うと毎秒の生産が ${after - before} 増える`,
+        );
+      }),
+    );
+  },
+);
 
 test("これまでに生産したコインは、生産で増え、購入で手元のコインが減っても減らない", () => {
   // 採集機 1 台で毎秒 1。手元のコインと同じく、端数は切り捨てる。

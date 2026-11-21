@@ -7,6 +7,7 @@ import {
   isFactoryUnlocked,
   perform,
   production,
+  withPurchase,
 } from "../core/game.ts";
 import type { Num, Rounding } from "../core/num.ts";
 import { add, atLeast, div, format, num, sub, toNumber } from "../core/num.ts";
@@ -14,6 +15,8 @@ import { add, atLeast, div, format, num, sub, toNumber } from "../core/num.ts";
 export interface ShopItem {
   readonly action: Action;
   readonly label: string;
+  /** 買うと得られるもの。採集機と工場は増える毎秒の生産、自動購入は働き。 */
+  readonly effect: string;
   /** 解放されていて、まだ買える（一度きりの品物を買い終えていない）。 */
   readonly visible: boolean;
   readonly affordable: boolean;
@@ -75,6 +78,20 @@ export function formatDuration(seconds: Num, rounding: Rounding): string {
   return `${format(div(seconds, num(SECONDS_PER_DAY)), rounding)} 日`;
 }
 
+/** 買うと増える毎秒の生産の表示。切り捨てて、増えない分を増えるように見せない。 */
+const productionGain = (state: GameState, action: Action): string =>
+  `買うと毎秒の生産が ${format(sub(production(withPurchase(state, action)), production(state)))} 増える`;
+
+/**
+ * 品物ごとの、買うと得られるものの表示。自動購入の働きは、`src/core/game.ts` の自動購入の規則（何を、いつ買うか）を
+ * 言葉にしたもので、規則を変えるときは合わせて直す。
+ */
+const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = {
+  buyCollector: (state) => productionGain(state, { type: "buyCollector" }),
+  buyFactory: (state) => productionGain(state, { type: "buyFactory" }),
+  buyAutoBuyer: () => "採集機と工場を、買える額に達するたびに自動で買う",
+};
+
 /** 品物と、その値段。値段は、品物が見えていないとき（解放の前や買い終えた後）も求まる。 */
 interface Offer {
   readonly item: ShopItem;
@@ -91,6 +108,7 @@ const offer = (
   item: {
     action,
     label: `${name}を買う（${format(price, "up")} コイン）`,
+    effect: effects[action.type](state),
     visible,
     affordable: perform(state, action) !== undefined,
   },
