@@ -7,6 +7,7 @@ const validSettings = {
   step: 60,
   sampleEvery: 600,
   reasonable: ["efficiency", "roi"],
+  growth: { bounds: [0, 3600] },
   walls: { window: 600, below: 0.001 },
   choice: { best: "efficiency", restricted: ["cheapest"] },
   idle: { phases: [0, 600], window: 1800, away: [60, 600] },
@@ -14,7 +15,7 @@ const validSettings = {
 
 const validTargets = {
   milestones: { levels: [1, 2], ratio: { min: 1 } },
-  growth: { bounds: [0, 3600], speed: { max: 10 }, change: { min: 0, max: 2 } },
+  growth: { speed: { max: 10 }, change: { min: 0, max: 2 } },
   purchases: { median: { max: 600 }, longest: { max: 3600 } },
   novelty: { perDay: { min: 0.5 }, longestGap: { max: 3600 } },
   walls: { longest: { max: 1800 } },
@@ -85,6 +86,13 @@ test.each([
     value: ["roi", "best"],
     message: "settings.reasonable[1]: 購入規則（efficiency・roi・cheapest・newest・random）で書く",
   },
+  { path: ["growth"], value: undefined, message: "settings.growth: オブジェクトで書く" },
+  {
+    path: ["growth", "bounds"],
+    value: undefined,
+    message: "settings.growth.bounds: 空でない配列で書く",
+  },
+  { path: ["growth", "bounds"], value: [0], message: "settings.growth.bounds: 2 つ以上の値を書く" },
   { path: ["walls"], value: undefined, message: "settings.walls: オブジェクトで書く" },
   { path: ["walls", "window"], value: 0, message: "settings.walls.window: 正の数で書く" },
   { path: ["walls", "below"], value: "0", message: "settings.walls.below: 有限の数で書く" },
@@ -172,12 +180,6 @@ test.each([
     message: "targets.milestones.ratio.mid: 知らない項目",
   },
   {
-    path: ["growth", "bounds"],
-    value: undefined,
-    message: "targets.growth.bounds: 空でない配列で書く",
-  },
-  { path: ["growth", "bounds"], value: [0], message: "targets.growth.bounds: 2 つ以上の値を書く" },
-  {
     path: ["growth", "speed"],
     value: undefined,
     message: "targets.growth.speed: オブジェクトで書く",
@@ -249,6 +251,7 @@ const measuring: readonly (readonly string[])[] = [
   ["step"],
   ["sampleEvery"],
   ["reasonable"],
+  ["growth", "bounds"],
   ["walls", "window"],
   ["walls", "below"],
   ["choice", "best"],

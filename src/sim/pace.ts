@@ -71,9 +71,8 @@ const playMeasure = <S>(
   run: Run<S>,
 ): PlayMeasure => {
   const { timeline } = run;
-  const { duration, sampleEvery, walls } = settings;
-  const { milestones, growth } = targets;
-  const times = milestoneTimes(timeline, milestones.levels);
+  const { duration, sampleEvery, growth, walls } = settings;
+  const times = milestoneTimes(timeline, targets.milestones.levels);
   const speeds = segmentSpeeds(timeline, growth.bounds);
   const purchases = gaps(
     timeline.filter((entry) => entry.kind === "purchase").map((entry) => entry.t),

@@ -59,6 +59,7 @@ const settings: Settings = {
   step: 10,
   sampleEvery: 10,
   reasonable: ["efficiency"],
+  growth: { bounds: [0, 50, 100] },
   walls: { window: 50, below: 1 },
   choice: { best: "efficiency", restricted: ["cheapest"] },
   idle: { phases: [0, 50], window: 50, away: [5, 50] },
@@ -66,7 +67,7 @@ const settings: Settings = {
 
 const targets: Targets = {
   milestones: { levels: [0.2, 0.4, 1], ratio: { min: 0 } },
-  growth: { bounds: [0, 50, 100], speed: { min: 0 }, change: { min: 0 } },
+  growth: { speed: { min: 0 }, change: { min: 0 } },
   purchases: { median: { min: 0 }, longest: { min: 0 } },
   novelty: { perDay: { min: 0 }, longestGap: { min: 0 } },
   walls: { longest: { min: 0 } },

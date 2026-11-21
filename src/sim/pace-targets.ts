@@ -28,6 +28,10 @@ export interface Settings {
   readonly sampleEvery: number;
   /** 妥当なボットとみなす購入規則。節目・成長・購入・新要素・壁と放置の指標は、この規則のボットで測る。 */
   readonly reasonable: readonly PurchaseRule[];
+  readonly growth: {
+    /** 対数成長速度を測る区間の区切り（昇順、0 から遊ばせる時間まで）。 */
+    readonly bounds: readonly number[];
+  };
   readonly walls: {
     /** 速度を測る区間の長さ。 */
     readonly window: number;
@@ -59,8 +63,6 @@ export interface Targets {
     readonly ratio: Band;
   };
   readonly growth: {
-    /** 対数成長速度を測る区間の区切り（昇順、0 から遊ばせる時間まで）。 */
-    readonly bounds: readonly number[];
     /** 区間ごとの対数成長速度（1 時間あたりの桁数）。 */
     readonly speed: Band;
     /** 隣り合う区間の速度の比。 */
@@ -135,10 +137,15 @@ const targetFieldsOf = (
 /** 測り方の項目の名前。測り方を読むときと、目標値のファイルが持てば拒むときに使う。 */
 const measuring = {
   top: ["duration", "step", "sampleEvery", "reasonable"],
+  growth: ["bounds"],
   walls: ["window", "below"],
   choice: ["best", "restricted"],
   idle: ["phases", "window", "away"],
 } as const;
+
+const settingsGrowth: Reader<Settings["growth"]> = (value, path) => ({
+  bounds: fieldsOf(value, path, measuring.growth)("bounds", series),
+});
 
 const settingsWalls: Reader<Settings["walls"]> = (value, path) => {
   const field = fieldsOf(value, path, measuring.walls);
@@ -165,12 +172,19 @@ const settingsIdle: Reader<Settings["idle"]> = (value, path) => {
  * @throws {TargetsError} 項目が欠けている、知らない項目がある、値の種類や範囲が違うとき。
  */
 export function parseSettings(value: unknown): Settings {
-  const field = fieldsOf(value, "settings", [...measuring.top, "walls", "choice", "idle"]);
+  const field = fieldsOf(value, "settings", [
+    ...measuring.top,
+    "growth",
+    "walls",
+    "choice",
+    "idle",
+  ]);
   return {
     duration: field("duration", positive),
     step: field("step", positive),
     sampleEvery: field("sampleEvery", positive),
     reasonable: field("reasonable", list(rule)),
+    growth: field("growth", settingsGrowth),
     walls: field("walls", settingsWalls),
     choice: field("choice", settingsChoice),
     idle: field("idle", settingsIdle),
@@ -183,12 +197,8 @@ const milestones: Reader<Targets["milestones"]> = (value, path) => {
 };
 
 const growth: Reader<Targets["growth"]> = (value, path) => {
-  const field = fieldsOf(value, path, ["bounds", "speed", "change"]);
-  return {
-    bounds: field("bounds", series),
-    speed: field("speed", band),
-    change: field("change", band),
-  };
+  const field = targetFieldsOf(value, path, ["speed", "change"], measuring.growth);
+  return { speed: field("speed", band), change: field("change", band) };
 };
 
 const purchases: Reader<Targets["purchases"]> = (value, path) => {

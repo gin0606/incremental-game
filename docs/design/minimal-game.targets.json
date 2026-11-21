@@ -1,10 +1,6 @@
 {
   "milestones": { "levels": [1, 2, 2.5, 2.75], "ratio": { "min": 1, "max": 50 } },
-  "growth": {
-    "bounds": [0, 3600, 14400, 43200, 86400, 172800, 259200],
-    "speed": { "min": 0.0005, "max": 10 },
-    "change": { "min": 0.005, "max": 2 }
-  },
+  "growth": { "speed": { "min": 0.0005, "max": 10 }, "change": { "min": 0.005, "max": 2 } },
   "purchases": { "median": { "max": 600 }, "longest": { "max": 7200 } },
   "novelty": { "perDay": { "min": 0.3 }, "longestGap": { "max": 259200 } },
   "walls": { "longest": { "max": 86400 } },
