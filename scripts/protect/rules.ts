@@ -87,7 +87,9 @@ const rule = (category: Category, matches: PathMatcher, detail: string): PathRul
 
 // 判定の基盤（foundation-paths.txt が列挙する）のほかに、パスで見分ける保護範囲。大文字と小文字を区別しない。
 // - 検査の設定: tsrs・oxlint・oxfmt・lefthook が読む設定と除外の一覧。.gitignore は oxlint と oxfmt が対象から
-//   外すファイルの一覧として読む。lefthook は lefthook-local.yml などの名前と .lefthook/ の下のスクリプトも読む。
+//   外すファイルの一覧として読む。lefthook は yml・yaml・toml・json・jsonc の拡張子の lefthook と lefthook-local
+//   （先頭にドットを付けた名前と、.config/ の下を含む）を設定として読み、.lefthook/・.lefthook-local/ の下の
+//   スクリプトを動かす。
 // - 検査の設定（pnpm）: pnpm-workspace.yaml（overrides・patchedDependencies・pnpmfile などの設定）、.npmrc、
 //   pnpmfile（.pnpmfile.mjs・.pnpmfile.cjs。readPackage で依存の package.json を書き換えられる）、patches/
 //   （pnpm patch の既定の置き場）。どれも oxlint・tsrs などの検査の道具を、版を変えずに何もしないものへ差し替え
@@ -121,7 +123,14 @@ const PATH_RULES: readonly PathRule[] = [
     (path) => /(?:^|\/)\.gitignore$/iv.test(path),
     "oxlint と oxfmt が読む除外の一覧",
   ),
-  rule("検査の設定", (path) => /(?:^|\/)\.?lefthook/iv.test(path), "lefthook の設定"),
+  rule(
+    "検査の設定",
+    (path) =>
+      /(?:^|\/)(?:\.?lefthook(?:-local)?\.(?:ya?ml|toml|jsonc?)$|\.lefthook(?:-local)?\/)/iv.test(
+        path,
+      ),
+    "lefthook の設定",
+  ),
   rule(
     "検査の設定",
     (path) =>
@@ -178,11 +187,16 @@ export const pathFindings = (path: string, foundation: PathList): readonly Findi
 export const inGitDirectory = (absolutePath: string): boolean =>
   /(?:^|\/)\.git(?:\/|$)/iv.test(absolutePath);
 
-// 追加された行にあれば、検査を抑制する印。
+// 追加された行にあれば、検査を抑制する印。TypeScript の印は抑制するものだけを挙げ、`@ts-check`（JavaScript の
+// ファイルを型検査させる。このリポジトリに JavaScript のファイルは無く、tsconfig も読ませない）と、`@ts-rest/...`
+// のような `@ts-` で始まるパッケージ名は含めない。検査を強める印（`@ts-check`、範囲の終わり、mutator-critical）
+// を足す変更は止めない。保護範囲は検査を弱める変更を対象にするため。
 const SUPPRESSION_MARKERS = [
   "oxlint-disable",
   "eslint-disable",
-  "@ts-",
+  "@ts-ignore",
+  "@ts-expect-error",
+  "@ts-nocheck",
   "mutator-disable",
   "stryker disable",
 ];

@@ -18,6 +18,7 @@ test.each([
   "// eslint-disable-line",
   "// @ts-expect-error",
   "// @ts-nocheck",
+  "// @ts-ignore: 理由",
   "// mutator-disable-next-line: 等価",
   "// Stryker disable next-line all",
 ])("追加した行の抑制の印（%s）を検出する", (line) => {
@@ -51,17 +52,24 @@ test.each(["// mutator-critical", "  // MUTATOR-CRITICAL"])("%s を消した行�
   ]);
 });
 
-test("抑制の印を消した行、範囲の終わりと mutator-critical を足した行、ゲームのコードは検出しない", () => {
+test("検査を強める印、抑制の印を消した行、@ts-check を消した行、ゲームのコードは検出しない", () => {
   expect(
     changeFindings(
       change({
         added: [
           "// oxlint-enable",
           "// mutator-critical",
+          "// @ts-check",
           "const tsx = 1;",
           "import x from '@tsconfig/x';",
+          'import { initContract } from "@ts-rest/core";',
         ],
-        removed: ["// oxlint-disable-next-line", "// @ts-expect-error", "const ts = 1;"],
+        removed: [
+          "// oxlint-disable-next-line",
+          "// @ts-expect-error",
+          "// @ts-check",
+          "const ts = 1;",
+        ],
       }),
       foundation,
     ),

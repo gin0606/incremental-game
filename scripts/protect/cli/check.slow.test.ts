@@ -155,7 +155,8 @@ test.each([
     name: "ゲームのコードと設計記録と、AGENTS.md の保護しない節",
     branch: "game",
     files: {
-      "src/core/game.ts": `${baseFiles["src/core/game.ts"]}export const g = 2;\n`,
+      "src/core/game.ts": `${baseFiles["src/core/game.ts"]}import { c } from "@ts-rest/core";\n// @ts-check\nexport const g = c;\n`,
+      "docs/lefthook-notes.md": "# lefthook の覚え書き\n",
       "src/core/upgrade.ts": "export const u = 1;\n",
       "docs/design/minimal-game.md": "# 設計\n\n施設を足した。\n",
       "AGENTS.md": replace(
