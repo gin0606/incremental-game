@@ -649,8 +649,9 @@
       }
     },
     {
-      // src/sim のテストでは、src/sim の override の許可にテストのライブラリを足す。テストのファイルの拡張子は
-      // vitest.config.ts の include と揃える。
+      // src/sim のテストでは、src/sim の override の許可にテストのライブラリと、設計記録の目標値のファイル
+      // （docs/design/*.targets.json。ペースの指標のテストが読む。データだけで、時刻や乱数に届かない）を足す。テストの
+      // ファイルの拡張子は vitest.config.ts の include と揃える。
       "files": [
         "src/sim/**/*.test.ts",
         "src/sim/**/*.test.mts",
@@ -667,8 +668,15 @@
                 "message": "ドットで始まるディレクトリ・ファイル（.tmp/ など Git 管理外の置き場を含む）を import しない。"
               },
               {
-                "group": ["*", "!./*", "!../core/*", "!vitest", "!fast-check"],
-                "message": "sim が import するのは src/sim と src/core とテストのライブラリだけにする。環境変数・時刻・乱数・実行環境を読まず、結果を引数とシードだけで決める。"
+                "group": [
+                  "*",
+                  "!./*",
+                  "!../core/*",
+                  "!vitest",
+                  "!fast-check",
+                  "!../../docs/design/*.targets.json"
+                ],
+                "message": "sim のテストが import するのは src/sim と src/core とテストのライブラリと設計記録の目標値（docs/design/*.targets.json）だけにする。環境変数・時刻・乱数・実行環境を読まず、結果を引数とシードだけで決める。"
               }
             ]
           }
