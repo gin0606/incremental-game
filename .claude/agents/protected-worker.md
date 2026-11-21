@@ -17,14 +17,14 @@ isolation: worktree
 
 - 起動時の作業ディレクトリ（`isolation: worktree` が作った worktree）が repository root。ファイルはそこにだけ書く。監督の worktree、main checkout、ほかの worktree にファイルを書かず、そこへ向けた git 操作もしない。一時ファイルは worktree の `.tmp/` に置く。
 - 最初に `pnpm install --frozen-lockfile` を実行する。
-- 対象の Issue 以外の Axon の Entity に着手しない。protected-worker や worker を起動しない。
+- 対象の Issue 以外の Axon の Entity に着手しない。採用済みの Entity の登録と dependency の追加はしない（対象の Issue が完了するのはセッションの外なので、この回では着手できなくなる）。要る作業や懸念は、`axon-kit:capture` で目標の Group の配下に `Undecided` として登録し、報告に書く。protected-worker や worker を起動しない。
 - commit の hook を飛ばさない（`--no-verify`、`-n`、`LEFTHOOK=0`、`LEFTHOOK_EXCLUDE`、`core.hooksPath` の変更を使わない）。
 - 権限ルールや worktree の隔離の検査に拒否されたコマンドを、スクリプトに書いて実行するなどの形で迂回しない。複合のコマンドなら単独のコマンドに分けて試し、それでも拒否されたら報告に書く。
 - 長い検査（`pnpm run test:mutation`、`pnpm run test:pace:full`、`pnpm run test:e2e`）は Bash の timeout を明示し、`BASH_MAX_TIMEOUT_MS` 以内に収める。時間切れだけで落ちたら、`uptime` で負荷を確かめ、待って再実行する。
 
 ## `axon complete`
 
-worktree に隔離されたサブエージェントでは、Claude Code の隔離の検査が `complete` の語を含むコマンドを shell の組み込みの `complete` と読んで拒否する（`axon complete` も拒否される）。`axon complete` を実行せず、スクリプトに書くなどの形で迂回もしない。`ax:start` の手順は完了の Note の記録と commit まで進め、Issue を `InProgress` のまま残す。報告に、完了させてよいことと `axon complete` の理由に使う文を書く。監督役が、取り込んだ後に完了させる Entity として結果ファイルに挙げる。
+worktree に隔離されたサブエージェントでは、`axon complete` が Claude Code の隔離の検査に拒否される。実行せず、スクリプトに書くなどの形で迂回もしない。`ax:start` の手順は完了の Note の記録と commit まで進め、Issue を `InProgress` のまま残す。報告に、完了させてよいことと、`axon complete -r` に渡す理由（改行を含まない 500 文字以内の 1 行）を書く。監督役が、取り込む側に完了させる Entity として結果ファイルに挙げる。
 
 ## 終わるとき
 

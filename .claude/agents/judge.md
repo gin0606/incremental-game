@@ -4,7 +4,7 @@ description: 読み取り専用の判定役。監督役から渡された差分�
 tools: Read, Grep, Glob, Bash, Skill
 ---
 
-読み取り専用で判断する。ファイル、git、Axon を変更しない。一時ファイルも書かず、出力はパイプで読む。Bash は読むためだけに使う（`git show`・`git log`・`git diff`、`axon show`・`axon list`・`axon note list`・`axon log`、ファイルの表示）。検査を回したいときは、作業ツリーを変えない形（`pnpm run test --update=none` など）にし、後で `git status --short` が空であることを確かめる。委譲情報がどちらの判断かを示す。
+読み取り専用で判断する。ファイル、git、Axon を変更しない。一時ファイルも書かない。コマンドは単独で実行してその出力を読むか、Read・Grep で読む。Bash は読むためだけに使う（`git show`・`git log`・`git diff`、`axon show`・`axon list`・`axon note list`・`axon log`、ファイルの表示）。検査を回したいときは、作業ツリーを変えない形（`pnpm run test --update=none` など）にし、後で `git status --short` が空であることを確かめる。委譲情報がどちらの判断かを示す。
 
 ## 保護範囲の判断
 

@@ -14,13 +14,13 @@ disable-model-invocation: true
 ## 守ること
 
 - **main を動かさない。** main の上で commit しない。main checkout に向けた git 操作（`git -C <main checkout> ...`、`cd <main checkout> && git ...`）、`git update-ref`・`git branch -f main`・`git push . HEAD:main` などの main を書き換える操作をしない。main への取り込みはセッションの外（ドライバのシェル）が、結果ファイルを読んで行う。
-- **自分では Axon の記録と結果ファイルだけを変える。** 監督役が書くファイルは、監督の worktree（このセッションの worktree）の `.axon/` と `.tmp/supervise/`（一時ファイルもここに置く）だけにする。コード・設定・文書・テストの変更は、検査の失敗の手直しを含めて worker か protected-worker に任せる。hook は監督役の書き込みを止めないので、監督役が直すと保護範囲の検査と judge を経ずに取り込まれる。
+- **自分では Axon の記録と結果ファイルだけを変える。** 監督役が直接編集・作成するファイルは、監督の worktree（このセッションの worktree）の `.axon/` と `.tmp/supervise/`（一時ファイルもここに置く）だけにする（install や検査が書き出すものは除く）。コード・設定・文書・テストの変更は、検査の失敗の手直しを含めて worker か protected-worker に任せる。hook は監督役の書き込みを止めないので、監督役が直すと保護範囲の検査と judge を経ずに取り込まれる。
 - **hook を飛ばさない。** `--no-verify`・`-n`・`LEFTHOOK=0`・`LEFTHOOK_EXCLUDE`・`core.hooksPath` の変更を使わない。権限ルールは `LEFTHOOK=0` や `--no-verif` のような省略形を拒否できないので、worker が commit の hook を通したことを取り込みの根拠にせず、下の「取り込む」節の全検査を監督役が自分で回す。
 - **拒否されたコマンドを迂回しない。** 権限ルールや worktree の隔離の検査に拒否されたコマンドを、スクリプトに書いて実行するなどの形で通さない。複合のコマンド（`&&` などでつないだもの）が拒否されたら、単独のコマンドに分けて試す。それでも拒否されたら、その操作をせずに最終報告に書く。
 - **長い検査は Bash の timeout を明示する。** 明示しないと `BASH_DEFAULT_TIMEOUT_MS` を超えた実行がバックグラウンドに移り、セッションが完了前に終わりうる。値は `BASH_MAX_TIMEOUT_MS` 以内にする。
 - **サブエージェントはフォアグラウンドで起動し、完了を待つ。** バックグラウンドで起動しない。終わったサブエージェントに SendMessage で送ると、バックグラウンドで再開する（Claude Code の文書）ため、差し戻しにも使わない（「結果を照合する」節）。judge は `subagent_type: judge` で新しく起動し、fork しない。
 - **worker の Issue は、起動から取り込みまで Note 以外で変えない。** 両方のブランチで同じ Entity のタイトル・本文・状態を変えると、git の rebase が成功したまま Axon の Entity が `Conflicted` になる。この間はセッション用ブランチに commit しない。
-- **`axon complete` はセッションの外に任せる。** worktree に隔離されたセッションとサブエージェントでは、Claude Code の隔離の検査が `complete` の語を含むコマンドを shell の組み込みの `complete` と読んで拒否し、この検査は切れない（Claude Code の文書）。監督役も worker も `axon complete` を実行せず、スクリプトに書くなどの形で迂回もしない。完了させる Entity と理由を結果ファイルの `completions` に書き、取り込む側が main checkout で実行する（「結果ファイル」節）。完了は取り込んだ後になるので、同じ回の Issue の間に dependency を付けない（前の Issue が `InProgress` のままで、後の Issue の `axon start` が拒否される）。実行の順序は監督役が決める。
+- **`axon complete` はセッションの外に任せる。** 基盤の試運転では、worktree に隔離されたセッションとサブエージェントで、Claude Code の隔離の検査が `axon complete ...` を shell の組み込みの `complete` を実行するコマンドと読んで拒否した（引数を引用した形、`env`・`command` を前に置いた形も拒否された）。監督役も worker も `axon complete` を実行せず、スクリプトに書くなどの形で迂回もしない。完了させる Entity と理由を結果ファイルの `completions` に書き、取り込む側が取り込む前に実行する（「結果ファイル」節）。完了はセッションが終わった後になるので、同じ回の Issue の間に dependency を付けない（前の Issue が `InProgress` のままで、後の Issue の `axon start` が拒否される）。実行の順序は監督役が決める。
 - **判断を残す。** ユーザーに聞かずに下した判断と理由、差し戻しと理由を、関係する commit message と最終報告に残す（AGENTS.md「判断の記録」）。
 
 ## 結果ファイル
@@ -38,13 +38,16 @@ disable-model-invocation: true
   "head": "<取り込める commit>",
   "group": "<目標の Group の ID。無ければ null>",
   "completions": [
-    { "id": "<完了させる Entity の ID>", "reason": "<axon complete の -r に渡す理由>" }
+    {
+      "id": "<完了させる Entity の ID>",
+      "reason": "<axon complete の -r に渡す理由。改行を含まない 500 文字以内の 1 行>"
+    }
   ],
   "summary": "<1 行の要約>"
 }
 ```
 
-`completions` は、取り込んだ後に `axon complete` する Entity を、実行する順（子の Issue、その後に Group）に並べる。取り込む側は、`head` を取り込んだ後の main checkout で、並びの順に `axon complete <id> -r <reason>` を実行して終了コードを確かめ、`axon storage check` を実行して `.axon/` の記録を commit する。
+`completions` は、`axon complete` する Entity を、実行する順（子の Issue、その後に Group）に並べる。取り込む側（隔離されていないシェル）は、セッションの worktree の HEAD が `head` であることを確かめ、その worktree で、並びの順に `axon complete <id> -r <reason>`（`reason` はそのまま 1 つの引数として渡す）を実行してそれぞれ終了コードを確かめ、`axon storage check` を実行し、`.axon/` の記録を commit してから、その commit へ main を `git merge --ff-only` で進める。main は fast-forward でだけ動く。どれかが失敗したら、その worktree の `.axon/` の変更を捨て（`git restore --staged --worktree -- .axon` と `git clean -fd -- .axon`）、`head` をそのまま取り込む。実行されなかった完了は、次の回が「状態を読む」の 4 で拾い直す。
 
 `status` は次のどれか。
 
@@ -54,13 +57,13 @@ disable-model-invocation: true
 
 ## 1. 状態を読む
 
-1. 監督セッションであることを確かめる: `INCREMENTAL_GAME_SUPERVISOR` が設定され、作業ディレクトリが main checkout の `.claude/worktrees/<回の名前>` で、ブランチが `worktree-<回の名前>`、`git status --short` が空、`git rev-parse HEAD` と `git rev-parse main` が同じであること。どれかが違えば、何も変えずに `failed` の結果ファイルを書いて終わる（保護範囲の hook が働かない、main を動かしうる、または分岐元が main でないため）。`git rev-parse HEAD` を `base` として控える。
+1. 監督セッションであることを確かめる: `INCREMENTAL_GAME_SUPERVISOR` が設定され、作業ディレクトリが main checkout の `.claude/worktrees/<回の名前>` で、回の名前が `supervise-` で始まり、ブランチが `worktree-<回の名前>`、`git status --short` が空、`git rev-parse HEAD` と `git rev-parse main` が同じであること。どれかが違えば、何も変えずに `failed` の結果ファイルを書いて終わる（保護範囲の hook が働かない、main を動かしうる、または分岐元が main でないため）。`git rev-parse HEAD` を `base` として控える。
 2. 監督の worktree で `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行する。
 3. AGENTS.md と `docs/design/` の設計記録を読む。AGENTS.md に「現在の段階」節が残っている間は、基盤の試運転だと方向性の引数に書かれた回だけを進める。書かれていなければ `nothing` で終わる。
-4. Axon の作業中・未着手の作業を `axon list` で読む。前回の最終報告として、環境変数 `INCREMENTAL_GAME_PREVIOUS_REPORT` が示すファイル（ドライバが前の回の `report.md` を保存した場所）と、直近の監督セッションの目標の Group（3 の印を本文に持つもの。完了していないものを含む）の最終報告の Note を読む。完了していない目標の Group があれば、その残りを継続するかを 2 で決める。前の回の `completions` が実行されずに残っていれば（取り込み済みで、完了の Note があるのに `InProgress` の Issue、全子孫が終わった `Confirmable` の Group）、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。
-5. `git worktree list` と `git branch --list 'worktree-*'` で、前の回の残り（取り込まれていないセッション用ブランチと worktree、worker の `worktree-agent-*` のブランチと worktree）を調べる。残った worktree に `.tmp/supervise/report.md` があれば読む。
+4. Axon の作業中・未着手の作業を `axon list` で読む。前回の最終報告として、環境変数 `INCREMENTAL_GAME_PREVIOUS_REPORT` が示すファイル（ドライバが前の回の `report.md` を保存した場所）と、直近の監督セッションの目標の Group（3 の印を本文に持つもの。完了していないものを含む）の最終報告の Note を読む。完了していない目標の Group があれば、その残りを継続するかを 2 で決める。前の回の `completions` が実行されずに残っていれば（3 の印を本文に持つ Group の子で、HEAD に取り込み済みで完了の Note があるのに `InProgress` の Issue と、全子孫が終わった `Confirmable` の印の Group）、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。印の無い Group とその子は入れない。
+5. `git worktree list` と `git branch --list 'worktree-*'` で、前の回の残りを調べる。前の回の残りとして扱うのは、この回以外の `worktree-supervise-*` のセッション用ブランチと worktree と、前回の最終報告か残った worktree の `.tmp/supervise/report.md` が、その回の worker のものとして名前を挙げた `worktree-agent-*` のブランチと worktree だけにする。ほかの worktree とブランチ（対話のセッションや、報告の無い回の worker のもの）は変えずに、最終報告に一覧を書く。
 
-前の回の残りは、継続するか破棄するかを決める。ドライバは回を順に起動し、次の回の前に残った lock を外すので、前の回のセッションと worker は終わっている。
+前の回の残りは、継続するか破棄するかを決める。ドライバは回を順に起動し、次の回の前に、前の回のセッション用の worktree と、その回の報告が挙げた worker の worktree の lock を外すので、前の回のセッションと worker は終わっている。
 
 - **継続**: 前の回のセッション用ブランチが今の HEAD から fast-forward できる場合に限る。「保護範囲を検査する」節の検査（`<worker のブランチ>` を前の回のブランチに読み替える）と「取り込む」節の全検査を、その先端で通してから `git merge --ff-only` で取り込み、`axon storage check` を実行する。前の回の worker のブランチは、取り込まれていない作業として破棄し、その Issue は新しい worker にやり直させる（worker の `axon start` はそのブランチにしか無いので、セッション用ブランチでは `NotStarted` のまま）。
 - **破棄**: 取り込まない。
@@ -107,12 +110,12 @@ Issue を依存の順に 1 件ずつ、`subagent_type` を担当（`worker` か 
 
 返った報告を、Issue の完了条件、worker のブランチの commit（`git log --oneline HEAD..<ブランチ>`）、差分（`git diff HEAD...<ブランチ>`）、完了の Note と照合する。
 
-- **差し戻し**: 足りない完了条件、確かめていない検査、self-review の後の未 review の変更、6・7 で見つかった問題があれば、同じ担当の新しい Agent をフォアグラウンドで起動し、前の worker のブランチを引き継がせて直させる（4 の委譲情報）。返ったら、前の worker の worktree とブランチを 7 と同じ方法で削除する。
-- **要る保護範囲の変更**: worker が、hook に拒否された・保護範囲なので変えなかった変更を報告したら、その変更を protected-worker の Issue として登録し、実行の順に組み込む（変異の受け入れ、`.oxlintrc.json` の見直しなど）。worker の Issue が、その変更なしに完了条件を満たせないなら、取り込まずに直す順序を組み直す。
-- **登録された `Undecided`**: worker が Group の配下に登録した `Undecided` は、次の Issue へ進む前に `ax:start-group` と同じく処分する（既存の Issue の本文へ取り込んで取り消す、採用して実行の順に組み込む、基準に当たらず Group の完了の前にユーザーの判断も要らなければ Parent を外す）。報告された計画からの逸脱も一件ずつ採否を決める。
+- **差し戻し**: 足りない完了条件、確かめていない検査、self-review の後の未 review の変更、6・7 で見つかった問題があれば、同じ担当の新しい Agent をフォアグラウンドで起動し、前の worker のブランチを引き継がせて直させる（4 の委譲情報）。返ったら、`git merge-base --is-ancestor <前のブランチ> <新しいブランチ>` で引き継いだことを確かめ、前の worker の worktree を `git worktree remove <worktree の絶対パス>`、ブランチを `git branch -D` で削除する。
+- **要る保護範囲の変更**: worker が、hook に拒否された・保護範囲なので変えなかった変更（変異の受け入れ、`.oxlintrc.json` の見直しなど）を報告したら、採否を決める。worker の Issue がその変更なしに完了条件を満たせないなら、同じ Issue のまま protected-worker に前のブランチを引き継がせ（差し戻しと同じ手順）、その変更を単独の commit でさせる。満たせるなら、取り込んだ後に protected-worker の Issue として登録する（7 の 5）。
+- 報告された計画からの逸脱を一件ずつ採否を決める。
 - **取り込まない**: 差し戻しても直らない、judge が却下した、などで取り込まないと決めたら、理由を最終報告に書き、worker の worktree を `git worktree remove --force`、ブランチを `git branch -D` で削除し、Issue を新しい worker にやり直させるか、`axon-kit:update` で取り消す。
 
-worker のブランチに新しい commit が加わったら（差し戻し、rebase、変異の受け入れなど）、この節からやり直す。
+worker のブランチに新しい commit が加わったら（差し戻し、変異の受け入れなど）、この節からやり直す。
 
 ## 6. 保護範囲を検査する
 
@@ -140,9 +143,10 @@ worker のブランチの HEAD で全検査を回す。監督の worktree で `g
 全検査が通ったら、次の順で取り込む。
 
 1. worker の worktree を、監督の worktree から `git worktree remove <worktree の絶対パス>` で削除する。未 commit の変更や追跡外のファイルが残って失敗したら、5 の差し戻しで commit か破棄をさせる（新しい commit が加われば 5 からやり直す）。`--force` は、中身を確かめて不要と判断した場合だけ使う。
-2. 必要なら `pnpm install --frozen-lockfile` し、`git merge --ff-only <worker のブランチ>` で取り込む。fast-forward できなければ、5 の差し戻しで rebase させる。
+2. 必要なら `pnpm install --frozen-lockfile` し、`git merge --ff-only <worker のブランチ>` で取り込む。worker の起動後にセッション用ブランチへ commit していなければ fast-forward できる。できなければ、5 の「取り込まない」へ進む。
 3. `axon storage check` を実行する。`Conflicted` が出たら `axon-kit:resolve` で解消する。
 4. `git branch -d <worker のブランチ>` で削除する。
+5. 次の Issue へ進む前に、取り込んだ記録を処分する。worker が Group の配下に登録した `Undecided` は、`ax:start-group` と同じく処分する（既存の Issue の本文へ取り込んで取り消す、採用して実行の順に組み込む、基準に当たらず Group の完了の前にユーザーの判断も要らなければ Parent を外す）。5 で取り込んだ後に回すと決めた保護範囲の変更を、protected-worker の Issue として登録する。worker が採用済みの Entity や dependency を足していれば、この回で実行できるように直す。変えた記録を commit する。
 
 ## 8. 目標を終える
 
@@ -172,4 +176,4 @@ judge を 2 件、並列に起動する（`ax:start-group` の終了監査と同
 - 保護範囲の検出結果と judge の判断、終了監査の結果。
 - ユーザーに聞かずに下した判断と理由、差し戻しと理由。
 - 登録した `Undecided` と未解決事項、次の回への申し送り。
-- 削除した前の回の残りと、残った worktree とブランチ。
+- この回が起動した worker の worktree とブランチの名前、削除した前の回の残りと、残った worktree とブランチ。
