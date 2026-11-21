@@ -8,6 +8,7 @@ import type { Notices } from "./notices.ts";
 import { SAVE_KEY } from "./restore.ts";
 import type { SaveStorage } from "./session.ts";
 import { startSession } from "./session.ts";
+import { view } from "./view.ts";
 
 const T0 = 1_000_000;
 
@@ -120,6 +121,16 @@ test("時計が戻ったときは、追いつくまで進めず、戻った間�
   session.tick(T0 + 1000);
 
   expect(session.state()).toStrictEqual(advance(initialState, 1));
+});
+
+// SUSPECTED_BUG: 時計が戻って生産が止まっている間も、止まる前と同じ待ち時間（約 12 秒）を示し続ける。実際には
+// 時計が追いつくまで（ここでは 1 時間）生産しないため、届かない時間を示している。止まっていることを示すべき。
+test("時計が戻って生産が止まっている間も、待ち時間の表示が止まる前のまま（不具合の疑い）", () => {
+  const session = startSession(fakeStorage().storage, recordingNotices().notices, T0);
+
+  session.tick(T0 - 3_600_000);
+
+  expect(view(session.state()).nextPurchase).toBe("今の生産のままで約 12 秒");
 });
 
 test("保存した時刻が今より先なら、保存時の状態と時刻から始めて知らせる", () => {
