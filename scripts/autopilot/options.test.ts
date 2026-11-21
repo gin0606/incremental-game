@@ -186,6 +186,7 @@ test("使い方はすべての引数を挙げる", () => {
     "--stop-file",
     "--previous-report",
     "--max-failures",
+    "--max-idle",
     "--min-free-gb",
     "--round-timeout",
     "--poll",
