@@ -11,7 +11,8 @@ export type Category =
   | "抑制の印"
   | "ミューテーションテストの設定と除外"
   | "保護の仕組み"
-  | "AGENTS.md の保護対象の節";
+  | "AGENTS.md の保護対象の節"
+  | "リポジトリの外に出る操作";
 
 export interface Finding {
   readonly category: Category;
@@ -87,10 +88,22 @@ const rule = (category: Category, matches: PathMatcher, detail: string): PathRul
 // 判定の基盤（foundation-paths.txt が列挙する）のほかに、パスで見分ける保護範囲。大文字と小文字を区別しない。
 // - 検査の設定: tsrs・oxlint・oxfmt・lefthook が読む設定と除外の一覧。.gitignore は oxlint と oxfmt が対象から
 //   外すファイルの一覧として読む。lefthook は lefthook-local.yml などの名前と .lefthook/ の下のスクリプトも読む。
+// - 検査の設定（pnpm）: pnpm-workspace.yaml（overrides・patchedDependencies・pnpmfile などの設定）、.npmrc、
+//   pnpmfile（.pnpmfile.mjs・.pnpmfile.cjs。readPackage で依存の package.json を書き換えられる）、patches/
+//   （pnpm patch の既定の置き場）。どれも oxlint・tsrs などの検査の道具を、版を変えずに何もしないものへ差し替え
+//   られる。patches/ の外に置くパッチは、それを使わせる patchedDependencies の変更として検出するが、その後の
+//   パッチの編集は検出しない（今は patchedDependencies を使っていない）。
+//   pnpm-lock.yaml は含めない。lockfile の解決先を書き換えても検査の道具を差し替えられるが、ゲームの依存を足す
+//   たびに書き換わるファイルで、パスで検出するとそのたびに独立判断が要る。検査の道具の項目だけを比べる方法は
+//   作っていない。
 // - 保護の仕組み: hook と検出のスクリプト（scripts/ の下に置く。検査のスクリプトと無人運転のドライバも scripts/ に
-//   置く）、判定の基盤の一覧、Claude Code の設定・サブエージェントの定義・skill、AGENTS.md を読み込む CLAUDE.md。
-//   Claude Code が作る worktree の置き場（.claude/worktrees/）は Git 管理外で、そこにある worktree のファイルは
-//   その worktree のルートからのパスで照合する。
+//   置く）、判定の基盤の一覧、Claude Code の設定・サブエージェントの定義・skill、指示のファイル（どのディレクトリの
+//   CLAUDE.md・CLAUDE.local.md・AGENTS.override.md と、ルート以外の AGENTS.md。AGENTS.override.md は、レビューに使う
+//   Codex が同じディレクトリの AGENTS.md の代わりに読む）。ルート以外の指示に「ここでは独立判断は要らない」と
+//   書けば、ルートの AGENTS.md の保護対象の節を書き換えずに保護範囲を外せるため。ルートの AGENTS.md は保護対象の
+//   節だけを内容で比べる（contents.ts）。Claude Code が作る worktree の置き場（.claude/worktrees/）は Git 管理外で、
+//   そこにある worktree のファイルはその worktree のルートからのパスで照合する。
+// - リポジトリの外に出る操作: GitHub の workflow など .github/ の下の設定。公開・デプロイを足せる。
 const PATH_RULES: readonly PathRule[] = [
   rule("検査の設定", (path) => /(?:^|\/)tsconfig[^\/]*\.json$/iv.test(path), "TypeScript の設定"),
   rule(
@@ -110,6 +123,12 @@ const PATH_RULES: readonly PathRule[] = [
   ),
   rule("検査の設定", (path) => /(?:^|\/)\.?lefthook/iv.test(path), "lefthook の設定"),
   rule(
+    "検査の設定",
+    (path) =>
+      /(?:^|\/)(?:pnpm-workspace\.yaml|\.npmrc|\.pnpmfile\.[^\/]*)$|^patches\//iv.test(path),
+    "pnpm の設定と依存のパッチ",
+  ),
+  rule(
     "ミューテーションテストの設定と除外",
     (path) =>
       /(?:^|\/)(?:mutator\.config\.[^\/]*|mutator\.accepted\.json|vitest\.mutation\.config\.[^\/]*)$/iv.test(
@@ -128,7 +147,16 @@ const PATH_RULES: readonly PathRule[] = [
     (path) => /^\.claude\/(?!worktrees\/)/iv.test(path),
     "Claude Code の設定・サブエージェント・skill",
   ),
-  rule("保護の仕組み", (path) => /^CLAUDE\.md$/iv.test(path), "AGENTS.md を読み込む指示"),
+  rule(
+    "保護の仕組み",
+    (path) => /(?:^|\/)(?:CLAUDE(?:\.local)?|AGENTS\.override)\.md$|\/AGENTS\.md$/iv.test(path),
+    "エージェントへの指示",
+  ),
+  rule(
+    "リポジトリの外に出る操作",
+    (path) => /^\.github\//iv.test(path),
+    "GitHub の workflow などの設定",
+  ),
 ];
 
 /** パスだけで見分ける保護範囲。hook はこれで拒否し、取り込み前の検査は変更・追加・削除したパスに当てる。 */

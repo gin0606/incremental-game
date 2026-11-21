@@ -14,7 +14,8 @@ const SESSION_VARIABLES = new Set(["INCREMENTAL_GAME_SUPERVISOR", "CLAUDE_PROJEC
 
 /**
  * テストで起動する git と CLI の環境変数。pre-commit の hook から実行すると GIT_DIR・GIT_INDEX_FILE などが
- * このリポジトリを指すため、GIT_ で始まる変数を外す。利用者とシステムの git の設定も読ませない。
+ * このリポジトリを指すため、GIT_ で始まる変数を外す。利用者とシステムの git の設定も読ませない。利用者の除外の
+ * 一覧（設定が無くても読む ~/.config/git/ignore）は、fixture のファイルを add から漏らしうるため読ませない。
  */
 export const isolatedEnv = (extra: Readonly<Record<string, string>> = {}): NodeJS.ProcessEnv => ({
   ...Object.fromEntries(
@@ -24,6 +25,9 @@ export const isolatedEnv = (extra: Readonly<Record<string, string>> = {}): NodeJ
   ),
   GIT_CONFIG_GLOBAL: "/dev/null",
   GIT_CONFIG_NOSYSTEM: "1",
+  GIT_CONFIG_COUNT: "1",
+  GIT_CONFIG_KEY_0: "core.excludesFile",
+  GIT_CONFIG_VALUE_0: "/dev/null",
   GIT_AUTHOR_NAME: "test",
   GIT_AUTHOR_EMAIL: "test@example.com",
   GIT_COMMITTER_NAME: "test",

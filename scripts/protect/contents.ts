@@ -60,8 +60,11 @@ const packageField = (text: string | undefined, field: string): Read => {
     : { ok: false };
 };
 
-// package.json のうち、検査とミューテーションテストを動かすコマンド（scripts）と、検査のツール（devDependencies）。
-const PACKAGE_FIELDS = ["scripts", "devDependencies"];
+// package.json のうち、検査とミューテーションテストを動かすコマンド（scripts）と、検査のツール（devDependencies）と、
+// 依存を別のものに差し替える指定を書く項目（pnpm の overrides・patchedDependencies などを書く pnpm、overrides、
+// resolutions）。dependencies・optionalDependencies に devDependencies と同じ名前で別のものを書いても差し替えられ
+// うるが、ゲームの依存も書く項目なので比べない。
+const PACKAGE_FIELDS = ["scripts", "devDependencies", "pnpm", "overrides", "resolutions"];
 
 const packageChanges = (before: string | undefined, after: string | undefined): ContentChange[] =>
   PACKAGE_FIELDS.filter((field) => {

@@ -156,6 +156,18 @@ test.each([
     ],
   },
   {
+    name: "公開・デプロイの workflow",
+    input: (): unknown => edit(join(repository, ".github/workflows/deploy.yml"), "worker"),
+    reasons: (): readonly string[] => [
+      "リポジトリの外に出る操作: .github/workflows/deploy.yml（GitHub の workflow などの設定）",
+    ],
+  },
+  {
+    name: "ルート以外の指示",
+    input: (): unknown => edit(join(repository, "src/core/CLAUDE.md"), "worker"),
+    reasons: (): readonly string[] => ["保護の仕組み: src/core/CLAUDE.md（エージェントへの指示）"],
+  },
+  {
     name: "git の内部",
     input: (): unknown => edit(join(repository, ".git/hooks/pre-commit"), "worker"),
     reasons: (): readonly string[] => [

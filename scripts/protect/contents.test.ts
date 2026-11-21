@@ -46,6 +46,21 @@ test.each([
     expected: ["package.json の devDependencies"],
   },
   {
+    name: "pnpm の overrides を足す",
+    after: { ...pkgBase, pnpm: { overrides: { oxlint: "npm:noop@1.0.0" } } },
+    expected: ["package.json の pnpm"],
+  },
+  {
+    name: "overrides を足す",
+    after: { ...pkgBase, overrides: { oxlint: "npm:noop@1.0.0" } },
+    expected: ["package.json の overrides"],
+  },
+  {
+    name: "resolutions を足す",
+    after: { ...pkgBase, resolutions: { tsrs: "npm:noop@1.0.0" } },
+    expected: ["package.json の resolutions"],
+  },
+  {
     name: "項目ごと消す",
     after: { name: "x", dependencies: pkgBase.dependencies },
     expected: ["package.json の scripts", "package.json の devDependencies"],
@@ -125,9 +140,11 @@ test("ファイルを足す・消すと、ある項目を検出する", () => {
 });
 
 test.each(["{", "[]", "null", "1", '"x"'])(
-  "読めないか、オブジェクトでない package.json（%s）は両方の項目を検出する",
+  "読めないか、オブジェクトでない package.json（%s）はすべての項目を検出する",
   (text) => {
-    const all = ["package.json の scripts", "package.json の devDependencies"];
+    const all = ["scripts", "devDependencies", "pnpm", "overrides", "resolutions"].map(
+      (field) => `package.json の ${field}`,
+    );
     expect(parts("package.json", text, text)).toStrictEqual(all);
     expect(parts("package.json", pkgBefore, text)).toStrictEqual(all);
     expect(parts("package.json", text, pkgBefore)).toStrictEqual(all);
