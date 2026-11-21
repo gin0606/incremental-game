@@ -6,7 +6,7 @@ import { at } from "./clock.ts";
 /**
  * コイン `coins` を持つ保存データ（保存形式の版 1）。時計を止める時刻 `at(60_000)` に保存したものとし、その時刻に
  * 開けば離れていた時間が無く、コインは保存したまま始まる。採集機 1 台、工場 0 台、自動購入なしで、これまでに生産した
- * コインは 1000000（工場は解放済み）。
+ * コインは 1000000 とコインの多いほう（工場は解放済み。コインより少ない保存データは読み込まれない）。
  */
 const savedWithCoins = (coins: number): string =>
   JSON.stringify({
@@ -14,7 +14,7 @@ const savedWithCoins = (coins: number): string =>
     savedAt: at(60_000).getTime(),
     state: {
       coins: { sign: 1, layer: 0, mag: coins },
-      totalEarned: { sign: 1, layer: 0, mag: 1e6 },
+      totalEarned: { sign: 1, layer: 0, mag: Math.max(coins, 1e6) },
       collectors: 1,
       factories: 0,
       autoBuyer: false,
