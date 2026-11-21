@@ -47,7 +47,7 @@ disable-model-invocation: true
 }
 ```
 
-`completions` は、`axon complete` する Entity を、実行する順（子の Issue、その後に Group）に並べる。取り込む側（隔離されていないシェル）は、セッションの worktree の HEAD が `head` であることを確かめ、その worktree で、並びの順に `axon complete <id> -r <reason>`（`reason` はそのまま 1 つの引数として渡す）を実行してそれぞれ終了コードを確かめ、`axon storage check` を実行し、`.axon/` の記録だけを commit して（その commit の差分が `.axon/` だけであることを確かめる）、その commit へ main を `git merge --ff-only` で進める。main は fast-forward でだけ動く。どこかで失敗したら、その worktree を `git reset --hard <head>` と `git clean -fd -- .axon` で `head` に戻し（未 commit の記録と、作った commit を捨てる）、`head` を `git merge --ff-only` で取り込む。`head` も取り込めなければ何も取り込まず、失敗として扱う。実行されなかった完了は、次の回が「状態を読む」で拾い直す。
+`completions` は、`axon complete` する Entity を、実行する順（子の Issue、その後に Group）に並べる。取り込む側（隔離されていないシェル）は、セッションの worktree の HEAD が `head` であることを確かめ、その worktree で、並びの順に `axon complete <id> -r <reason>`（`reason` はそのまま 1 つの引数として渡す）を実行してそれぞれ終了コードを確かめる。どれかが失敗しても残りを続け、失敗した ID を回のログに残す（失敗した子を持つ Group の完了も失敗する。失敗した完了は次の回が拾い直すので、一つの失敗でほかの完了を止めない）。続けて `axon storage check` を実行し、`.axon/` の記録だけを commit して（その commit の差分が `.axon/` だけであることを確かめる）、その commit へ main を `git merge --ff-only` で進める（記録の変更が無ければ commit せずに `head` へ進める）。main は fast-forward でだけ動く。`axon storage check`・commit・fast-forward のどれかが失敗したら、その worktree を `git reset --hard <head>` と `git clean -fd -- .axon` で `head` に戻し（未 commit の記録と、作った commit を捨てる）、`head` を `git merge --ff-only` で取り込む。`head` も取り込めなければ何も取り込まず、失敗として扱う。実行されなかった完了は、次の回が「状態を読む」で拾い直す。
 
 `status` は次のどれか。
 
@@ -72,7 +72,7 @@ disable-model-invocation: true
 
 継続で取り込んだもの以外の前の回の worktree とブランチは、監督の worktree から `git worktree remove <worktree の絶対パス>` と `git branch -D <ブランチ>` で削除する。破棄すると決めた作業なので、未 commit の変更が残って削除できなければ `--force` で削除する。lock が残って削除できないものは、最終報告に一覧を書き、ドライバに任せる。削除したブランチにしか無かった `Undecided`（前回の最終報告が挙げたもの）は、`axon-kit:capture` で登録し直して commit する。
 
-残りを処理した後に、実行されなかった前の回の `completions` を拾う。3 の印を本文に持つ Group の子で、HEAD にあり完了の Note があるのに `InProgress` の Issue を、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。その後に、印の Group で、終了監査を通したと書いた最終報告の Note があり、直接の子が終わっているか今入れた Issue だけが残るものを入れる。この Group は目標を終えているので、2 で継続する目標にしない。終了監査を通した印の Group で、ほかの子が残って入れられないものと、前回の最終報告が前の回から拾ったものとして `completions` に挙げたのにまだ完了していない Entity（2 回続けて完了できなかったもの。取り込む側は最初の失敗で残りの完了を止めるので、入れ続けると後の完了がすべて止まる）は、`completions` に入れずに最終報告に挙げ、その Entity を挙げた `Undecided` がまだ無ければ `axon-kit:capture` で登録する。印の無い Group とその子は入れない。
+残りを処理した後に、実行されなかった前の回の `completions` を拾う。3 の印を本文に持つ Group の子で、HEAD にあり完了の Note があるのに `InProgress` の Issue を、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。その後に、印の Group で、終了監査を通したと書いた最終報告の Note があり、直接の子が終わっているか今入れた Issue だけが残るものを入れる。この Group は目標を終えているので、2 で継続する目標にしない。終了監査を通した印の Group で、ほかの子が残って入れられないものは、`completions` に入れずに最終報告に挙げ、その Entity を挙げた `Undecided` がまだ無ければ `axon-kit:capture` で登録する。印の無い Group とその子は入れない。
 
 ## 2. 目標を 1 つ決める
 
@@ -134,7 +134,7 @@ worker のブランチに新しい commit が加わったら（差し戻し、�
 
 ライブラリやツールを足した・変えた変更では、worker がドキュメントを読んで設定を AGENTS.md の方針に照らして精査したことと、oxlint の plugin とルールの選定を見直したこと（変える必要があれば 5 の「要る保護範囲の変更」）を、報告と差分で確かめる。
 
-worker のブランチの HEAD で全検査を回す。監督の worktree で `git switch --detach <worker のブランチ>` し、`pnpm-lock.yaml` か `package.json` が変わっていれば `pnpm install --frozen-lockfile` を実行してから、次をそれぞれ Bash の timeout を明示して実行する。
+worker のブランチの HEAD で全検査を回す。監督の worktree で `git switch --detach <worker のブランチ>` し、`pnpm-lock.yaml` か `package.json` が変わっていれば `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行してから（Playwright の版が変わるとブラウザを入れ直す必要がある）、次をそれぞれ Bash の timeout を明示して実行する。
 
 - `pnpm run format:check`、`pnpm run lint`、`pnpm run typecheck`、`pnpm run test --update=none`（commit の hook と同じく、足りない snapshot を書き出さずに失敗させる）
 - `pnpm run test:pace:full`
@@ -143,12 +143,12 @@ worker のブランチの HEAD で全検査を回す。監督の worktree で `g
 
 検査の後に `git status --short` が空であることを確かめる（検査が作業ツリーを書き換えていれば落ちたものとして扱う）。時間切れだけで落ちたら、`uptime` で負荷を確かめ、待って再実行する。生存変異は、テストを足すか、等価変異として理由付きで受け入れるかを worker に判断させる。受け入れは保護範囲の変更なので protected-worker に任せる。
 
-検査が終わったら、成否によらず、サブエージェントを起動する前に `git switch <セッション用ブランチ>` で戻る（detach したままだと、hook が worker の版の規則を読み、新しい worker も worker の HEAD から分岐する）。どれかが落ちたら 5 の差し戻しへ進む。
+検査が終わったら、成否によらず、サブエージェントを起動する前に `git switch <セッション用ブランチ>` で戻る（detach したままだと、hook が worker の版の規則を読み、新しい worker も worker の HEAD から分岐する）。依存を入れ直していたら、戻った後に `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行し直す。どれかが落ちたら 5 の差し戻しへ進む。
 
 全検査が通ったら、次の順で取り込む。
 
 1. worker の worktree を、監督の worktree から `git worktree remove <worktree の絶対パス>` で削除する。未 commit の変更や追跡外のファイルが残って失敗したら、5 の差し戻しで commit か破棄をさせる（新しい commit が加われば 5 からやり直す）。`--force` は、中身を確かめて不要と判断した場合だけ使う。
-2. 必要なら `pnpm install --frozen-lockfile` し、`git merge --ff-only <worker のブランチ>` で取り込む。worker の起動後にセッション用ブランチへ commit していなければ fast-forward できる。できなければ、5 の「取り込まない」へ進む。
+2. `git merge --ff-only <worker のブランチ>` で取り込み、依存が変わっていれば `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行する。worker の起動後にセッション用ブランチへ commit していなければ fast-forward できる。できなければ、5 の「取り込まない」へ進む。
 3. `axon storage check` を実行する。`Conflicted` が出たら `axon-kit:resolve` で解消する。
 4. `git branch -d <worker のブランチ>` で削除する。
 5. 次の Issue へ進む前に、取り込んだ記録を処分する。5 で控えた記録を登録し直す。worker が Group の配下に登録した `Undecided` は、`ax:start-group` と同じく処分する（既存の Issue の本文へ取り込んで取り消す、採用して実行の順に組み込む、基準に当たらず Group の完了の前にユーザーの判断も要らなければ Parent を外す）。5 で取り込んだ後に回すと決めた保護範囲の変更を、protected-worker の Issue として登録する。worker が採用済みの Entity や dependency を足していれば、この回で実行できるように直す。変えた記録を commit する。
