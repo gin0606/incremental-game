@@ -43,6 +43,7 @@ lefthook.yml
 #
 # ペースの指標のテストを呼ぶ package.json の scripts（test・test:pace:full）は、package.json にゲームの依存も
 # 書くため、ファイル単位のこの一覧には含めない。取り込み前の検査が、検査の設定として package.json の scripts
-# （すべての script）と devDependencies の差分から検出する（hook は package.json への書き込みを拒否しない）。
+# （すべての script）・devDependencies と、依存を差し替える指定を書く pnpm・overrides・resolutions の差分から検出する
+# （hook は package.json への書き込みを拒否しない）。
 # ミューテーションテストの設定と受け入れた変異（mutator.config.*・mutator.accepted.json）は、ミューテーションテストの
 # 設定として検査と hook が検出する（scripts/protect/rules.ts）。
