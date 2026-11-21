@@ -20,7 +20,7 @@
 
 - 監督役は、監督セッション（main checkout から `claude -p --worktree` で起動し、環境変数 `INCREMENTAL_GAME_SUPERVISOR` を設定したセッション）で `/supervise`（`.claude/skills/supervise/SKILL.md`）を 1 回ずつ回す。
 - `/supervise` の呼び出しは、セッション用ブランチと worker のブランチへの commit の指示として扱う。
-- 監督セッションの成果は、main をセッション用ブランチへ fast-forward して取り込む。監督役は main の上で commit せず、main checkout に向けた git の操作をしない。取り込みと、監督セッションが結果ファイルに挙げた `axon complete`（worktree に隔離されたセッションでは Claude Code に拒否される）は、セッションの外（無人運転ではドライバのシェル）が main checkout で行う。
+- main は、監督セッションのブランチへの fast-forward でだけ動かす。監督役は main の上で commit せず、main checkout に向けた git の操作をしない。取り込みは、セッションの外（無人運転ではドライバのシェル）が行う。監督セッションが結果ファイルに挙げた `axon complete`（worktree に隔離されたセッションでは Claude Code に拒否される）は、取り込む側が取り込む前にセッションの worktree で実行して commit する。
 
 ## ゲームの設計原則
 
