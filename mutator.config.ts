@@ -31,6 +31,13 @@ const config: MutatorConfig = defineConfig({
     // シミュレーターの CLI の入口。引数・標準出力・終了コードを src/sim/run.ts につなぐだけで、判断や分岐を持たない
     // 間だけ除外してよい。CLI を実際に動かすテスト（src/sim/cli/main.slow.test.ts）で確かめる。
     "src/sim/cli/main.ts",
+    // 保護範囲の検出（取り込み前の検査と hook）の入口とテストの補助。git・ファイル・標準入出力・環境変数を
+    // scripts/protect の判定の規則につなぐ部分で、別のプロセスとして起動するテスト（scripts/protect/cli の
+    // *.slow.test.ts）で確かめるため、変異を検出できない。判定の規則（パスの照合、差分の行の読み方、内容の比較、
+    // hook の入力の読み方と拒否の相手）は scripts/protect の直下に置いて変異の対象にし、判断を足すときもそちらに
+    // 置く。ここに残すのは、git に渡す引数と読む版、引数とファイルの状態（追加・削除）に応じた読み分け、hook の
+    // 対象のパスの解き方、git とファイルの失敗の扱いで、これらは *.slow.test.ts が一つずつ確かめる。
+    "scripts/protect/cli/**",
     "e2e/**",
     "*.config.ts",
     "vitest.setup.ts",
