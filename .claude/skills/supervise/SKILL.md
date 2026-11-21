@@ -72,7 +72,7 @@ disable-model-invocation: true
 
 継続で取り込んだもの以外の前の回の worktree とブランチは、監督の worktree から `git worktree remove <worktree の絶対パス>` と `git branch -D <ブランチ>` で削除する。破棄すると決めた作業なので、未 commit の変更が残って削除できなければ `--force` で削除する。lock が残って削除できないものは、最終報告に一覧を書き、ドライバに任せる。削除したブランチにしか無かった `Undecided`（前回の最終報告が挙げたもの）は、`axon-kit:capture` で登録し直して commit する。
 
-残りを処理した後に、実行されなかった前の回の `completions` を拾う。3 の印を本文に持つ Group の子で、HEAD にあり完了の Note があるのに `InProgress` の Issue を、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。その後に、印の Group で、終了監査を通したと書いた最終報告の Note があり、直接の子が終わっているか今入れた Issue だけが残るものを入れる。この Group は目標を終えているので、2 で継続する目標にしない。拾った Entity が前回の最終報告の `completions` にも挙がっていたなら（取り込む側の完了が失敗した）、最終報告に挙げ、その Entity を挙げた `Undecided` がまだ無ければ `axon-kit:capture` で登録する。終了監査を通した印の Group で、ほかの子が残って入れられないものは、`completions` に入れずに最終報告に挙げ、その Entity を挙げた `Undecided` がまだ無ければ `axon-kit:capture` で登録する。印の無い Group とその子は入れない。
+残りを処理した後に、実行されなかった前の回の `completions` を拾う。3 の印を本文に持つ Group の子で、HEAD にあり完了の Note があるのに `InProgress` の Issue を、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。その後に、印の Group で、終了監査を通したと書いた最終報告の Note があり、直接の子が終わっているか今入れた Issue だけが残るものを入れる。この Group は目標を終えているので、2 で継続する目標にしない。前の回が取り込まれていて（前回の最終報告の commit の一覧の最新の commit が HEAD の祖先）、拾った Entity が前回の最終報告の `completions` にも挙がっていたなら（取り込む側の完了が失敗した）、最終報告に挙げ、その Entity を挙げた `Undecided` がまだ無ければ `axon-kit:capture` で登録する。終了監査を通した印の Group で、ほかの子が残って入れられないものは、`completions` に入れずに最終報告に挙げ、その Entity を挙げた `Undecided` がまだ無ければ `axon-kit:capture` で登録する。この段落で登録する `Undecided` には Parent を付けない（Group の配下に置くと、その Group が完了できなくなる）。印の無い Group とその子は入れない。
 
 ## 2. 目標を 1 つ決める
 
