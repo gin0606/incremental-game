@@ -142,6 +142,19 @@ test("生産が無ければ、届かないことを示す", () => {
   expect(view(state({ collectors: 0 })).nextPurchase).toBe("生産が無いため届かない");
 });
 
+test("生産が止まっている間は、そのことと、再開までと、それを含めた待ち時間を切り上げて示す", () => {
+  // 再開まで 0.2 秒、買えるまで 0.2 + 11.5 秒。
+  expect(view(initialState, 0.2).nextPurchase).toBe(
+    "時計が戻ったため生産が止まっている（再開まで約 1 秒）。止まっている間を含めて約 12 秒",
+  );
+  expect(view(initialState, 0).nextPurchase).toBe("今の生産のままで約 12 秒");
+});
+
+test("生産が止まっている間も、今買える品物があれば買える表示、生産が無ければ届かない表示にする", () => {
+  expect(view(advance(initialState, 11.5), 60).nextPurchase).toBe("今買える");
+  expect(view(state({ collectors: 0 }), 60).nextPurchase).toBe("生産が無いため届かない");
+});
+
 const DAY = 86_400;
 
 test.each([

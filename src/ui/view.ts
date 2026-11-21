@@ -8,7 +8,7 @@ import {
   production,
 } from "../core/game.ts";
 import type { Num } from "../core/num.ts";
-import { atLeast, div, format, num, sub, toNumber } from "../core/num.ts";
+import { add, atLeast, div, format, num, sub, toNumber } from "../core/num.ts";
 
 export interface ShopItem {
   readonly action: Action;
@@ -26,7 +26,10 @@ export interface View {
   readonly collectors: string;
   readonly factories: string;
   readonly autoBuyer: string;
-  /** 次に何かを買えるまでの待ち時間。今買えるときと、生産が無くて届かないときは、その旨。 */
+  /**
+   * 次に何かを買えるまでの待ち時間。今買えるときと、生産が無くて届かないときは、その旨。時計が戻って生産が
+   * 止まっている間は、そのことと、再開までの時間と、それを含めた待ち時間。
+   */
   readonly nextPurchase: string;
   readonly shop: readonly ShopItem[];
 }
@@ -87,9 +90,9 @@ const offer = (
 /**
  * 次に何かを買えるまでの表示。待ち時間は、見えている品物のうち最も安いものの値段に、手元のコインが今の毎秒の
  * 生産量で届くまでの秒数。生産量は何かを買うまで変わらず、自動購入が最初に買うのもその品物なので、待つ間の
- * 自動購入による支出は見積もりを変えない。
+ * 自動購入による支出は見積もりを変えない。生産が止まっている間（`pausedSeconds` が正）は、その秒数を足す。
  */
-function nextPurchase(state: GameState, offers: readonly Offer[]): string {
+function nextPurchase(state: GameState, offers: readonly Offer[], pausedSeconds: number): string {
   // 買えるのは見えている品物だけ（解放の前や買い終えた後は買えない）。
   if (offers.some(({ item }) => item.affordable)) {
     return "今買える";
@@ -103,10 +106,16 @@ function nextPurchase(state: GameState, offers: readonly Offer[]): string {
     .filter(({ item }) => item.visible)
     .map(({ price }) => price)
     .reduce((lowest, price) => (atLeast(price, lowest) ? lowest : price));
-  return `今の生産のままで約 ${formatWait(div(sub(cheapest, state.coins), rate))}`;
+  const wait = div(sub(cheapest, state.coins), rate);
+  if (pausedSeconds > 0) {
+    const paused = num(pausedSeconds);
+    return `時計が戻ったため生産が止まっている（再開まで約 ${formatWait(paused)}）。止まっている間を含めて約 ${formatWait(add(paused, wait))}`;
+  }
+  return `今の生産のままで約 ${formatWait(wait)}`;
 }
 
-export function view(state: GameState): View {
+/** 状態 `state` の表示。`pausedSeconds` は、時計が戻って止めている生産を再開するまでの秒数。 */
+export function view(state: GameState, pausedSeconds = 0): View {
   const offers = [
     offer(state, { type: "buyCollector" }, "採集機", collectorCost(state), true),
     offer(state, { type: "buyFactory" }, "工場", factoryCost(state), isFactoryUnlocked(state)),
@@ -119,7 +128,7 @@ export function view(state: GameState): View {
     collectors: state.collectors.toString(),
     factories: state.factories.toString(),
     autoBuyer: state.autoBuyer ? "稼働中" : "なし",
-    nextPurchase: nextPurchase(state, offers),
+    nextPurchase: nextPurchase(state, offers, pausedSeconds),
     shop: offers.map(({ item }) => item),
   };
 }

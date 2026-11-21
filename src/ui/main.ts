@@ -58,7 +58,7 @@ const start = (): void => {
   });
 
   function render(): void {
-    const current = view(session.state());
+    const current = view(session.state(), session.pausedFor(Date.now()));
     coins.textContent = current.coins;
     totalEarned.textContent = current.totalEarned;
     productionText.textContent = current.production;

@@ -174,22 +174,32 @@ test("ロックを使えなければ、その旨を知らせて遊び始める",
   await expect(page.locator("#collectors")).toHaveText("1");
 });
 
-test("時計が戻ったときは、追いつくまで生産を数えない", async ({ page }) => {
+test("時計が戻ったときは、追いつくまで生産を数えずにそのことを示し、追いつくと待ち時間を示す", async ({
+  page,
+}) => {
+  // 時計を止めてから開き、コイン 0 から始める。採集機の値段 11.5 に毎秒 1 で届く。
   await page.clock.install({ time: at(0) });
+  await page.clock.pauseAt(at(60_000));
   await page.goto("/");
   await expect(page.locator("#collectors")).toHaveText("1");
-  await page.clock.pauseAt(at(60_000));
   const coins = page.locator("#coins");
-  const before = await coinsOf(coins);
+  const wait = page.locator("#next-purchase");
+  await page.clock.runFor(3000);
+  await expect(coins).toHaveText("3");
 
-  // 5 秒戻してから 7 秒進める。数えるのは戻る前の時刻を越えた 2 秒分だけ。
-  await page.clock.setSystemTime(at(55_000));
+  // 1 時間戻してから 1 秒進める。生産は数えず、再開まで 3599 秒、買えるまで 3607.5 秒。
+  await page.clock.setSystemTime(at(63_000 - 3_600_000));
+  await page.clock.runFor(1000);
+  await expect(wait).toHaveText(
+    "時計が戻ったため生産が止まっている（再開まで約 59 分 59 秒）。止まっている間を含めて約 1 時間 1 分",
+  );
+  await expect(coins).toHaveText("3");
+
+  // 戻る前の時刻の 2 秒前から 7 秒進める。数えるのは追いついた後の 5 秒分だけで、残りは 3.5 秒。
+  await page.clock.setSystemTime(at(61_000));
   await page.clock.runFor(7000);
-
-  await expect
-    .poll(async () => Number(await coins.textContent()))
-    .toBeGreaterThanOrEqual(before + 1);
-  expect(await coinsOf(coins)).toBeLessThanOrEqual(before + 3);
+  await expect(coins).toHaveText("8");
+  await expect(wait).toHaveText("今の生産のままで約 4 秒");
 });
 
 test("保存に失敗し続けても通知は 1 つで、保存できたら消える", async ({ page }) => {

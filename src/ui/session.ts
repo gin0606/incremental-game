@@ -16,6 +16,8 @@ export interface Session {
   readonly state: () => GameState;
   /** 時刻 `now` まで進める。時計が戻ったときは、追いつくまで進めない。 */
   readonly tick: (now: number) => void;
+  /** 時刻 `now` から、時計が戻って止めている生産を再開するまでの秒数。止めていなければ 0。 */
+  readonly pausedFor: (now: number) => number;
   /** 時刻 `now` まで進めて行動し、行動できたら保存する。 */
   readonly perform: (action: Action, now: number) => void;
   /** 時刻 `now` まで進めて、状態とその時刻を組で保存する。保存できなければ、そのことを知らせる。 */
@@ -91,6 +93,7 @@ export function startSession(storage: SaveStorage, notices: Notices, now: number
   return {
     state: () => state,
     tick,
+    pausedFor: (time) => Math.max(0, (at - time) / 1000),
     perform: (action, time) => {
       tick(time);
       const next = perform(state, action);

@@ -123,14 +123,44 @@ test("時計が戻ったときは、追いつくまで進めず、戻った間�
   expect(session.state()).toStrictEqual(advance(initialState, 1));
 });
 
-// SUSPECTED_BUG: 時計が戻って生産が止まっている間も、止まる前と同じ待ち時間（約 12 秒）を示し続ける。実際には
-// 時計が追いつくまで（ここでは 1 時間）生産しないため、届かない時間を示している。止まっていることを示すべき。
-test("時計が戻って生産が止まっている間も、待ち時間の表示が止まる前のまま（不具合の疑い）", () => {
+test("遊んでいる間に時計が戻ったら、追いつくまで止まっていることと再開までを含めた待ち時間を示す", () => {
+  const session = startSession(fakeStorage().storage, recordingNotices().notices, T0);
+  const shown = (now: number): string => {
+    session.tick(now);
+    return view(session.state(), session.pausedFor(now)).nextPurchase;
+  };
+
+  // 採集機の値段 11.5 に毎秒 1 で届く。1 時間戻すと、再開まで 3600 秒、買えるまで 3611.5 秒。
+  expect(shown(T0 - 3_600_000)).toBe(
+    "時計が戻ったため生産が止まっている（再開まで約 1 時間 0 分）。止まっている間を含めて約 1 時間 1 分",
+  );
+  expect(shown(T0 - 1000)).toBe(
+    "時計が戻ったため生産が止まっている（再開まで約 1 秒）。止まっている間を含めて約 13 秒",
+  );
+  expect(shown(T0 + 1000)).toBe("今の生産のままで約 11 秒");
+});
+
+test("保存した時刻が今より先なら、追いつくまで止まっていることと再開までを含めた待ち時間を示す", () => {
+  const fake = fakeStorage({ [SAVE_KEY]: serialize({ state: initialState, savedAt: T0 }) });
+  const session = startSession(fake.storage, recordingNotices().notices, T0 - 60_000);
+
+  expect(view(session.state(), session.pausedFor(T0 - 60_000)).nextPurchase).toBe(
+    "時計が戻ったため生産が止まっている（再開まで約 1 分 0 秒）。止まっている間を含めて約 1 分 12 秒",
+  );
+  session.tick(T0 + 5000);
+  expect(view(session.state(), session.pausedFor(T0 + 5000)).nextPurchase).toBe(
+    "今の生産のままで約 7 秒",
+  );
+});
+
+test("生産を止めていなければ、再開までの秒数は 0", () => {
   const session = startSession(fakeStorage().storage, recordingNotices().notices, T0);
 
-  session.tick(T0 - 3_600_000);
-
-  expect(view(session.state()).nextPurchase).toBe("今の生産のままで約 12 秒");
+  expect(session.pausedFor(T0)).toBe(0);
+  session.tick(T0 + 1000);
+  // 状態の時刻より後の時刻で尋ねても、負にしない。
+  expect(session.pausedFor(T0 + 2000)).toBe(0);
+  expect(session.pausedFor(T0 + 500)).toBe(0.5);
 });
 
 test("保存した時刻が今より先なら、保存時の状態と時刻から始めて知らせる", () => {
