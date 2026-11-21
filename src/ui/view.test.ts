@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { assert, expect, test } from "vitest";
 
 import type { GameState } from "../core/game.ts";
@@ -7,7 +8,7 @@ import { formatWait, view } from "./view.ts";
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
-test("初期状態では採集機と自動購入を並べ、工場は解放されるまで隠す。どれもまだ買えない", () => {
+test("初期状態では採集機と自動購入を並べ、工場は解放されるまで隠して解放の条件を示す。どれもまだ買えない", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",
     totalEarned: "0",
@@ -17,6 +18,7 @@ test("初期状態では採集機と自動購入を並べ、工場は解放さ�
     autoBuyer: "なし",
     // 採集機の値段 11.5 に毎秒 1 で届くまで 11.5 秒。切り上げる。
     nextPurchase: "今の生産のままで約 12 秒",
+    nextUnlock: "工場: これまでに生産したコインが 100 に達すると解放（あと 100）",
     shop: [
       {
         action: { type: "buyCollector" },
@@ -40,7 +42,7 @@ test("初期状態では採集機と自動購入を並べ、工場は解放さ�
   });
 });
 
-test("工場が解放され、買える額があれば買える。自動購入を買い終えたら隠す", () => {
+test("工場が解放されたら解放の条件を示さず、買える額があれば買える。自動購入を買い終えたら隠す", () => {
   const current = view(
     state({
       coins: num(200.7),
@@ -59,6 +61,7 @@ test("工場が解放され、買える額があれば買える。自動購入�
     factories: "2",
     autoBuyer: "稼働中",
     nextPurchase: "今買える",
+    nextUnlock: undefined,
     shop: [
       {
         action: { type: "buyCollector" },
@@ -100,6 +103,50 @@ test("これまでに生産したコインは、手元のコインと同じく 1
   expect(view(state({ totalEarned: num(999_999_999.9) })).totalEarned).toBe("999999999");
   expect(view(state({ totalEarned: num(1.2345e9) })).totalEarned).toBe("1.23e9");
   expect(view(state({ totalEarned: mul(num(1e300), num(1e300)) })).totalEarned).toBe("1.00e600");
+});
+
+test("解放までの残りは、生産で減り、購入では変わらない。端数は切り上げる", () => {
+  // 採集機 1 台で毎秒 1。残り 87.3 を切り上げる。
+  const produced = advance(initialState, 12.7);
+  // 採集機の値段 11.5 を払う。
+  const bought = perform(produced, { type: "buyCollector" });
+  assert.isDefined(bought);
+  const condition = "工場: これまでに生産したコインが 100 に達すると解放";
+
+  expect(view(produced)).toMatchObject({
+    totalEarned: "12",
+    nextUnlock: `${condition}（あと 88）`,
+  });
+  expect(view(bought)).toMatchObject({
+    totalEarned: "12",
+    nextUnlock: `${condition}（あと 88）`,
+  });
+  expect(view(state({ totalEarned: num(99.9999) }))).toMatchObject({
+    totalEarned: "99",
+    nextUnlock: `${condition}（あと 1）`,
+  });
+});
+
+test("これまでに生産したコインが解放の条件に達すると、条件を示さずに工場を並べる", () => {
+  const reached = view(advance(initialState, 100));
+  // 許容誤差の範囲で条件に届いた値は、工場の解放と同じく達したとみなす。
+  const withinTolerance = view(state({ totalEarned: num(100 * (1 - 1e-10)) }));
+  const below = view(state({ totalEarned: num(99.9999) }));
+
+  expect(reached.nextUnlock).toBeUndefined();
+  expect(reached.shop[1]?.visible).toBe(true);
+  expect(withinTolerance.nextUnlock).toBeUndefined();
+  expect(withinTolerance.shop[1]?.visible).toBe(true);
+  expect(below.shop[1]?.visible).toBe(false);
+});
+
+test("解放の条件は、工場が隠れている間だけ示す", () => {
+  fc.assert(
+    fc.property(fc.double({ min: 0, max: 200, noNaN: true }), (earned) => {
+      const current = view(state({ totalEarned: num(earned) }));
+      expect(current.nextUnlock === undefined).toBe(current.shop[1]?.visible);
+    }),
+  );
 });
 
 test("待ち時間は、生産でコインが増えるにつれて縮み、届くと買える表示に変わる", () => {

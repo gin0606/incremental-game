@@ -25,6 +25,8 @@ const collectors = requireElement("collectors");
 const factories = requireElement("factories");
 const autoBuyer = requireElement("auto-buyer");
 const nextPurchase = requireElement("next-purchase");
+const nextUnlockLabel = requireElement("next-unlock-label");
+const nextUnlock = requireElement("next-unlock");
 const shop = requireElement("shop");
 const notice = requireElement("notice");
 
@@ -66,6 +68,9 @@ const start = (): void => {
     factories.textContent = current.factories;
     autoBuyer.textContent = current.autoBuyer;
     nextPurchase.textContent = current.nextPurchase;
+    nextUnlockLabel.hidden = current.nextUnlock === undefined;
+    nextUnlock.hidden = current.nextUnlock === undefined;
+    nextUnlock.textContent = current.nextUnlock ?? "";
     for (const [index, item] of current.shop.entries()) {
       const button = buttons[index];
       if (button !== undefined) {

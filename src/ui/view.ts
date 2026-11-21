@@ -1,6 +1,7 @@
 import type { Action, GameState } from "../core/game.ts";
 import {
   AUTO_BUYER_COST,
+  FACTORY_UNLOCK_EARNED,
   collectorCost,
   factoryCost,
   isFactoryUnlocked,
@@ -31,6 +32,8 @@ export interface View {
    * 止まっている間は、そのことと、再開までの時間と、それを含めた待ち時間。
    */
   readonly nextPurchase: string;
+  /** 次に解放される要素と、その条件と、条件までの残り。解放を待つ要素が無ければ `undefined`。 */
+  readonly nextUnlock: string | undefined;
   readonly shop: readonly ShopItem[];
 }
 
@@ -114,6 +117,17 @@ function nextPurchase(state: GameState, offers: readonly Offer[], pausedSeconds:
   return `今の生産のままで約 ${formatWait(wait)}`;
 }
 
+/**
+ * 次の解放の表示。条件の値と残りは切り上げ、表示した量を生産すれば解放されるようにする。
+ */
+function nextUnlock(state: GameState): string | undefined {
+  if (isFactoryUnlocked(state)) {
+    return undefined;
+  }
+  const remaining = sub(FACTORY_UNLOCK_EARNED, state.totalEarned);
+  return `工場: これまでに生産したコインが ${format(FACTORY_UNLOCK_EARNED, "up")} に達すると解放（あと ${format(remaining, "up")}）`;
+}
+
 /** 状態 `state` の表示。`pausedSeconds` は、時計が戻って止めている生産を再開するまでの秒数。 */
 export function view(state: GameState, pausedSeconds = 0): View {
   const offers = [
@@ -129,6 +143,7 @@ export function view(state: GameState, pausedSeconds = 0): View {
     factories: state.factories.toString(),
     autoBuyer: state.autoBuyer ? "稼働中" : "なし",
     nextPurchase: nextPurchase(state, offers, pausedSeconds),
+    nextUnlock: nextUnlock(state),
     shop: offers.map(({ item }) => item),
   };
 }
