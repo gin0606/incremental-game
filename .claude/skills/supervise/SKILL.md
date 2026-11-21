@@ -129,7 +129,7 @@ disable-model-invocation: true
 
 - ゲームの変更は、AGENTS.md の設計原則と「設計と根拠」に従う。ゲーム内のテキストは日本語。数値・間隔・演出の根拠は `docs/design/` の設計記録に、出典と仮説と検証結果を書く。
 - 目標値（`docs/design/*.targets.json`）の変更は、ゲームの変更とは別の commit にし、根拠を設計記録に書く。
-- 検査: `pnpm run check`、`pnpm run test:pace:full`、`pnpm run test:e2e`、`pnpm run test:mutation` が通る。
+- 検査: AGENTS.md「検証」のコマンド（`pnpm run format:check`、`pnpm run lint`、`pnpm run typecheck`、`pnpm run test --update=none`、`pnpm run test:pace:full`、`pnpm run test:e2e`、`pnpm run test:mutation`）が通る。
 
 Issue ごとに担当を決める。
 
