@@ -42,7 +42,12 @@
 
 ## 検証
 
-ゲームの変更は、型検査・lint、テスト、シミュレーションの指標が目標値を満たすことのテスト、E2E テストを通してから取り込む。エージェントの判断だけで完了としない。
+ゲームの変更は、型検査・lint、テスト、シミュレーションの指標が目標値を満たすことのテスト、E2E テスト、ミューテーションテストを通してから取り込む。エージェントの判断だけで完了としない。取り込む commit（その後に Axon の記録だけを足す commit は除く）を、作業ツリーが空（`git status --short` が何も出さない）の状態でチェックアウトして次のコマンドを実行し、すべて終了コード 0 で終わり、作業ツリーが空のままであることを確かめる。
+
+- `pnpm run format:check`、`pnpm run lint`、`pnpm run typecheck`、`pnpm run test --update=none`: commit の hook と同じ検査（ペースの指標のテストの速い組を含む）。`pnpm run check` はテストを `--update=none` なしで回し、不要な snapshot で失敗しない
+- `pnpm run test:pace:full`: ペースの指標のテストの全組
+- `pnpm run test:e2e`: 実ブラウザでの E2E テスト
+- `pnpm run test:mutation`: ミューテーションテスト
 
 ## 技術方針
 
