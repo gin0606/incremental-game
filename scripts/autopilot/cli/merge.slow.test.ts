@@ -135,6 +135,24 @@ test("セッションの worktree が result のブランチをチェックア�
   expect(gitIn(context.repository, ["rev-parse", "main"]).trim()).toBe(mainBefore);
 });
 
+test("取り込む commit に merge commit があれば、完了を実行せずに取り込まない", () => {
+  scenarios(context, "ready-merge");
+  const mainBefore = gitIn(context.repository, ["rev-parse", "main"]).trim();
+  const { log } = runDriver(context);
+  expect(log).toMatch(/取り込まない: base\.\.head に merge commit がある: [0-9a-f]{40}\n/v);
+  expect(completionsRun()).toBe(false);
+  expect(gitIn(context.repository, ["rev-parse", "main"]).trim()).toBe(mainBefore);
+  expect(handover(0)).toContain(ALL_COMPLETIONS);
+});
+
+test("nothing の回でも、取り込む commit に merge commit があれば取り込まない", () => {
+  scenarios(context, "nothing-merge");
+  const mainBefore = gitIn(context.repository, ["rev-parse", "main"]).trim();
+  const { log } = runDriver(context);
+  expect(log).toMatch(/取り込まない: base\.\.head に merge commit がある: [0-9a-f]{40}\n/v);
+  expect(gitIn(context.repository, ["rev-parse", "main"]).trim()).toBe(mainBefore);
+});
+
 test("nothing の回の commit が Axon の記録の外を変えていれば取り込まない", () => {
   scenarios(context, "nothing-work");
   const mainBefore = gitIn(context.repository, ["rev-parse", "main"]).trim();

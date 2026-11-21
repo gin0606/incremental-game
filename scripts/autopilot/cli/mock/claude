@@ -47,8 +47,15 @@ work() {
   printf '# 報告\n\nほかの worktree（対話のセッション）: agent-other は変えなかった。\n' > .tmp/supervise/report.md
 }
 case "$scenario" in
-  ready|ready-stop|move-main|switch-branch|ready-stray|ready-detached|ready-off-branch)
+  ready|ready-stop|move-main|switch-branch|ready-stray|ready-detached|ready-off-branch|ready-merge)
     work
+    case "$scenario" in
+      ready-merge)
+        # base の木を持つ別の commit を merge する（変更は無いが merge commit ができる）。
+        side=$(git commit-tree "$base^{tree}" -p "$base" -m side)
+        git merge --quiet --no-ff --no-edit -m merge "$side"
+        ;;
+    esac
     result ready "$COMPLETIONS"
     case "$scenario" in
       move-main) git -C "$MOCK_REPOSITORY" commit --quiet --allow-empty -m moved ;;
@@ -77,6 +84,15 @@ case "$scenario" in
     mkdir -p .axon
     git mv README.md .axon/README.md
     git commit --quiet -m "move"
+    printf '# 報告\n' > .tmp/supervise/report.md
+    result nothing '[]'
+    touch "$MOCK_STOP"
+    ;;
+  nothing-merge)
+    # 変更の無い merge commit だけを持つ nothing の回（Axon の記録の外は変えない）。
+    side=$(git commit-tree "$base^{tree}" -p "$base" -m side)
+    git commit --quiet --allow-empty -m records
+    git merge --quiet --no-ff --no-edit -m merge "$side"
     printf '# 報告\n' > .tmp/supervise/report.md
     result nothing '[]'
     touch "$MOCK_STOP"

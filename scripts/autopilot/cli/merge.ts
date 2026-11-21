@@ -102,6 +102,21 @@ const fastForward = (repository: string, target: string, mainBefore: string): vo
 };
 
 /**
+ * 取り込む commit に merge commit があれば理由を返す。監督役は「取り込める状態を確かめる」で確かめるが、ドライバ
+ * 自身も確かめる。merge で入った変更は、監督役の保護範囲の判断（`git show` の combined diff）に見えないことがあるため。
+ */
+const mergeCommitProblem = (worktree: string, result: RoundResult): string | undefined => {
+  const merges = gitOrThrow(worktree, [
+    "rev-list",
+    "--merges",
+    `${result.base}..${result.head}`,
+  ]).trim();
+  return merges === ""
+    ? undefined
+    : `base..head に merge commit がある: ${merges.replaceAll("\n", ", ")}`;
+};
+
+/**
  * `nothing` の回が取り込めるのは Axon の記録だけの commit（前の回から拾った完了など）に限る。commit ごとに、rename
  * を元と先の 2 つのパスとして見る（両端の差分だけでは、`.axon/` への rename や後の commit で戻した変更が見えない）。
  */
@@ -148,6 +163,7 @@ const merge = (
     `refs/heads/${result.branch}`
       ? undefined
       : `セッションの worktree が ${result.branch} をチェックアウトしていない`) ??
+    mergeCommitProblem(worktree, result) ??
     nothingProblem(worktree, result);
   if (refusal !== undefined) {
     log(`取り込まない: ${refusal}`);
