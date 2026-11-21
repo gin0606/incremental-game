@@ -1,8 +1,7 @@
 import type { Locator } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
-const START = new Date("2026-01-01T00:00:00Z").getTime();
-const at = (milliseconds: number): Date => new Date(START + milliseconds);
+import { at } from "./clock.ts";
 
 /** 表示されたコインの数。指数表記にならない範囲で使う。 */
 const coinsOf = async (coins: Readonly<Pick<Locator, "textContent">>): Promise<number> =>
@@ -36,8 +35,6 @@ test("ページを開くと資源が増え、購入でき、再読み込みで�
     .poll(async () => Number(await coins.textContent()))
     .toBeGreaterThanOrEqual(afterPurchase);
 });
-
-// 時計を止める時刻は install から 60 秒先に置き、テストの実行が止まっても過去を指定しないようにする。
 
 test("次に買えるまでの待ち時間を示し、生産で縮み、届くと買える表示に変わる", async ({ page }) => {
   // 時計を止めてから開き、コイン 0 から始める。採集機の値段 11.5 に毎秒 1 で届く。
