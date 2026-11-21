@@ -1,0 +1,15 @@
+{
+  "$schema": "https://www.schemastore.org/tsconfig",
+  // 保護範囲の検出の CLI と hook（Node.js で動く）を、Node.js の型を読んで検査する。判定の規則（scripts/protect の
+  // 直下）は Node.js の API を使わないコードとして tsconfig.json で検査し、CLI だけを分ける。ここが CLI のファイルに
+  // 最も近い tsconfig.json なので、oxlint の型情報を使うルールもこの設定で CLI を検査する（src/sim/cli/tsconfig.json と
+  // 同じ理由で、tsconfig.json の references にはしない）。`pnpm run typecheck` が `-p` で指定して検査する。
+  "extends": "../../../tsconfig.check.json",
+  "compilerOptions": {
+    "lib": ["es2024"],
+    "types": ["node"]
+  },
+  // 継承した include・exclude は継承元のディレクトリからの相対パスになるため、ここで置き換える。
+  "include": ["**/*.ts", "**/*.mts", "**/*.cts", "**/*.tsx"],
+  "exclude": []
+}
