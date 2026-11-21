@@ -64,8 +64,8 @@ test("品物ごとに買うと得られるものを示し、工場の分は解�
 });
 
 test("自動購入を買うと、そのボタンと説明を隠す", async ({ page }) => {
-  // 自動購入の値段 1000000 ちょうどのコインを持つ保存データを、開く時刻に保存したものとして置く。
-  await page.addInitScript(putSave, savedWithCoins(1e6));
+  // 自動購入の値段 300000 ちょうどのコインを持つ保存データを、開く時刻に保存したものとして置く。
+  await page.addInitScript(putSave, savedWithCoins(3e5));
   await page.clock.install({ time: at(0) });
   await page.clock.pauseAt(at(60_000));
   await page.goto("/");
@@ -83,7 +83,7 @@ test("自動購入を買うと、そのボタンと説明を隠す", async ({ pa
 test("キーボードで自動購入を買うと、フォーカスを店の中の前にある品物のボタンへ移し、続けて店の中を移れる", async ({
   page,
 }) => {
-  await page.addInitScript(putSave, savedWithCoins(1e6));
+  await page.addInitScript(putSave, savedWithCoins(3e5));
   await page.clock.install({ time: at(0) });
   await page.clock.pauseAt(at(60_000));
   await page.goto("/");

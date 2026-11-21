@@ -48,7 +48,7 @@ test("初期状態では採集機と自動購入を並べ、工場と造幣所�
       lockedMint,
       {
         action: { type: "buyAutoBuyer" },
-        label: "自動購入を買う（1000000 コイン）",
+        label: "自動購入を買う（300000 コイン）",
         effect: "採集機・工場・造幣所を、買える額に達するたびに自動で買う",
         visible: true,
         affordable: false,
@@ -96,7 +96,7 @@ test("工場が解放されたら造幣所の解放の条件を示し、工場�
       lockedMint,
       {
         action: { type: "buyAutoBuyer" },
-        label: "自動購入を買う（1000000 コイン）",
+        label: "自動購入を買う（300000 コイン）",
         effect: "採集機・工場・造幣所を、買える額に達するたびに自動で買う",
         visible: false,
         affordable: false,
@@ -153,14 +153,14 @@ test("待ち時間は、生産でコインが増えるにつれて縮み、届�
 });
 
 test("待ち時間は、見えている品物のうち最も安いものまでの時間", () => {
-  // 採集機は約 662、工場は 150、自動購入は 1000000。工場までの 150 を毎秒 30 で割る。
+  // 採集機は約 662、工場は 150、自動購入は 300000。工場までの 150 を毎秒 30 で割る。
   const current = view(state({ totalEarned: num(1000), collectors: 30 }));
 
   expect(current.nextPurchase).toBe("今の生産のままで約 5 秒");
 });
 
 test("見えていない品物は、より安くても待ち時間に数えない", () => {
-  // 買い終えた自動購入（1000000）と解放の前の造幣所（5000000）は、採集機（約 1.2e7）と工場（約 8.5e6）より安い。
+  // 買い終えた自動購入（300000）と解放の前の造幣所（5000000）は、採集機（約 1.2e7）と工場（約 8.5e6）より安い。
   // 工場までを毎秒 700 で割る。
   const bought = view(
     state({ totalEarned: num(4e7), collectors: 100, factories: 60, autoBuyer: true }),

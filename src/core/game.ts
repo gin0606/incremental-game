@@ -52,7 +52,7 @@ const MINT_PRODUCTION = num(30);
 
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
 export const MINT_UNLOCK_EARNED: Num = num(5e7);
-export const AUTO_BUYER_COST: Num = num(1e6);
+export const AUTO_BUYER_COST: Num = num(3e5);
 
 export const initialState: GameState = {
   coins: ZERO,
