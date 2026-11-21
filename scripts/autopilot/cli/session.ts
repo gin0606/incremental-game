@@ -21,14 +21,15 @@ export const describeEnd = (end: SessionEnd): string => {
 /** セッションの間に worker の worktree を調べる間隔。worker が終わって lock が外れる前に見つけるため。 */
 const WORKER_POLL_MS = 10_000;
 
-/** 実行中のセッションの worker の worktree を seen に足す。 */
+/** 実行中のセッションの worker の worktree を seen に足す。`before` はセッションを起動する前から在った worktree。 */
 const remember = (
   repository: string,
   paths: { readonly worktree: string; readonly worktreesDirectory: string },
+  before: readonly string[],
   seen: { readonly set: (path: string, worker: Worktree) => unknown },
 ): void => {
   try {
-    for (const worker of currentWorkers(repository, paths)) {
+    for (const worker of currentWorkers(repository, paths, before)) {
       seen.set(worker.path, worker);
     }
   } catch (error) {
@@ -71,6 +72,8 @@ export const session = async (
     readonly claudeTemp: string;
     readonly temp: string;
   },
+  /** セッションを起動する前から在った worktree のパス。 */
+  before: readonly string[],
   problems: Sink,
 ): Promise<{
   readonly end: SessionEnd;
@@ -80,7 +83,7 @@ export const session = async (
 }> => {
   const seen = new Map<string, Worktree>();
   const poll = setInterval(() => {
-    remember(settings.repository, paths, seen);
+    remember(settings.repository, paths, before, seen);
   }, WORKER_POLL_MS);
   const { end, pid } = await runSession({
     command: "claude",

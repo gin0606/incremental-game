@@ -120,7 +120,7 @@ export interface RoundRecord {
   readonly outcome: string;
   /** 実行しなかった、または実行に失敗した完了の ID。 */
   readonly failedCompletions: readonly string[];
-  /** lock の持ち主がこの回のセッションのプロセスだった worker の worktree。 */
+  /** lock の持ち主がこの回のセッションのプロセスで、回の前には無かった worker の worktree。 */
   readonly agentWorktrees: readonly {
     readonly path: string;
     readonly branch: string | undefined;
@@ -133,7 +133,7 @@ const list = <T>(items: readonly T[], format: (item: T) => string): string =>
 /**
  * 次の回に `INCREMENTAL_GAME_PREVIOUS_REPORT` で渡すファイルの内容。監督役の最終報告の後に、ドライバが見た事実を
  * 足す。最終報告を書かずに終わった回（強制終了など）でも、その回の worker の worktree を次の回の監督役が前の回の
- * 残りとして処理できるよう、lock の持ち主から分かったその回の worker の worktree を挙げる。
+ * 残りとして処理できるよう、lock の持ち主と回の前の一覧から分かったその回の worker の worktree を挙げる。
  */
 export const previousReport = (report: string | undefined, record: RoundRecord): string =>
   `${report?.trimEnd() ?? "（この回の監督セッションは最終報告を書かずに終わった。）"}
@@ -146,5 +146,5 @@ export const previousReport = (report: string | undefined, record: RoundRecord):
 - セッションの終わり方: ${record.ended}
 - 取り込み: ${record.outcome}
 - 実行できなかった完了（次の回が拾い直す）: ${list(record.failedCompletions, (id) => `\`${id}\``)}
-- この回の worker の worktree とブランチ（lock の持ち主がこの回のセッションのプロセスだったもの。lock を外した結果はドライバのログにある）: ${list(record.agentWorktrees, (worktree) => `\`${worktree.path}\`（${worktree.branch === undefined ? "ブランチなし" : `\`${worktree.branch}\``}）`)}
+- この回の worker の worktree とブランチ（lock の持ち主がこの回のセッションのプロセスで、回の前には無かったもの。lock を外した結果はドライバのログにある）: ${list(record.agentWorktrees, (worktree) => `\`${worktree.path}\`（${worktree.branch === undefined ? "ブランチなし" : `\`${worktree.branch}\``}）`)}
 `;

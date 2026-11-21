@@ -171,7 +171,7 @@ const drive = async (options: Options): Promise<Stop> => {
     return waited;
   }
   // 前のドライバのプロセスが中断した回の lock を外す。
-  releaseStaleLocks(repository, worktrees(repository), []);
+  releaseStaleLocks(repository);
   return roundLoop(options, paths);
 };
 

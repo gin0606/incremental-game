@@ -67,10 +67,25 @@ export const sessionWorkers = (
   );
 
 /**
+ * この回の worker の worktree。`sessionWorkers` のうち、セッションを起動する前から在ったもの（`before` のパス）を除く。
+ * Claude Code は lock を残したまま終わることがあり、終わったプロセスの識別子で lock された対話のセッションの
+ * worktree が、同じ識別子を割り当てられたこの回のセッションのものに見えるため。
+ */
+export const roundWorkers = (
+  worktrees: readonly Worktree[],
+  directory: string,
+  owners: readonly number[],
+  before: readonly string[],
+): readonly Worktree[] =>
+  sessionWorkers(worktrees, directory, owners).filter(
+    (worktree) => !before.includes(worktree.path),
+  );
+
+/**
  * lock を外す worktree。lock の持ち主が終わった監督セッションの worktree（`supervise-*`）と、その worker の worktree
  * だけを選ぶ。前のドライバのプロセスが中断した回のものも含む。ほかの worktree（対話のセッションのもの、持ち主の
- * 分からない lock）には触れない。`isAlive` は、ドライバが終わりを見届けたプロセスには false を返す（識別子が
- * 再利用されても外せるように）。
+ * 分からない lock）には触れない。持ち主の識別子が再利用されて動いているように見えるものは選ばない（回の後の
+ * `afterSession` は、この回のセッション用の worktree と worker の worktree を別に足す）。
  */
 export const unlockTargets = (
   worktrees: readonly Worktree[],
@@ -91,4 +106,64 @@ export const unlockTargets = (
       sessions.map(({ owner }) => owner),
     ),
   ];
+};
+
+export interface SessionAfter {
+  /** 回の後の worktree の一覧。 */
+  readonly worktrees: readonly Worktree[];
+  /** `<main checkout>/.claude/worktrees`。 */
+  readonly directory: string;
+  /** この回のセッション用の worktree のパス。 */
+  readonly session: string;
+  /** 起動したセッションのプロセスの識別子。起動できなければ undefined。 */
+  readonly pid: number | undefined;
+  /** セッションを起動する前から在った worktree のパス。 */
+  readonly before: readonly string[];
+  /** セッションの間に見つけていた worker の worktree のパス（worker が終わると lock が外れるため）。 */
+  readonly seen: readonly string[];
+  readonly isAlive: (pid: number) => boolean;
+}
+
+/**
+ * 回の後に lock を外す worktree と、この回の worker の worktree（次の回に伝えるもの）。
+ *
+ * この回のセッションのプロセスは、起動したプロセスと、セッション用の worktree の lock が示すもの。worker は、lock の
+ * 持ち主がそのどれかである `agent-*` と、セッションの間に見つけていたもののうち、まだ在り、セッションの前には無かった
+ * もの。lock を外すのは、`unlockTargets` が選ぶものと、この回のセッション用の worktree と worker の worktree（lock
+ * の理由を読めなくても、この回のプロセスの識別子が再利用されて動いているように見えても外す）。ただし、セッションの
+ * 前から在り、lock の持ち主がこの回のプロセスに見える `agent-*` は、ほかのセッションのものなので外さない。
+ */
+export const afterSession = (
+  facts: SessionAfter,
+): { readonly unlock: readonly Worktree[]; readonly workers: readonly Worktree[] } => {
+  const { worktrees, directory, before } = facts;
+  const session = worktrees.filter((worktree) => worktree.path === facts.session);
+  const sessionLock = session[0]?.lock;
+  const owners = [facts.pid, sessionLock === undefined ? undefined : lockOwner(sessionLock)].filter(
+    (owner) => owner !== undefined,
+  );
+  const current = roundWorkers(worktrees, directory, owners, before);
+  const remembered = worktrees.filter(
+    (worktree) =>
+      !current.includes(worktree) &&
+      facts.seen.includes(worktree.path) &&
+      !before.includes(worktree.path),
+  );
+  const spared = new Set(
+    sessionWorkers(worktrees, directory, owners).filter((worktree) =>
+      before.includes(worktree.path),
+    ),
+  );
+  const targets = unlockTargets(worktrees, directory, facts.isAlive).filter(
+    (worktree) => !spared.has(worktree),
+  );
+  return {
+    unlock: [
+      ...targets,
+      ...[...session, ...current].filter(
+        (worktree) => worktree.lock !== undefined && !targets.includes(worktree),
+      ),
+    ],
+    workers: [...current, ...remembered],
+  };
 };

@@ -12,7 +12,7 @@ scenario=$(head -n 1 "$MOCK_DIR/scenarios")
 tail -n +2 "$MOCK_DIR/scenarios" > "$MOCK_DIR/scenarios.next"
 mv "$MOCK_DIR/scenarios.next" "$MOCK_DIR/scenarios"
 {
-  echo "round=$name scenario=$scenario"
+  echo "round=$name scenario=$scenario pid=$$"
   echo "locked-at-start=$(git worktree list --porcelain | grep '^locked' | wc -l | tr -d ' ')"
   echo "args=$*"
   for variable in INCREMENTAL_GAME_SUPERVISOR CLAUDECODE CLAUDE_CODE_RETRY_WATCHDOG CLAUDE_CODE_OAUTH_TOKEN BASH_DEFAULT_TIMEOUT_MS BASH_MAX_TIMEOUT_MS CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS CLAUDE_CODE_TMPDIR TMPDIR INCREMENTAL_GAME_PREVIOUS_REPORT; do
@@ -97,6 +97,22 @@ case "$scenario" in
     git worktree lock --reason "claude agent w1 (pid $$ start $(date))" ../agent-w1
     sleep "$MOCK_WORKER_SECONDS"
     git worktree unlock ../agent-w1
+    printf '# 報告\n' > .tmp/supervise/report.md
+    result nothing '[]'
+    touch "$MOCK_STOP"
+    ;;
+  stale-pid)
+    # 回の前から在る対話のセッションの worktree（テストが作った agent-stale）が、終わったプロセスの識別子で lock
+    # されたまま残り、その識別子がこのセッションに割り当てられた状態にする。セッションの間に終わる worker も起動する。
+    stale="$MOCK_REPOSITORY/.claude/worktrees/agent-stale"
+    git worktree unlock "$stale"
+    git worktree lock --reason "claude agent stale (pid $$ start Thu Nov 19 09:00:00 2026)" "$stale"
+    git worktree add --quiet -b worktree-agent-n1 ../agent-n1 HEAD
+    git worktree lock --reason "claude agent n1 (pid $$ start $(date))" ../agent-n1
+    git worktree add --quiet -b worktree-agent-n2 ../agent-n2 HEAD
+    git worktree lock --reason "claude agent n2 (pid $$ start $(date))" ../agent-n2
+    sleep "$MOCK_WORKER_SECONDS"
+    git worktree unlock ../agent-n2
     printf '# 報告\n' > .tmp/supervise/report.md
     result nothing '[]'
     touch "$MOCK_STOP"

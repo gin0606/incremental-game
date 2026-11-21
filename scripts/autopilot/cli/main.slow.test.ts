@@ -180,6 +180,35 @@ test("セッションの間に終わった worker の worktree も、その回�
   );
 });
 
+test("回の前から在る worktree は、lock の識別子がこの回のセッションと同じでも、lock を外さず、この回の worker として伝えない", () => {
+  const stale = lockedWorktree(
+    context,
+    "agent-stale",
+    "claude agent stale (pid 99999993 start Thu Nov 19 09:00:00 2026)",
+  );
+  scenarios(context, "stale-pid");
+  expect(runDriver(context).status).toBe(0);
+  // 回の後も、セッションのプロセスと同じ識別子で lock されたまま残る。
+  expect(lockedPaths(context)).toStrictEqual([stale]);
+  const sessionPid = /scenario=stale-pid pid=(?<pid>\d+)\n/v.exec(calls(context))?.groups;
+  expect(sessionPid).toBeDefined();
+  expect(
+    /locked claude agent stale \(pid (?<pid>\d+) start Thu Nov 19 09:00:00 2026\)\n/v.exec(
+      worktreeList(context),
+    )?.groups,
+  ).toStrictEqual(sessionPid);
+  const handover = readFileSync(
+    join(context.logDir, "rounds", round(context, 0), "previous-report.md"),
+    "utf8",
+  );
+  for (const worker of ["agent-n1", "agent-n2"]) {
+    expect(handover).toContain(
+      `\`${join(context.repository, ".claude/worktrees", worker)}\`（\`worktree-${worker}\`）`,
+    );
+  }
+  expect(handover).not.toContain("agent-stale");
+});
+
 test("lock の理由を読めなくても、回のセッション用の worktree と worker の worktree の lock は外す", async () => {
   writeFileSync(join(context.mock, "odd-lock"), "");
   scenarios(context, "hang", "nothing-stop");

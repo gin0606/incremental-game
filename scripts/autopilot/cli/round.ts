@@ -6,7 +6,7 @@ import type { RoundKind } from "../round.ts";
 import { branchName, judgeSession, roundKind } from "../round.ts";
 import { previousReport, roundName } from "../session.ts";
 import type { Worktree } from "../worktrees.ts";
-import { releaseLocks } from "./locks.ts";
+import { releaseLocks, worktrees } from "./locks.ts";
 import type { Decided } from "./merge.ts";
 import { revParse, settle } from "./merge.ts";
 import type { Sink } from "./run.ts";
@@ -156,7 +156,11 @@ const finish = (
 const collect = (
   settings: RoundSettings,
   paths: RoundPaths,
-  run: { readonly pid: number | undefined; readonly seen: readonly Worktree[] },
+  run: {
+    readonly pid: number | undefined;
+    readonly before: readonly string[];
+    readonly seen: readonly Worktree[];
+  },
   problems: Sink,
 ): {
   readonly report: string | undefined;
@@ -183,7 +187,7 @@ const collect = (
   const workers =
     attempt(
       "worktree の lock を外せなかった",
-      () => releaseLocks(settings.repository, paths, run.pid, run.seen),
+      () => releaseLocks(settings.repository, paths, run),
       problems,
     ) ?? [];
   return {
@@ -196,12 +200,14 @@ const collect = (
 /** 1 回を回す。セッションの後の手順が途中で失敗しても、後始末と次の回への申し送りは行う。 */
 export const runRound = async (settings: RoundSettings): Promise<RoundOutcome> => {
   const { repository } = settings;
+  // 回の前から在る worktree は、lock の持ち主がこの回のセッションのプロセスに見えても、この回の worker にしない。
+  const before = worktrees(repository).map((entry) => entry.path);
   const paths = prepare(repository, settings.logDir);
   const mainBefore = gitOrThrow(repository, ["rev-parse", "refs/heads/main"]).trim();
   log(`回 ${paths.name} を始める（main ${mainBefore}、ログ ${paths.roundDir}）`);
   const problems: string[] = [];
-  const { end, pid, usageLimit, seen } = await session(settings, paths, problems);
-  const { report, result, workers } = collect(settings, paths, { pid, seen }, problems);
+  const { end, pid, usageLimit, seen } = await session(settings, paths, before, problems);
+  const { report, result, workers } = collect(settings, paths, { pid, before, seen }, problems);
   const completionIds = result?.ok === true ? result.result.completions.map(({ id }) => id) : [];
   const verdict =
     problems.length > 0

@@ -122,7 +122,7 @@ test("前の回の最終報告の後に、ドライバが見た事実を足す",
 - セッションの終わり方: 終了コード 0
 - 取り込み: ready: main を x へ進めた
 - 実行できなかった完了（次の回が拾い直す）: \`g-1\`、\`g-2\`
-- この回の worker の worktree とブランチ（lock の持ち主がこの回のセッションのプロセスだったもの。lock を外した結果はドライバのログにある）: \`/repo/.claude/worktrees/agent-a1\`（\`worktree-agent-a1\`）、\`/repo/.claude/worktrees/agent-a2\`（ブランチなし）
+- この回の worker の worktree とブランチ（lock の持ち主がこの回のセッションのプロセスで、回の前には無かったもの。lock を外した結果はドライバのログにある）: \`/repo/.claude/worktrees/agent-a1\`（\`worktree-agent-a1\`）、\`/repo/.claude/worktrees/agent-a2\`（ブランチなし）
 `);
 });
 
