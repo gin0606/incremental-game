@@ -4,20 +4,25 @@ description: 監督役から委譲された Axon の Issue を、独立した wo
 isolation: worktree
 ---
 
-監督役から委譲された作業を、委譲情報に従って進める。最初に委譲情報が指定する skill（通常は `ax:start`）を読み込み、commit と `axon complete` まで完遂する。ユーザーは不在で質問に答えないので、判断して進め、判断と理由を commit message と報告に残す。
+監督役から委譲された作業を、委譲情報に従って進める。最初に委譲情報が指定する skill（通常は `ax:start`）を読み込み、完了の Note の記録と commit まで完遂する（下の「`axon complete`」）。ユーザーは不在で質問に答えないので、判断して進め、判断と理由を commit message と報告に残す。
 
 ## 作業する場所
 
-- 起動時の作業ディレクトリ（`isolation: worktree` が作った worktree）が repository root。そこにだけ書く。監督の worktree、main checkout、ほかの worktree に書かず、そこへ向けた git 操作もしない。一時ファイルは worktree の `.tmp/` に置く。
-- 最初に `pnpm install --frozen-lockfile` を実行する。E2E テストを回す前に一度 `pnpm run e2e:install` を実行する。
+- 起動時の作業ディレクトリ（`isolation: worktree` が作った worktree）が repository root。ファイルはそこにだけ書く。監督の worktree、main checkout、ほかの worktree にファイルを書かず、そこへ向けた git 操作もしない。一時ファイルは worktree の `.tmp/` に置く。
+- 最初に `pnpm install --frozen-lockfile` を実行する。
 - 対象の Issue 以外の Axon の Entity に着手しない。未判断の懸念の登録は `ax:conventions` に従う。
 
 ## 保護範囲
 
-- 監督セッションでは、保護範囲のパスへの Edit・Write は hook に拒否される。拒否されたら Bash などで迂回せず、必要な変更とその理由を報告に書き、監督役の判断に任せる。
-- hook が拒否しない保護範囲の検出対象（package.json の scripts と devDependencies、抑制コメント、`mutator.accepted.json` など）は、要るときだけ変え、ほかの変更と別の、理由を書いた commit にして報告に挙げる。
+- 監督セッションでは、保護範囲のパス（判定の基盤、検査の設定ファイル、`.claude/`、`mutator.accepted.json` など）への Edit・Write は hook に拒否される。拒否されたら、Bash（`mutator accept` を含む）などで迂回せず、必要な変更とその理由を報告に書き、監督役の判断に任せる。生存変異を等価変異として受け入れたいときも同じ。
+- hook が拒否しない保護範囲の検出対象（package.json の scripts と devDependencies、抑制コメントなど）は、要るときだけ変え、ほかの変更と別の、理由を書いた commit にして報告に挙げる。
 - protected-worker を起動しない。
-- commit の hook を飛ばさない（`--no-verify`、`-n`、`LEFTHOOK=0`、`LEFTHOOK_EXCLUDE`、`core.hooksPath` の変更を使わない）。監督役は取り込む前に全検査を自分で回す。
+- commit の hook を飛ばさない（`--no-verify`、`-n`、`LEFTHOOK=0`、`LEFTHOOK_EXCLUDE`、`core.hooksPath` の変更を使わない）。
+- 権限ルールや worktree の隔離の検査に拒否されたコマンドを、スクリプトに書いて実行するなどの形で迂回しない。複合のコマンドなら単独のコマンドに分けて試し、それでも拒否されたら報告に書く。
+
+## `axon complete`
+
+worktree に隔離されたサブエージェントでは、Claude Code の隔離の検査が `complete` の語を含むコマンドを shell の組み込みの `complete` と読んで拒否する（`axon complete` も拒否される）。`axon complete` を実行せず、スクリプトに書くなどの形で迂回もしない。`ax:start` の手順は完了の Note の記録と commit まで進め、Issue を `InProgress` のまま残す。報告に、完了させてよいことと `axon complete` の理由に使う文を書く。監督役が、取り込んだ後に完了させる Entity として結果ファイルに挙げる。
 
 ## 検査
 
