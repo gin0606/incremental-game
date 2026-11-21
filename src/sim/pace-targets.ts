@@ -2,7 +2,12 @@
 // 読み込んだ値の検査。各項目の意味は docs/design/README.md にある。時間はすべて秒、生産量は常用対数で書く。
 import type { PurchaseRule } from "./bot.ts";
 import { purchaseRules } from "./bot.ts";
+import type { Fields, Reader } from "./fields.ts";
+import { fail, fieldsOf, finite, list, positive, reader, record, series } from "./fields.ts";
 import { largest } from "./metrics.ts";
+
+/** 測り方と目標値の誤りを表す。読み込みの関数がこれを投げる。 */
+export { TargetsError } from "./fields.ts";
 
 /** 値の範囲。どちらかを省くと、その側は制限しない。 */
 export interface Band {
@@ -90,75 +95,16 @@ export interface Targets {
   };
 }
 
-/** 測り方か目標値のファイルの誤り。どの項目が、なぜ受け付けられないかを書く。 */
-export class TargetsError extends Error {
-  override readonly name = "TargetsError";
-}
-
-type Reader<T> = (value: unknown, path: string) => T;
-
-const fail = (path: string, reason: string): never => {
-  throw new TargetsError(`${path}: ${reason}`);
-};
-
-const MEASURING = "測り方の項目は目標値のファイルに書かない（src/sim/pace-settings.json に書く）";
-
-/** 節の項目を読む。`keys` にない項目があれば失敗し、`measuring` の項目なら測り方の項目として拒む。 */
-const record = (
-  value: unknown,
-  path: string,
-  keys: readonly string[],
-  measuring: readonly string[],
-): Readonly<Record<string, unknown>> => {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return fail(path, "オブジェクトで書く");
-  }
-  const entries: Readonly<Record<string, unknown>> = Object.fromEntries(Object.entries(value));
-  const unknown = Object.keys(entries).find((key) => !keys.includes(key));
-  return unknown === undefined
-    ? entries
-    : fail(`${path}.${unknown}`, measuring.includes(unknown) ? MEASURING : "知らない項目");
-};
-
-const finite: Reader<number> = (value, path) =>
-  typeof value === "number" && Number.isFinite(value) ? value : fail(path, "有限の数で書く");
-
-const positive: Reader<number> = (value, path) =>
-  finite(value, path) > 0 ? finite(value, path) : fail(path, "正の数で書く");
-
 /** 0 より大きく 1 以下の割合。効率の基準が 0 以下なら検査にならず、1 を超えると損をしない以上を求める。 */
 const fraction: Reader<number> = (value, path) =>
   positive(value, path) <= 1 ? positive(value, path) : fail(path, "0 より大きく 1 以下で書く");
-
-const list =
-  <T>(item: Reader<T>): Reader<readonly T[]> =>
-  (value, path) =>
-    Array.isArray(value) && value.length > 0
-      ? value.map((element: unknown, index) => item(element, `${path}[${index}]`))
-      : fail(path, "空でない配列で書く");
-
-const ascending: Reader<readonly number[]> = (value, path) => {
-  const numbers = list(finite)(value, path);
-  return numbers.every((number, index) => index === 0 || (numbers[index - 1] ?? number) < number)
-    ? numbers
-    : fail(path, "昇順（同じ値を含まない）で書く");
-};
-
-/**
- * 2 つ以上の昇順の数。1 つだと、隣り合う組を比べる指標（節目の比、区間の速度、局面の傾向、報酬曲線）が比べる組を持た
- * ず、検査が何もしないまま通る。
- */
-const series: Reader<readonly number[]> = (value, path) => {
-  const numbers = ascending(value, path);
-  return numbers.length >= 2 ? numbers : fail(path, "2 つ以上の値を書く");
-};
 
 const rule: Reader<PurchaseRule> = (value, path) =>
   purchaseRules.find((candidate) => candidate === value) ??
   fail(path, `購入規則（${purchaseRules.join("・")}）で書く`);
 
 const band: Reader<Band> = (value, path) => {
-  const fields = record(value, path, ["min", "max"], []);
+  const fields = record(value, path, ["min", "max"]);
   const min = fields["min"] === undefined ? undefined : finite(fields["min"], `${path}.min`);
   const max = fields["max"] === undefined ? undefined : finite(fields["max"], `${path}.max`);
   if (min === undefined && max === undefined) {
@@ -169,29 +115,43 @@ const band: Reader<Band> = (value, path) => {
     : { ...(min === undefined ? {} : { min }), ...(max === undefined ? {} : { max }) };
 };
 
-/** 節の項目を名前で読む。知らない項目があれば失敗する（`measuring` は {@link record} と同じ）。 */
-const fieldsOf = (
+/** 目標値のファイルの節の項目を名前で読む。測り方の項目 `measuring` があれば、置き場を示して失敗する。 */
+const targetFieldsOf = (
   value: unknown,
   path: string,
   keys: readonly string[],
-  measuring: readonly string[] = [],
-): (<T>(key: string, read: Reader<T>) => T) => {
-  const fields = record(value, path, keys, measuring);
-  return (key, read) => read(fields[key], `${path}.${key}`);
+  measuring: readonly string[],
+): Fields => {
+  const fields = record(value, path, [...keys, ...measuring]);
+  const moved = measuring.find((key) => Object.hasOwn(fields, key));
+  return moved === undefined
+    ? reader(fields, path)
+    : fail(
+        `${path}.${moved}`,
+        "測り方の項目は目標値のファイルに書かない（src/sim/pace-settings.json に書く）",
+      );
 };
 
+/** 測り方の項目の名前。測り方を読むときと、目標値のファイルが持てば拒むときに使う。 */
+const measuring = {
+  top: ["duration", "step", "sampleEvery", "reasonable"],
+  walls: ["window", "below"],
+  choice: ["best", "restricted"],
+  idle: ["phases", "window", "away"],
+} as const;
+
 const settingsWalls: Reader<Settings["walls"]> = (value, path) => {
-  const field = fieldsOf(value, path, ["window", "below"]);
+  const field = fieldsOf(value, path, measuring.walls);
   return { window: field("window", positive), below: field("below", finite) };
 };
 
 const settingsChoice: Reader<Settings["choice"]> = (value, path) => {
-  const field = fieldsOf(value, path, ["best", "restricted"]);
+  const field = fieldsOf(value, path, measuring.choice);
   return { best: field("best", rule), restricted: field("restricted", list(rule)) };
 };
 
 const settingsIdle: Reader<Settings["idle"]> = (value, path) => {
-  const field = fieldsOf(value, path, ["phases", "window", "away"]);
+  const field = fieldsOf(value, path, measuring.idle);
   return {
     phases: field("phases", series),
     window: field("window", positive),
@@ -205,15 +165,7 @@ const settingsIdle: Reader<Settings["idle"]> = (value, path) => {
  * @throws {TargetsError} 項目が欠けている、知らない項目がある、値の種類や範囲が違うとき。
  */
 export function parseSettings(value: unknown): Settings {
-  const field = fieldsOf(value, "settings", [
-    "duration",
-    "step",
-    "sampleEvery",
-    "reasonable",
-    "walls",
-    "choice",
-    "idle",
-  ]);
+  const field = fieldsOf(value, "settings", [...measuring.top, "walls", "choice", "idle"]);
   return {
     duration: field("duration", positive),
     step: field("step", positive),
@@ -250,12 +202,12 @@ const novelty: Reader<Targets["novelty"]> = (value, path) => {
 };
 
 const walls: Reader<Targets["walls"]> = (value, path) => {
-  const field = fieldsOf(value, path, ["longest"], ["window", "below"]);
+  const field = targetFieldsOf(value, path, ["longest"], measuring.walls);
   return { longest: field("longest", band) };
 };
 
 const choice: Reader<Targets["choice"]> = (value, path) => {
-  const field = fieldsOf(value, path, ["lead"], ["best", "restricted"]);
+  const field = targetFieldsOf(value, path, ["lead"], measuring.choice);
   return { lead: field("lead", band) };
 };
 
@@ -263,12 +215,7 @@ const choice: Reader<Targets["choice"]> = (value, path) => {
 const idle =
   (phases: readonly number[]): Reader<Targets["idle"]> =>
   (value, path) => {
-    const field = fieldsOf(
-      value,
-      path,
-      ["efficiency", "reachBy", "reach"],
-      ["phases", "window", "away"],
-    );
+    const field = targetFieldsOf(value, path, ["efficiency", "reachBy", "reach"], measuring.idle);
     const reachBy = field("reachBy", finite);
     // 最後の局面より後の reachBy では、許容間隔の到達を確かめる局面が無く、検査が何もしないまま通る。
     return reachBy > largest(phases)
@@ -282,11 +229,11 @@ const idle =
  * @throws {TargetsError} 項目が欠けている、知らない項目か測り方の項目がある、値の種類や範囲が違うとき。
  */
 export function parseTargets(value: unknown, settings: Settings): Targets {
-  const field = fieldsOf(
+  const field = targetFieldsOf(
     value,
     "targets",
     ["milestones", "growth", "purchases", "novelty", "walls", "choice", "idle"],
-    ["duration", "step", "sampleEvery", "reasonable"],
+    measuring.top,
   );
   return {
     milestones: field("milestones", milestones),
