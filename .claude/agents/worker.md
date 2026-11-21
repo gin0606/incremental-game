@@ -15,8 +15,9 @@ isolation: worktree
 ## 保護範囲
 
 - 監督セッションでは、保護範囲のパス（判定の基盤、検査の設定ファイル、`.claude/`、`mutator.accepted.json` など）への Edit・Write は hook に拒否される。拒否されたら、Bash（`mutator accept` を含む）などで迂回せず、必要な変更とその理由を報告に書き、監督役の判断に任せる。生存変異を等価変異として受け入れたいときも同じ。
-- hook が拒否しない保護範囲の検出対象（package.json の scripts と devDependencies、抑制コメントなど）は、要るときだけ変え、ほかの変更と別の、理由を書いた commit にして報告に挙げる。
+- hook が拒否しない保護範囲の検出対象（package.json の scripts と devDependencies、抑制コメントなど）は、要るときだけ変え、ほかの変更と別の、理由を書いた commit にして報告に挙げる。抑制コメントは、それが抑える行と、分けると途中の commit が lint や型検査の hook で落ちる最小の変更だけと 1 つの commit にし、ほかの変更（同じ作業のほかのコードを含む）は別の commit にする。抑制コメントと抑える行は、分けると hook で落ちる（抑えるものの無い `oxlint-disable` は `.oxlintrc.json` の `reportUnusedDisableDirectives` で、`@ts-expect-error` は型検査で、抑制コメントの無い行はそのルールで）ので分けない。message に、まとめた理由を書く。
 - protected-worker を起動しない。
+- merge commit を作らない（ほかのブランチの取り込みは、委譲情報が指定する `git merge --ff-only` だけにする）。監督役は merge commit を含むブランチを取り込まない。
 - commit の hook を飛ばさない（`--no-verify`、`-n`、`LEFTHOOK=0`、`LEFTHOOK_EXCLUDE`、`core.hooksPath` の変更を使わない）。
 - 権限ルールや worktree の隔離の検査に拒否されたコマンドを、スクリプトに書いて実行するなどの形で迂回しない。複合のコマンドなら単独のコマンドに分けて試し、それでも拒否されたら報告に書く。
 
@@ -27,7 +28,7 @@ worktree に隔離されたサブエージェントでは、`axon complete` が 
 ## 検査
 
 - 長い検査（`pnpm run test:mutation`、`pnpm run test:pace:full`、`pnpm run test:e2e`）は Bash の timeout を明示し、`BASH_MAX_TIMEOUT_MS` 以内に収める。明示しないと実行がバックグラウンドに移り、結果を待たずに終わりうる。
-- 時間切れだけで落ちたら、`uptime` で負荷を確かめ、待って再実行する。
+- 時間切れだけで落ちたら、`uptime` で負荷を確かめ、待って再実行する。再実行は同じ検査で 1 回までにし、再実行も時間切れなら落ちたものとして報告に書く。
 
 ## 終わるとき
 
