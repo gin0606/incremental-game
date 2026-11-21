@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterAll, afterEach, beforeAll, expect, test, vi } from "vitest";
 
-import { createCheckRepository, runCheck } from "./check-repository.ts";
+import { baseFiles, commitOn, createCheckRepository, runCheck } from "./check-repository.ts";
 import { createRepository, gitIn, isolatedEnv, repositoryRoot, writeFiles } from "./fixture.ts";
 
 // 1 件で git を何度も起動する。機械が混み合っても結果と関係なく落ちないよう、時間切れを広げる。
@@ -20,6 +20,7 @@ beforeAll(() => {
 afterEach(() => {
   gitIn(repository, ["reset", "--quiet", "--hard"]);
   gitIn(repository, ["clean", "--quiet", "--force", "-d"]);
+  gitIn(repository, ["switch", "--quiet", "main"]);
 });
 
 afterAll(() => {
@@ -98,6 +99,75 @@ test("規則と一覧の外にある commit していない変更では止めな
   });
 });
 
+test.each([
+  {
+    name: "作業ブランチが commit した規則の変更",
+    branch: "rules-changed",
+    change: { files: { "scripts/protect/cli/hook.ts": "export const x = 1;\n" } },
+    paths: ["scripts/protect/cli/hook.ts"],
+  },
+  {
+    name: "作業ブランチが commit した規則の追加と削除",
+    branch: "rules-added-removed",
+    change: {
+      files: { "scripts/protect/extra/rule.ts": "export const x = 1;\n" },
+      removed: ["scripts/protect/cli/check.ts"],
+    },
+    paths: ["scripts/protect/cli/check.ts", "scripts/protect/extra/rule.ts"],
+  },
+  {
+    name: "作業ブランチが commit した判定の基盤の一覧の変更",
+    branch: "list-changed",
+    change: { files: { "foundation-paths.txt": `${baseFiles["foundation-paths.txt"]}src/*\n` } },
+    paths: ["foundation-paths.txt"],
+  },
+] as const)(
+  "作業ブランチの作業ツリーで $name があれば、検査せずに終了コード 2 で止める",
+  ({ branch, change, paths }) => {
+    commitOn(repository, branch, change);
+    gitIn(repository, ["switch", "--quiet", branch]);
+
+    // サブディレクトリから実行しても、作業ツリーのルートからのパスで挙げる。
+    const result = runCheck(join(repository, "src"), ["main", branch]);
+
+    expect(result).toStrictEqual({
+      status: 2,
+      stdout: "",
+      stderr: `検出の規則か判定の基盤の一覧が main の版と違うため、検査しない（取り込み先の作業ツリーで実行する）:\n${paths.map((path) => `- ${path}\n`).join("")}`,
+    });
+  },
+);
+
+test("分岐の後に base で規則を変えていれば、base より前の作業ツリーでは止める", () => {
+  commitOn(repository, "rules-on-base", {
+    files: { "scripts/protect/cli/hook.ts": "export const x = 1;\n" },
+  });
+
+  const result = runCheck(repository, ["rules-on-base", "main"]);
+
+  expect(result).toStrictEqual({
+    status: 2,
+    stdout: "",
+    stderr:
+      "検出の規則か判定の基盤の一覧が rules-on-base の版と違うため、検査しない（取り込み先の作業ツリーで実行する）:\n- scripts/protect/cli/hook.ts\n",
+  });
+});
+
+test("HEAD が base でなくても、規則と一覧が base の版と同じなら検査する", () => {
+  commitOn(repository, "game-changed", {
+    files: { "src/core/game.ts": `${baseFiles["src/core/game.ts"]}// @ts-expect-error\n` },
+  });
+  gitIn(repository, ["switch", "--quiet", "game-changed"]);
+
+  const result = runCheck(repository, ["main", "game-changed"]);
+
+  expect(result).toStrictEqual({
+    status: 1,
+    stdout: `保護範囲に当たる変更がある（${gitIn(repository, ["rev-parse", "main"]).trim()}..game-changed）:\n- 抑制の印: src/core/game.ts（追加した行: // @ts-expect-error）\n`,
+    stderr: "",
+  });
+});
+
 // 規則を読み込む前に確かめることは、このリポジトリの scripts/protect を写したリポジトリで、写した check.ts を
 // 動かして確かめる（ほかのテストは、このリポジトリの check.ts を使い捨てのリポジトリで動かす）。
 const copiedRules = (): Readonly<Record<string, string>> =>
@@ -112,6 +182,7 @@ const copiedRules = (): Readonly<Record<string, string>> =>
 
 const runCopied = (
   prepare?: (copy: string) => void,
+  args: readonly string[] = ["main", "main"],
 ): { status: number | null; stdout: string; stderr: string } => {
   const copy = createRepository({
     ...copiedRules(),
@@ -122,7 +193,7 @@ const runCopied = (
   prepare?.(copy);
   const result = spawnSync(
     process.execPath,
-    [join(copy, "scripts/protect/cli/check.ts"), "main", "main"],
+    [join(copy, "scripts/protect/cli/check.ts"), ...args],
     { cwd: copy, encoding: "utf8", env: isolatedEnv() },
   );
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
@@ -146,6 +217,53 @@ test("入口のほかの規則のモジュールは、commit していない変�
     stderr: `検出の規則か判定の基盤の一覧に commit していない変更があるため、検査しない:\n${modules.map((path) => `-  M ${path}\n`).join("")}`,
   });
 });
+
+// 作業ブランチの作業ツリーで、ブランチが commit した壊れたモジュール（読み込むと終了コード 1 になる）を読み込む前に
+// 止める。
+const commitBrokenModules = (copy: string, modules: readonly string[]): void => {
+  gitIn(copy, ["switch", "--quiet", "--create", "broken"]);
+  writeFiles(copy, Object.fromEntries(modules.map((path) => [path, BROKEN])));
+  gitIn(copy, ["commit", "--quiet", "--all", "--message=broken"]);
+};
+
+test("入口のほかの規則のモジュールは、base の版と同じと確かめるまで読み込まない", () => {
+  const modules = Object.keys(copiedRules())
+    .filter((path) => path !== "scripts/protect/cli/check.ts")
+    .toSorted();
+
+  expect(
+    runCopied(
+      (copy) => {
+        commitBrokenModules(copy, modules);
+      },
+      ["main", "broken"],
+    ),
+  ).toStrictEqual({
+    status: 2,
+    stdout: "",
+    stderr: `検出の規則か判定の基盤の一覧が main の版と違うため、検査しない（取り込み先の作業ツリーで実行する）:\n${modules.map((path) => `- ${path}\n`).join("")}`,
+  });
+});
+
+test.each(["main..main", "main^!", "--", "--output=out"])(
+  "base に 1 つの commit でない %s を渡せば、規則を読み込まずに終了コード 2 で失敗する",
+  (base) => {
+    let copy = "";
+    const result = runCopied(
+      (created) => {
+        copy = created;
+        commitBrokenModules(created, ["scripts/protect/cli/check-diff.ts"]);
+      },
+      [base, "broken"],
+    );
+
+    expect(result.status).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toMatch(/^保護範囲の検査に失敗した: Error: git -C .+ rev-parse /v);
+    expect(result.stderr).not.toContain("SyntaxError");
+    expect(gitIn(copy, ["status", "--porcelain"])).toBe("");
+  },
+);
 
 test("写した規則は、壊さなければそのまま動く", () => {
   const result = runCopied();

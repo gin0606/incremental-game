@@ -8,7 +8,8 @@ export interface GitResult {
 
 /**
  * git を実行する。エラーの文言で判断する箇所があるため英語の出力に固定し、パスを pathspec の特殊な書き方として
- * 読ませない。
+ * 読ませない。cli/check.ts は規則を確かめる前にこのファイルを import しないため、同じ起動の仕方を写して持つ。
+ * 起動の仕方を変えるときは cli/check.ts も揃える。
  */
 export const runGit = (args: readonly string[]): GitResult => {
   const result = spawnSync("git", ["--literal-pathspecs", ...args], {

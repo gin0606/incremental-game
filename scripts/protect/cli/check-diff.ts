@@ -5,7 +5,7 @@ import { changeFindings, formatFinding, parsePathList } from "../rules.ts";
 import { git } from "./git.ts";
 
 // 取り込み前の検査（check.ts）のうち、検出の規則を読み込んで差分を判定する部分。check.ts が、規則に commit して
-// いない変更が無いことを確かめてから読み込む。
+// いない変更が無く、規則が `<base>` の版と同じことを確かめてから読み込む。
 
 // 利用者の git の設定（外部の diff、テキストへの変換、名前の変更の検出、サブディレクトリからの相対パス、色）と
 // .gitattributes（バイナリ扱い）で差分の行が変わらないようにする。

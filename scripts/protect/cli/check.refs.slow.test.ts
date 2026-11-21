@@ -44,7 +44,10 @@ test("分岐の後に base で判定の基盤の一覧に足したパスも検�
     },
   });
 
+  // 一覧が base の版と違う作業ツリーでは止まるため、取り込み先の作業ツリー（HEAD が base）で実行する。
+  gitIn(repository, ["switch", "--quiet", "listed"]);
   const result = runCheck(repository, ["listed", "metrics"]);
+  gitIn(repository, ["switch", "--quiet", "main"]);
 
   expect(result.stderr).toBe("");
   expect(result.status).toBe(1);
@@ -151,10 +154,15 @@ test.each([
   });
 });
 
-test("読めない ref は終了コード 2 で失敗する", () => {
-  const result = runCheck(repository, ["no-such-branch", "main"]);
+test.each([
+  { name: "base", args: ["no-such-branch", "main"], command: "rev-parse" },
+  { name: "head", args: ["main", "no-such-branch"], command: "merge-base" },
+] as const)("読めない $name は終了コード 2 で失敗する", ({ args, command }) => {
+  const result = runCheck(repository, args);
 
   expect(result.status).toBe(2);
   expect(result.stdout).toBe("");
-  expect(result.stderr).toContain("保護範囲の検査に失敗した: Error: git -C");
+  expect(result.stderr).toMatch(
+    new RegExp(`^保護範囲の検査に失敗した: Error: git -C .+ ${command} `, "v"),
+  );
 });

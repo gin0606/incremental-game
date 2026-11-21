@@ -89,12 +89,16 @@ const rule = (category: Category, matches: PathMatcher, detail: string): PathRul
 // - 検査の設定: tsrs・oxlint・oxfmt・lefthook が読む設定と除外の一覧。.gitignore は oxlint と oxfmt が対象から
 //   外すファイルの一覧として読む。lefthook は yml・yaml・toml・json・jsonc の拡張子の lefthook と lefthook-local
 //   （先頭にドットを付けた名前と、.config/ の下を含む）を設定として読み、.lefthook/・.lefthook-local/ の下の
-//   スクリプトを動かす。
+//   スクリプトを動かす。lefthook.yml の rc・extends・remotes・source_dir・source_dir_local は、ほかのパス（remotes
+//   はリポジトリの外）のファイルを読ませる・動かさせる。これらのキーを足す変更は lefthook.yml の変更として検出する
+//   が、指した先のファイルのその後の編集は検出しない（今はどのキーも使っていない）。
 // - 検査の設定（pnpm）: pnpm-workspace.yaml（overrides・patchedDependencies・pnpmfile などの設定）、.npmrc、
 //   pnpmfile（.pnpmfile.mjs・.pnpmfile.cjs。readPackage で依存の package.json を書き換えられる）、patches/
 //   （pnpm patch の既定の置き場）。どれも oxlint・tsrs などの検査の道具を、版を変えずに何もしないものへ差し替え
 //   られる。patches/ の外に置くパッチは、それを使わせる patchedDependencies の変更として検出するが、その後の
-//   パッチの編集は検出しない（今は patchedDependencies を使っていない）。
+//   パッチの編集は検出しない（今は patchedDependencies を使っていない）。pnpm の pnpmfile の設定で既定の名前以外の
+//   pnpmfile を指す場合も、その設定の変更（pnpm-workspace.yaml・.npmrc・package.json の pnpm）として検出するが、
+//   その後の pnpmfile の編集は検出しない（今は pnpmfile を設定していない）。
 //   pnpm-lock.yaml は含めない。lockfile の解決先を書き換えても検査の道具を差し替えられるが、ゲームの依存を足す
 //   たびに書き換わるファイルで、パスで検出するとそのたびに独立判断が要る。検査の道具の項目だけを比べる方法は
 //   作っていない。

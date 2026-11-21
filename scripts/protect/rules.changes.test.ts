@@ -18,6 +18,7 @@ test.each([
   "// eslint-disable-line",
   "// @ts-expect-error",
   "// @ts-nocheck",
+  "// @TS-NOCHECK",
   "// @ts-ignore: 理由",
   "// mutator-disable-next-line: 等価",
   "// Stryker disable next-line all",
