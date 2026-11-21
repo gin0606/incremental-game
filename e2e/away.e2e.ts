@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { at } from "./clock.ts";
+import { rendered } from "./rendered.ts";
 
 /**
  * 時計の基準から `savedAt` ミリ秒後に保存した、採集機 2 台・工場 1 台・自動購入あり、コイン 1000 の保存データ
@@ -56,6 +57,29 @@ test("離れていた後に開くと、離れていた時間と生産したコ�
 
   await away.getByRole("button", { name: "閉じる" }).click();
   await expect(away).toBeHidden();
+});
+
+// SUSPECTED_BUG: 今はキーボードで「閉じる」を押すと、知らせの領域が隠れ、フォーカスが文書の先頭（body）へ外れる。
+// 正しいのは、続けて操作できる位置（候補は、知らせの後に続く店の最初の品物のボタン）へ移すこと。根拠は WAI-ARIA
+// Authoring Practices の "Developing a Keyboard Interface" の Persistence of focus（隠したり取り除いたりした要素から
+// フォーカスを移さないと body へ移り、フォーカスを失う）。
+test("（不具合の疑い）キーボードで「閉じる」を押すと、フォーカスが文書の先頭へ外れる", async ({
+  page,
+}) => {
+  await page.addInitScript(seed, saveData(0));
+  await page.clock.install({ time: at(3_600_000) });
+  await page.clock.pauseAt(at(3_660_000));
+  await page.goto("/");
+  const away = page.getByRole("region", { name: "離れていた間に進んだこと" });
+  await expect(away).toBeVisible();
+
+  // 開いた直後のフォーカスは文書の先頭にあり、知らせは店より前にあるので、最初の Tab で「閉じる」へ移る。
+  await page.keyboard.press("Tab");
+  await expect(away.getByRole("button", { name: "閉じる" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(away).toBeHidden();
+  await rendered(page);
+  await expect(page.locator("body")).toBeFocused();
 });
 
 for (const { name, save, notice } of [
