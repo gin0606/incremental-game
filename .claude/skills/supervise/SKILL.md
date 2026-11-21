@@ -47,12 +47,12 @@ disable-model-invocation: true
 }
 ```
 
-`completions` は、`axon complete` する Entity を、実行する順（子の Issue、その後に Group）に並べる。取り込む側（隔離されていないシェル）は、セッションの worktree の HEAD が `head` であることを確かめ、その worktree で、並びの順に `axon complete <id> -r <reason>`（`reason` はそのまま 1 つの引数として渡す）を実行してそれぞれ終了コードを確かめ、`axon storage check` を実行し、`.axon/` の記録を commit してから、その commit へ main を `git merge --ff-only` で進める。main は fast-forward でだけ動く。どれかが失敗したら、その worktree の `.axon/` の変更を捨て（`git restore --staged --worktree -- .axon` と `git clean -fd -- .axon`）、`head` をそのまま取り込む。実行されなかった完了は、次の回が「状態を読む」の 4 で拾い直す。
+`completions` は、`axon complete` する Entity を、実行する順（子の Issue、その後に Group）に並べる。取り込む側（隔離されていないシェル）は、セッションの worktree の HEAD が `head` であることを確かめ、その worktree で、並びの順に `axon complete <id> -r <reason>`（`reason` はそのまま 1 つの引数として渡す）を実行してそれぞれ終了コードを確かめ、`axon storage check` を実行し、`.axon/` の記録だけを commit して（その commit の差分が `.axon/` だけであることを確かめる）、その commit へ main を `git merge --ff-only` で進める。main は fast-forward でだけ動く。どこかで失敗したら、その worktree を `git reset --hard <head>` と `git clean -fd -- .axon` で `head` に戻し（未 commit の記録と、作った commit を捨てる）、`head` を `git merge --ff-only` で取り込む。`head` も取り込めなければ何も取り込まず、失敗として扱う。実行されなかった完了は、次の回が「状態を読む」で拾い直す。
 
 `status` は次のどれか。
 
 - `ready`: 目標を終え、`head`（セッション用ブランチの HEAD）が「取り込める状態を確かめる」節をすべて満たした。ドライバは `git merge --ff-only <head>` で取り込める。
-- `nothing`: 目標を進めなかった（進められる目標が無い、前の回の残りの処理だけで終わった、など）。理由を `summary` と最終報告に書く。`head` は `base` と同じか、`base` の上に Axon の記録だけの commit（未判断の登録、前の回の後始末の記録など）を持つ。記録の commit があれば、`ready` と同じ条件を満たしたうえで、ドライバが取り込める。
+- `nothing`: 目標を進めなかった（進められる目標が無い、前の回の残りの処理だけで終わった、など）。理由を `summary` と最終報告に書く。`head` は `base` と同じか、`base` の上に Axon の記録だけの commit（未判断の登録、前の回の後始末の記録など）を持つ。記録の commit があれば、`ready` と同じ条件を満たしたうえで、ドライバが取り込める。`completions`（前の回から拾ったもの）があれば、`head` が `base` と同じでも、取り込む側が上の手順で実行する。
 - `failed`: 取り込める状態にできなかった。セッション用ブランチを取り込ませない。最終報告に、止まった理由、commit 済みのもの、Axon の状態、残った worktree とブランチ、次の回が継続するのに要ることを書く。
 
 ## 1. 状態を読む
@@ -60,15 +60,19 @@ disable-model-invocation: true
 1. 監督セッションであることを確かめる: `INCREMENTAL_GAME_SUPERVISOR` が設定され、作業ディレクトリが main checkout の `.claude/worktrees/<回の名前>` で、回の名前が `supervise-` で始まり、ブランチが `worktree-<回の名前>`、`git status --short` が空、`git rev-parse HEAD` と `git rev-parse main` が同じであること。どれかが違えば、何も変えずに `failed` の結果ファイルを書いて終わる（保護範囲の hook が働かない、main を動かしうる、または分岐元が main でないため）。`git rev-parse HEAD` を `base` として控える。
 2. 監督の worktree で `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行する。
 3. AGENTS.md と `docs/design/` の設計記録を読む。AGENTS.md に「現在の段階」節が残っている間は、基盤の試運転だと方向性の引数に書かれた回だけを進める。書かれていなければ `nothing` で終わる。
-4. Axon の作業中・未着手の作業を `axon list` で読む。前回の最終報告として、環境変数 `INCREMENTAL_GAME_PREVIOUS_REPORT` が示すファイル（ドライバが前の回の `report.md` を保存した場所）と、直近の監督セッションの目標の Group（3 の印を本文に持つもの。完了していないものを含む）の最終報告の Note を読む。完了していない目標の Group があれば、その残りを継続するかを 2 で決める。前の回の `completions` が実行されずに残っていれば（3 の印を本文に持つ Group の子で、HEAD に取り込み済みで完了の Note があるのに `InProgress` の Issue と、全子孫が終わった `Confirmable` の印の Group）、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。印の無い Group とその子は入れない。
+4. Axon の作業中・未着手の作業を `axon list` で読む。前回の最終報告として、環境変数 `INCREMENTAL_GAME_PREVIOUS_REPORT` が示すファイル（ドライバが前の回の `report.md` を保存した場所）と、直近の監督セッションの目標の Group（3 の印を本文に持つもの。完了していないものを含む）の最終報告の Note を読む。完了していない目標の Group（終了監査を通したと書いた最終報告の Note があるものを除く）があれば、その残りを継続するかを 2 で決める。
 5. `git worktree list` と `git branch --list 'worktree-*'` で、前の回の残りを調べる。前の回の残りとして扱うのは、この回以外の `worktree-supervise-*` のセッション用ブランチと worktree と、前回の最終報告か残った worktree の `.tmp/supervise/report.md` が、その回の worker のものとして名前を挙げた `worktree-agent-*` のブランチと worktree だけにする。ほかの worktree とブランチ（対話のセッションや、報告の無い回の worker のもの）は変えずに、最終報告に一覧を書く。
 
 前の回の残りは、継続するか破棄するかを決める。ドライバは回を順に起動し、次の回の前に、前の回のセッション用の worktree と、その回の報告が挙げた worker の worktree の lock を外すので、前の回のセッションと worker は終わっている。
+
+前の回のセッション用ブランチが HEAD の祖先（`git merge-base --is-ancestor <ブランチ> HEAD` が成功）なら、取り込み済みなので、継続も破棄も選ばずに下の方法で削除する。
 
 - **継続**: 前の回のセッション用ブランチが今の HEAD から fast-forward できる場合に限る。「保護範囲を検査する」節の検査（`<worker のブランチ>` を前の回のブランチに読み替える）と「取り込む」節の全検査を、その先端で通してから `git merge --ff-only` で取り込み、`axon storage check` を実行する。前の回の worker のブランチは、取り込まれていない作業として破棄し、その Issue は新しい worker にやり直させる（worker の `axon start` はそのブランチにしか無いので、セッション用ブランチでは `NotStarted` のまま）。
 - **破棄**: 取り込まない。
 
 継続で取り込んだもの以外の前の回の worktree とブランチは、監督の worktree から `git worktree remove <worktree の絶対パス>` と `git branch -D <ブランチ>` で削除する。破棄すると決めた作業なので、未 commit の変更が残って削除できなければ `--force` で削除する。lock が残って削除できないものは、最終報告に一覧を書き、ドライバに任せる。
+
+残りを処理した後に、実行されなかった前の回の `completions` を拾う。3 の印を本文に持つ Group の子で、HEAD にあり完了の Note があるのに `InProgress` の Issue を、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。その後に、印の Group で、終了監査を通したと書いた最終報告の Note があり、直接の子が終わっているか今入れた Issue だけが残るものを入れる。この Group は目標を終えているので、2 で継続する目標にしない。印の無い Group とその子は入れない。
 
 ## 2. 目標を 1 つ決める
 
@@ -110,10 +114,10 @@ Issue を依存の順に 1 件ずつ、`subagent_type` を担当（`worker` か 
 
 返った報告を、Issue の完了条件、worker のブランチの commit（`git log --oneline HEAD..<ブランチ>`）、差分（`git diff HEAD...<ブランチ>`）、完了の Note と照合する。
 
-- **差し戻し**: 足りない完了条件、確かめていない検査、self-review の後の未 review の変更、6・7 で見つかった問題があれば、同じ担当の新しい Agent をフォアグラウンドで起動し、前の worker のブランチを引き継がせて直させる（4 の委譲情報）。返ったら、`git merge-base --is-ancestor <前のブランチ> <新しいブランチ>` で引き継いだことを確かめ、前の worker の worktree を `git worktree remove <worktree の絶対パス>`、ブランチを `git branch -D` で削除する。
+- **差し戻し**: 足りない完了条件、確かめていない検査、self-review の後の未 review の変更、6・7 で見つかった問題があれば、同じ担当の新しい Agent をフォアグラウンドで起動し、前の worker のブランチを引き継がせて直させる（4 の委譲情報）。返ったら、`git merge-base --is-ancestor <前のブランチ> <新しいブランチ>` で引き継いだことを確かめる。引き継いでいなければ、もう一度差し戻す。引き継いでいれば、前の worker の commit は新しいブランチにあるので、前の worktree を `git worktree remove --force <worktree の絶対パス>`、ブランチを `git branch -D` で削除する。
 - **要る保護範囲の変更**: worker が、hook に拒否された・保護範囲なので変えなかった変更（変異の受け入れ、`.oxlintrc.json` の見直しなど）を報告したら、採否を決める。worker の Issue がその変更なしに完了条件を満たせないなら、同じ Issue のまま protected-worker に前のブランチを引き継がせ（差し戻しと同じ手順）、その変更を単独の commit でさせる。満たせるなら、取り込んだ後に protected-worker の Issue として登録する（7 の 5）。
 - 報告された計画からの逸脱を一件ずつ採否を決める。
-- **取り込まない**: 差し戻しても直らない、judge が却下した、などで取り込まないと決めたら、理由を最終報告に書き、worker の worktree を `git worktree remove --force`、ブランチを `git branch -D` で削除し、Issue を新しい worker にやり直させるか、`axon-kit:update` で取り消す。
+- **取り込まない**: 差し戻しても直らない、judge が却下した、などで取り込まないと決めたら、理由を最終報告に書き、worker の worktree を `git worktree remove --force`、ブランチを `git branch -D` で削除し、Issue を新しい worker にやり直させるか、`axon-kit:update` で取り消す。worker が登録した `Undecided` と、取り込んだ後に回すと決めた保護範囲の変更は、そのブランチにしか無かったので、報告をもとに `axon-kit:capture` でセッション用ブランチに登録し直して commit する。
 
 worker のブランチに新しい commit が加わったら（差し戻し、変異の受け入れなど）、この節からやり直す。
 
@@ -161,8 +165,8 @@ judge を 2 件、並列に起動する（`ax:start-group` の終了監査と同
 - 作業ツリーが空（`git status --short`）で、`axon storage check` が通る。
 - `git merge-base --is-ancestor <base> HEAD` が成功し、`git rev-parse main` が `base` と同じ（main が動いていない。動いていれば `failed` にする）。
 - この回の worker の worktree とブランチが残っていない（`git worktree list`、`git branch --list 'worktree-agent-*'`）。
-- `completions` に、取り込んだ子の Issue（完了の Note があり `InProgress`）と、目標を終えた Group が、実行する順に並んでいる。
-- 最後に全検査を通した commit（取り込んだ worker のブランチの HEAD）から HEAD までの差分が Axon の記録だけ（`git diff --stat <その commit> HEAD -- . ':!.axon'` が空）。全検査を通した commit が無ければ、`base` から HEAD までの差分が Axon の記録だけ。どちらかでなければ `failed` にする。
+- `completions` に、前の回から拾ったものと、取り込んだ子の Issue（完了の Note があり `InProgress`）と、目標を終えた Group が、実行する順に並んでいる。
+- 最後に全検査を通した commit（取り込んだ worker のブランチの HEAD か、1 の継続で取り込んだ前の回のブランチの先端）から HEAD までの差分が Axon の記録だけ（`git diff --stat <その commit> HEAD -- . ':!.axon'` が空）。全検査を通した commit が無ければ、`base` から HEAD までの差分が Axon の記録だけ。どちらかでなければ `failed` にする。
 
 満たせば `ready`（目標を進めなかったなら `nothing`）、満たせなければ `failed` の結果ファイルを書いて終わる。
 
@@ -175,5 +179,5 @@ judge を 2 件、並列に起動する（`ax:start-group` の終了監査と同
 - 全検査の結果と、指標の変化（ペースの指標のテストの合否、変えた目標値と設計記録の検証結果に書いた値）。
 - 保護範囲の検出結果と judge の判断、終了監査の結果。
 - ユーザーに聞かずに下した判断と理由、差し戻しと理由。
-- 登録した `Undecided` と未解決事項、次の回への申し送り。
+- この回で登録した `Undecided`（worker が登録したものを含む）と未解決事項、次の回への申し送り。
 - この回が起動した worker の worktree とブランチの名前、削除した前の回の残りと、残った worktree とブランチ。
