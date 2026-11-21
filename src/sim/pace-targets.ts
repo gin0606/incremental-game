@@ -97,9 +97,25 @@ export interface Targets {
   };
 }
 
-/** 0 より大きく 1 以下の割合。効率の基準が 0 以下なら検査にならず、1 を超えると損をしない以上を求める。 */
-const fraction: Reader<number> = (value, path) =>
-  positive(value, path) <= 1 ? positive(value, path) : fail(path, "0 より大きく 1 以下で書く");
+/**
+ * 放置の効率の目標値（`idle.efficiency`）の下限。AGENTS.md「ゲームの設計原則」の「ほとんど損をせずに」に当たる水準。
+ * 値の根拠と、目標値のファイルではなく判定の基盤のこの検査に置く理由は docs/design/README.md にある。
+ */
+const EFFICIENCY_FLOOR = 0.99;
+
+/** 下限以上 1 以下の効率。 */
+const efficiency: Reader<number> = (value, path) => {
+  const ratio = finite(value, path);
+  if (ratio > 1) {
+    return fail(path, "1 以下で書く（1 を超えると損をしない以上を求める）");
+  }
+  return ratio >= EFFICIENCY_FLOOR
+    ? ratio
+    : fail(
+        path,
+        `${EFFICIENCY_FLOOR} 以上で書く（${EFFICIENCY_FLOOR} は設計原則の「ほとんど損をせずに」に当たる下限。docs/design/README.md）`,
+      );
+};
 
 const rule: Reader<PurchaseRule> = (value, path) =>
   purchaseRules.find((candidate) => candidate === value) ??
@@ -230,7 +246,7 @@ const idle =
     // 最後の局面より後の reachBy では、許容間隔の到達を確かめる局面が無く、検査が何もしないまま通る。
     return reachBy > largest(phases)
       ? fail(`${path}.reachBy`, "測り方の最後の局面（settings.idle.phases の最後）以下にする")
-      : { efficiency: field("efficiency", fraction), reachBy, reach: field("reach", positive) };
+      : { efficiency: field("efficiency", efficiency), reachBy, reach: field("reach", positive) };
   };
 
 /**

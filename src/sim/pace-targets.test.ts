@@ -25,6 +25,9 @@ const validTargets = {
 
 const settings = parseSettings(validSettings);
 
+const floorMessage =
+  "targets.idle.efficiency: 0.99 以上で書く（0.99 は設計原則の「ほとんど損をせずに」に当たる下限。docs/design/README.md）";
+
 test("parseSettings は正しい測り方をそのまま返す", () => {
   expect(settings).toStrictEqual(validSettings);
 });
@@ -220,11 +223,12 @@ test.each([
     message: "targets.choice.lead: オブジェクトで書く",
   },
   { path: ["idle", "efficiency"], value: "1", message: "targets.idle.efficiency: 有限の数で書く" },
-  { path: ["idle", "efficiency"], value: 0, message: "targets.idle.efficiency: 正の数で書く" },
+  { path: ["idle", "efficiency"], value: 0.5, message: floorMessage },
+  { path: ["idle", "efficiency"], value: 0.9899, message: floorMessage },
   {
     path: ["idle", "efficiency"],
     value: 1.01,
-    message: "targets.idle.efficiency: 0 より大きく 1 以下で書く",
+    message: "targets.idle.efficiency: 1 以下で書く（1 を超えると損をしない以上を求める）",
   },
   { path: ["idle", "reachBy"], value: "1", message: "targets.idle.reachBy: 有限の数で書く" },
   { path: ["idle", "reach"], value: 0, message: "targets.idle.reach: 正の数で書く" },
@@ -274,6 +278,12 @@ test.each(measuring.map((path) => ({ name: path.join("."), path }) as const))(
 
 test("TargetsError の名前は TargetsError", () => {
   expect(new TargetsError("x").name).toBe("TargetsError");
+});
+
+test("parseTargets は下限ちょうどの効率を受け付ける", () => {
+  expect(
+    parseTargets(replaced(validTargets, ["idle", "efficiency"], 0.99), settings),
+  ).toHaveProperty("idle.efficiency", 0.99);
 });
 
 test("parseTargets は min と max が等しい帯と、1 の効率と、0 以下の時刻を受け付ける", () => {
