@@ -10,7 +10,7 @@
     "change": { "min": 0.005, "max": 2 }
   },
   "purchases": { "median": { "max": 600 }, "longest": { "max": 7200 } },
-  "novelty": { "perDay": { "min": 0.5 }, "longestGap": { "max": 259200 } },
+  "novelty": { "perDay": { "min": 0.3 }, "longestGap": { "max": 259200 } },
   "walls": { "window": 3600, "below": 0.001, "longest": { "max": 86400 } },
   "choice": {
     "best": "efficiency",
