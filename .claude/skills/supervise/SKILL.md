@@ -67,12 +67,12 @@ disable-model-invocation: true
 
 前の回のセッション用ブランチが HEAD の祖先（`git merge-base --is-ancestor <ブランチ> HEAD` が成功）なら、取り込み済みなので、継続も破棄も選ばずに下の方法で削除する。
 
-- **継続**: 前の回のセッション用ブランチが今の HEAD から fast-forward できる場合に限る。「保護範囲を検査する」節の検査（`<worker のブランチ>` を前の回のブランチに読み替える）と「取り込む」節の全検査を、その先端で通してから `git merge --ff-only` で取り込み、`axon storage check` を実行する。前の回の worker のブランチは、取り込まれていない作業として破棄し、その Issue は新しい worker にやり直させる（worker の `axon start` はそのブランチにしか無いので、セッション用ブランチでは `NotStarted` のまま）。
+- **継続**: 前の回のセッション用ブランチが今の HEAD から fast-forward できる場合に限る。「保護範囲を検査する」節の検査（`<worker のブランチ>` を前の回のブランチに読み替える）と「取り込む」節の全検査を、その先端で通してから `git merge --ff-only` で取り込み、`axon storage check` を実行する。依存が変わっていれば `pnpm install --frozen-lockfile` と `pnpm run e2e:install` を実行する。前の回の worker のブランチは、取り込まれていない作業として破棄し、その Issue は新しい worker にやり直させる（worker の `axon start` はそのブランチにしか無いので、セッション用ブランチでは `NotStarted` のまま）。
 - **破棄**: 取り込まない。
 
 継続で取り込んだもの以外の前の回の worktree とブランチは、監督の worktree から `git worktree remove <worktree の絶対パス>` と `git branch -D <ブランチ>` で削除する。破棄すると決めた作業なので、未 commit の変更が残って削除できなければ `--force` で削除する。lock が残って削除できないものは、最終報告に一覧を書き、ドライバに任せる。削除したブランチにしか無かった `Undecided`（前回の最終報告が挙げたもの）は、`axon-kit:capture` で登録し直して commit する。
 
-残りを処理した後に、実行されなかった前の回の `completions` を拾う。3 の印を本文に持つ Group の子で、HEAD にあり完了の Note があるのに `InProgress` の Issue を、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。その後に、印の Group で、終了監査を通したと書いた最終報告の Note があり、直接の子が終わっているか今入れた Issue だけが残るものを入れる。この Group は目標を終えているので、2 で継続する目標にしない。終了監査を通した印の Group で、ほかの子が残って入れられないものは、`completions` に入れずに最終報告に挙げ、その Entity を挙げた `Undecided` がまだ無ければ `axon-kit:capture` で登録する。印の無い Group とその子は入れない。
+残りを処理した後に、実行されなかった前の回の `completions` を拾う。3 の印を本文に持つ Group の子で、HEAD にあり完了の Note があるのに `InProgress` の Issue を、完了の Note と取り込まれた commit を確かめてから、この回の `completions` に入れる。その後に、印の Group で、終了監査を通したと書いた最終報告の Note があり、直接の子が終わっているか今入れた Issue だけが残るものを入れる。この Group は目標を終えているので、2 で継続する目標にしない。拾った Entity が前回の最終報告の `completions` にも挙がっていたなら（取り込む側の完了が失敗した）、最終報告に挙げ、その Entity を挙げた `Undecided` がまだ無ければ `axon-kit:capture` で登録する。終了監査を通した印の Group で、ほかの子が残って入れられないものは、`completions` に入れずに最終報告に挙げ、その Entity を挙げた `Undecided` がまだ無ければ `axon-kit:capture` で登録する。印の無い Group とその子は入れない。
 
 ## 2. 目標を 1 つ決める
 
