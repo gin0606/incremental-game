@@ -1,0 +1,17 @@
+{
+  "$schema": "https://www.schemastore.org/tsconfig",
+  // シミュレーターの本体（src/sim）を、DOM と Node.js の型を除いて検査する。sim の結果を引数とシードだけで決めるための
+  // 検査の一つで、時刻・乱数・タイマー・別のスレッドに届く Web と Node.js の API（Event の派生の timeStamp、
+  // URL.createObjectURL、AbortSignal.timeout、requestIdleCallback、MessageChannel、Worker、setImmediate など）を使うと
+  // 型エラーになる。.oxlintrc.json の src/sim 向けの設定は名前を挙げて禁じるため、DOM の Event の派生のように数の多い
+  // API を網羅できない。ECMAScript の標準にあるもの（Date・Math.random・Intl・Atomics など）は型では禁じられず、
+  // .oxlintrc.json で禁じる。テストは Vitest の型を読むため、CLI（src/sim/cli）は Node.js の型を読むため除く
+  // （tsconfig.check.json と src/sim/cli/tsconfig.json で検査する）。
+  "extends": "./tsconfig.check.json",
+  "compilerOptions": {
+    "lib": ["es2024"],
+    "types": []
+  },
+  "include": ["src/sim/**/*.ts", "src/sim/**/*.mts", "src/sim/**/*.cts", "src/sim/**/*.tsx"],
+  "exclude": ["src/sim/**/*.test.*", "src/sim/cli"]
+}

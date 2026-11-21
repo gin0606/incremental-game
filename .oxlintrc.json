@@ -367,6 +367,13 @@
       // 禁じられないため、ここで禁じる。`globalThis.Date` のような迂回も防ぐため、グローバルオブジェクトも禁じる。
       "files": ["src/core/**"],
       "rules": {
+        // `/// <reference lib="dom" />` などで、tsconfig.core.json と tsconfig.sim.json が外した DOM と Node.js の型を読み
+        // 込ませない。この参照は、書いたファイルだけでなく、そのファイルを含む型検査の全体に型を読み込む。シミュレーター
+        // の型検査は sim が import する core のファイルも含むため、src/sim と同じく core でも禁じる。
+        "typescript/triple-slash-reference": [
+          "error",
+          { "lib": "never", "path": "never", "types": "never" }
+        ],
         "eslint/no-restricted-globals": [
           "error",
           { "name": "Date", "message": "core は時刻を読まない。経過時間を引数で受け取る。" },
@@ -477,10 +484,27 @@
       // 読ませない。乱数はシード付きの src/sim/random.ts を使う。`globalThis.Date` のような迂回も防ぐため、グローバル
       // オブジェクトも禁じる。名前で判定するため、値として受け渡した Math などの迂回は検出しない（src/core の設定の
       // コメントと同じ）。process は、次の override で src/sim/cli にだけ認める。
+      // - DOM と Node.js にしかない API は、本体（テストと CLI を除く）を DOM と Node.js の型を除いて検査する
+      //   tsconfig.sim.json で型エラーになる。下の一覧で名前を挙げたもの（Event・URL・AbortSignal など）は、DOM の型を
+      //   読むテストでも禁じる。挙げていない DOM の API（KeyboardEvent など Event の派生）は、テストでは禁じていない
+      //   （既知の限界）。
+      // - eval・間接の eval（`(0, eval)(…)`）・`Function(…)`・`new Function(…)` は、全体で有効な eslint/no-eval・
+      //   no-new-func が禁じる（2026-11-21 に src/sim で確かめた）。no-new-func は呼び出しの形しか見ないため、
+      //   `const F = Function` のように値として受け渡す迂回を防ぐよう Function も名前で禁じる。
+      //   `(() => {}).constructor(…)` のように名前を経ずに得た Function は検出しない（既知の限界）。
+      // - 名前と型による禁止を意図して迂回する書き方、たとえば `declare global` で型を宣言し直す、禁じた member を持つ
+      //   オブジェクトを別名に入れてから呼ぶ（`const p = process; p.hrtime()`）といったものは、すべては防げない（既知の
+      //   限界）。
       "files": ["src/sim/**"],
       "plugins": ["node"],
       "rules": {
         "node/no-process-env": "error",
+        // `/// <reference lib="dom" />` などで、tsconfig.sim.json が外した DOM と Node.js の型を読み込ませない（読み込むと、
+        // 上に書いた型エラーによる禁止が効かなくなる。理由は src/core の override のコメント）。
+        "typescript/triple-slash-reference": [
+          "error",
+          { "lib": "never", "path": "never", "types": "never" }
+        ],
         // import できるものを、src/sim の中（同じディレクトリ）と src/core の直下に限る。Node.js のモジュール（環境変数・
         // 時刻・乱数・ファイル・通信や、別の文脈でコードを動かすもの）と、時刻や保存先を使う src/ui・src/save を読ませ
         // ない。`*` は `/` を含まないため、`../core/../ui/x.ts` のような迂回も許可に当たらない。テストのライブラリ
@@ -488,6 +512,10 @@
         // を持つため、後の override でテストのファイルにだけ認める。src/sim/cli でも後の override で許可を足す。
         // 全体の設定（ドットで始まるパスの禁止）を置き換えるため、全体の pattern もここに書き写す。全体を変えたら、
         // ここも揃える。後の override は、この許可を書き写して足す。ここを変えたら、あちらも揃える。
+        // 文字列リテラルを渡す `import("node:os")`・`import("../ui/x.ts")` もこの設定でエラーになる（2026-11-21 に
+        // 確かめた）。`${}` を含まないテンプレートリテラルの `import()` は検査しない（全体の設定のコメント）。その経路の
+        // Node.js のモジュールは tsconfig.sim.json（Node.js の型を読まない）で型エラーになるが、src/ui・src/save などの
+        // 相対パスは防げない（既知の限界）。
         "eslint/no-restricted-imports": [
           "error",
           {
@@ -543,6 +571,76 @@
             "name": "requestAnimationFrame",
             "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
           },
+          {
+            "name": "requestIdleCallback",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "AbortSignal",
+            "message": "sim はタイマーを使わない（AbortSignal.timeout は時間が経つと中止する）。"
+          },
+          {
+            "name": "MessageChannel",
+            "message": "sim はタイマーを使わない（メッセージの到着の順と時機はシミュレーターの外で決まる）。"
+          },
+          {
+            "name": "BroadcastChannel",
+            "message": "sim はタイマーを使わない（メッセージの到着の順と時機はシミュレーターの外で決まる）。"
+          },
+          {
+            "name": "Atomics",
+            "message": "sim はタイマーを使わない（Atomics.wait・waitAsync は時間切れまで待つ）。"
+          },
+          {
+            "name": "Worker",
+            "message": "sim は別のスレッドでコードを動かさない（実行の順と時機が決まらず、この設定の禁止も及ばない）。"
+          },
+          {
+            "name": "SharedWorker",
+            "message": "sim は別のスレッドでコードを動かさない（実行の順と時機が決まらず、この設定の禁止も及ばない）。"
+          },
+          {
+            "name": "Event",
+            "message": "sim は時刻を読まない（Event の timeStamp は作った時刻を持つ）。"
+          },
+          {
+            "name": "CustomEvent",
+            "message": "sim は時刻を読まない（Event の timeStamp は作った時刻を持つ）。"
+          },
+          {
+            "name": "MessageEvent",
+            "message": "sim は時刻を読まない（Event の timeStamp は作った時刻を持つ）。"
+          },
+          {
+            "name": "PerformanceObserver",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "PerformanceMark",
+            "message": "sim は時刻を読まない（PerformanceMark の startTime は作った時刻を持つ）。"
+          },
+          {
+            "name": "PerformanceMeasure",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "CloseEvent",
+            "message": "sim は時刻を読まない（Event の timeStamp は作った時刻を持つ）。"
+          },
+          {
+            "name": "File",
+            "message": "sim は時刻を読まない（File の lastModified は省くと作った時刻になる）。"
+          },
+          { "name": "WebSocket", "message": "sim は通信しない。" },
+          { "name": "EventSource", "message": "sim は通信しない。" },
+          {
+            "name": "Function",
+            "message": "sim は文字列からコードを作らない（Function を値として受け渡して no-new-func を迂回させない）。"
+          },
+          {
+            "name": "URL",
+            "message": "sim は乱数を使わない（URL.createObjectURL は乱数の UUID を返す）。"
+          },
           { "name": "document", "message": "sim は実行環境の API を使わない。" },
           { "name": "navigator", "message": "sim は実行環境の API を使わない。" },
           { "name": "location", "message": "sim は実行環境の API を使わない。" },
@@ -578,7 +676,14 @@
             "property": "randomDecimalForTesting",
             "message": "sim の乱数はシード付きの src/sim/random.ts を使う。"
           },
-          // process のグローバルを認める src/sim/cli でも、時刻や実行環境の状態を読む API は使わせない。
+          // URL のグローバルを認める src/sim/cli でも、乱数の UUID を返す API は使わせない。
+          {
+            "object": "URL",
+            "property": "createObjectURL",
+            "message": "sim は乱数を使わない（URL.createObjectURL は乱数の UUID を返す）。"
+          },
+          // process のグローバルを認める src/sim/cli でも、時刻・タイマー・ガベージコレクションの時機・実行環境の状態に
+          // 届く API は使わせない。
           {
             "object": "process",
             "property": "hrtime",
@@ -593,6 +698,21 @@
             "object": "process",
             "property": "cpuUsage",
             "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "object": "process",
+            "property": "threadCpuUsage",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "object": "process",
+            "property": "nextTick",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "object": "process",
+            "property": "finalization",
+            "message": "sim はガベージコレクションの時機に結果を左右させない。"
           },
           {
             "object": "process",
@@ -685,8 +805,12 @@
     },
     {
       // シミュレーターの CLI（src/sim/cli）は、標準出力・標準エラー・終了コードと、テストで CLI を起動するために
-      // process を使う。上の override の no-restricted-globals から process だけを外す。override はオプションを置き換える
-      // ため、上の一覧を変えたら、ここも揃える。環境変数を読む禁止（node/no-process-env）は上の override のまま効く。
+      // process を使い、CLI のテストは自身のパスを `new URL(…, import.meta.url)` で求める。上の override の
+      // no-restricted-globals から process と URL だけを外す（乱数の UUID を返す URL.createObjectURL は上の override の
+      // no-restricted-properties のまま禁じる）。override はオプションを置き換えるため、上の一覧を変えたら、ここも揃える。
+      // 環境変数を読む禁止（node/no-process-env）は上の override のまま効く。CLI は Node.js の型を読み tsconfig.sim.json の
+      // 外にあるため、`${}` を含まないテンプレートリテラルの `import()` で読む Node.js のモジュールと、この一覧に無い
+      // Node.js のグローバル、上の override で禁じていない process の member は防げない（既知の限界）。
       "files": ["src/sim/cli/**"],
       "rules": {
         // src/sim の override の許可に、src/sim の直下（`../`）を足す。CLI を起動するテストの許可は後の override で足す。
@@ -744,6 +868,72 @@
           {
             "name": "requestAnimationFrame",
             "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "requestIdleCallback",
+            "message": "sim はタイマーを使わない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "AbortSignal",
+            "message": "sim はタイマーを使わない（AbortSignal.timeout は時間が経つと中止する）。"
+          },
+          {
+            "name": "MessageChannel",
+            "message": "sim はタイマーを使わない（メッセージの到着の順と時機はシミュレーターの外で決まる）。"
+          },
+          {
+            "name": "BroadcastChannel",
+            "message": "sim はタイマーを使わない（メッセージの到着の順と時機はシミュレーターの外で決まる）。"
+          },
+          {
+            "name": "Atomics",
+            "message": "sim はタイマーを使わない（Atomics.wait・waitAsync は時間切れまで待つ）。"
+          },
+          {
+            "name": "Worker",
+            "message": "sim は別のスレッドでコードを動かさない（実行の順と時機が決まらず、この設定の禁止も及ばない）。"
+          },
+          {
+            "name": "SharedWorker",
+            "message": "sim は別のスレッドでコードを動かさない（実行の順と時機が決まらず、この設定の禁止も及ばない）。"
+          },
+          {
+            "name": "Event",
+            "message": "sim は時刻を読まない（Event の timeStamp は作った時刻を持つ）。"
+          },
+          {
+            "name": "CustomEvent",
+            "message": "sim は時刻を読まない（Event の timeStamp は作った時刻を持つ）。"
+          },
+          {
+            "name": "MessageEvent",
+            "message": "sim は時刻を読まない（Event の timeStamp は作った時刻を持つ）。"
+          },
+          {
+            "name": "PerformanceObserver",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "PerformanceMark",
+            "message": "sim は時刻を読まない（PerformanceMark の startTime は作った時刻を持つ）。"
+          },
+          {
+            "name": "PerformanceMeasure",
+            "message": "sim は時刻を読まない。時間はシミュレーターの中で進める。"
+          },
+          {
+            "name": "CloseEvent",
+            "message": "sim は時刻を読まない（Event の timeStamp は作った時刻を持つ）。"
+          },
+          {
+            "name": "File",
+            "message": "sim は時刻を読まない（File の lastModified は省くと作った時刻になる）。"
+          },
+          { "name": "WebSocket", "message": "sim は通信しない。" },
+          { "name": "EventSource", "message": "sim は通信しない。" },
+          {
+            "name": "Function",
+            "message": "sim は文字列からコードを作らない（Function を値として受け渡して no-new-func を迂回させない）。"
           },
           { "name": "document", "message": "sim は実行環境の API を使わない。" },
           { "name": "navigator", "message": "sim は実行環境の API を使わない。" },
