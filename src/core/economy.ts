@@ -23,7 +23,7 @@ export const UPGRADE_MULTIPLIER: Num = num(1.25);
 
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
 export const UPGRADE_UNLOCK_EARNED: Num = num(1.2e7);
-export const MINT_UNLOCK_EARNED: Num = num(1.5e8);
+export const MINT_UNLOCK_EARNED: Num = num(1.3e8);
 export const REFINERY_UNLOCK_EARNED: Num = num(4.5e8);
 
 export function collectorCost(state: GameState): Num {

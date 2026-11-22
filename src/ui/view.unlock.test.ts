@@ -68,7 +68,7 @@ test("改良が解放されたら改良の解放の条件を示さず、改良�
   expect(current).toMatchObject({
     production: "30",
     upgrades: "1",
-    nextUnlock: "造幣所: これまでに生産したコインが 150000000 に達すると解放（あと 138000000）",
+    nextUnlock: "造幣所: これまでに生産したコインが 130000000 に達すると解放（あと 118000000）",
   });
   expect(current.shop[4]).toStrictEqual({
     action: { type: "buyUpgrade" },
@@ -86,7 +86,7 @@ test("改良を持っていれば、解放の条件に届いていなくても�
   );
 
   expect(current.nextUnlock).toBe(
-    "造幣所: これまでに生産したコインが 150000000 に達すると解放（あと 142000000）",
+    "造幣所: これまでに生産したコインが 130000000 に達すると解放（あと 122000000）",
   );
   expect(current.shop[4]).toMatchObject({ visible: true, affordable: true });
 });
@@ -128,11 +128,11 @@ test("これまでに生産したコインが工場の解放の条件に達す�
 });
 
 test("造幣所の解放までの残りは、端数を切り上げる。条件に許容誤差の範囲で届くと、造幣所を並べて次の精錬所の条件を示す", () => {
-  const condition = "造幣所: これまでに生産したコインが 150000000 に達すると解放";
-  const withinTolerance = view(state({ totalEarned: num(1.5e8 * (1 - 1e-10)) }));
+  const condition = "造幣所: これまでに生産したコインが 130000000 に達すると解放";
+  const withinTolerance = view(state({ totalEarned: num(1.3e8 * (1 - 1e-10)) }));
 
-  expect(view(state({ totalEarned: num(1.4e8) })).nextUnlock).toBe(`${condition}（あと 10000000）`);
-  expect(view(state({ totalEarned: num(149_999_999.5) })).nextUnlock).toBe(
+  expect(view(state({ totalEarned: num(1.2e8) })).nextUnlock).toBe(`${condition}（あと 10000000）`);
+  expect(view(state({ totalEarned: num(129_999_999.5) })).nextUnlock).toBe(
     `${condition}（あと 1）`,
   );
   expect(withinTolerance.nextUnlock).toMatch(/^精錬所: /v);
@@ -187,7 +187,7 @@ test("次の解放の条件は、工場・改良・造幣所・精錬所の順�
 });
 
 test("解放の条件が 5e7 だった版の保存で造幣所を持っていれば、今の条件に届いていなくても造幣所を並べる", () => {
-  // 保存形式の版 2 の保存。累計 8e7 は今の解放の条件 1.5e8 に届かない。
+  // 保存形式の版 2 の保存。累計 8e7 は今の解放の条件 1.3e8 に届かない。
   const loaded = deserialize(
     JSON.stringify({
       version: 2,
@@ -250,7 +250,7 @@ test.each([false, true])(
 
 /**
  * これまでに生産したコインが 0〜6e8 の、到達しうる状態。造幣所と精錬所は解放の後にしか買えないので、造幣所を持つ
- * 状態では、これまでに生産したコインが解放の条件（以前の版の 5e7 から。今は 1.5e8）以上あり、精錬所を持つ状態では
+ * 状態では、これまでに生産したコインが解放の条件（以前の版の 5e7 から。今は 1.3e8）以上あり、精錬所を持つ状態では
  * 解放の条件 4.5e8 以上ある。
  */
 const reachable = fc

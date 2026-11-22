@@ -186,14 +186,14 @@ test("工場は累計の生産量が 100 に達すると解放され、買える
   expect(after.coins).toBeApprox(num(10));
 });
 
-test("造幣所は累計の生産量が 1.5e8 に達するまで解放されず、買えない", () => {
-  const locked = state({ coins: num(2e7), totalEarned: num(1.499e8) });
+test("造幣所は累計の生産量が 1.3e8 に達するまで解放されず、買えない", () => {
+  const locked = state({ coins: num(2e7), totalEarned: num(1.299e8) });
 
   expect(isMintUnlocked(locked)).toBe(false);
   expect(perform(locked, { type: "buyMint" })).toBeUndefined();
 });
 
-test("造幣所は累計の生産量が 1.5e8 に達すると解放され、買える", () => {
+test("造幣所は累計の生産量が 1.3e8 に達すると解放され、買える", () => {
   const unlocked = state({ coins: num(1.1e7), totalEarned: MINT_UNLOCK_EARNED });
 
   expect(isMintUnlocked(unlocked)).toBe(true);

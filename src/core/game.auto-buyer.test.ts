@@ -106,8 +106,8 @@ const mintTrial = (coins: number, totalEarned: number): GameState =>
   });
 
 test("自動購入は、造幣所の値段に届いても、累計の生産量が解放の条件に届くまで買わない", () => {
-  // コインは 1e7 / 毎秒の生産 ≈ 1398 秒で値段に届くが、累計の生産量は 1.5e7 / 毎秒の生産 ≈ 2097 秒で 1.5e8 に届く。
-  const start = mintTrial(0, 1.35e8);
+  // コインは 1e7 / 毎秒の生産 ≈ 1398 秒で値段に届くが、累計の生産量は 1.5e7 / 毎秒の生産 ≈ 2097 秒で 1.3e8 に届く。
+  const start = mintTrial(0, 1.15e8);
   const unlockedAt = 1.5e7 / MINT_TRIAL_RATE;
 
   expect(advance(start, 2090).mints).toBe(0);
@@ -129,7 +129,7 @@ test("自動購入は、造幣所の値段に届いても、累計の生産量�
 
 test("自動購入は、解放された造幣所を、値段に届く時刻に買う", () => {
   // 解放の条件には 1e6 / 毎秒の生産 ≈ 140 秒で届くが、値段には 1e7 / 毎秒の生産 ≈ 1398 秒で届く。
-  const start = mintTrial(0, 1.49e8);
+  const start = mintTrial(0, 1.29e8);
   const reachedAt = 1e7 / MINT_TRIAL_RATE;
 
   expect(advance(start, 1390).mints).toBe(0);
@@ -145,7 +145,7 @@ test("自動購入は、造幣所とそれより安い工場を買える額で�
   const after = advance(
     state({
       coins: num(1.05e7),
-      totalEarned: num(1.5e8),
+      totalEarned: num(1.3e8),
       collectors: 97,
       factories: 60,
       upgrades: 8,
@@ -165,7 +165,7 @@ test("自動購入は、造幣所とそれより安い工場を買える額で�
 });
 
 test("造幣所の解放の前後で区切っても、一度に進めたときと同じ時刻に造幣所を買う", () => {
-  const start = mintTrial(0, 1.35e8);
+  const start = mintTrial(0, 1.15e8);
   // 解放の時刻（約 2097 秒）に 1 つ目を買い、2 つ目（1.1e7）には約 818 秒後に届く。
   const once = advance(start, 2200);
   const split = advance(advance(start, 1500), 700);

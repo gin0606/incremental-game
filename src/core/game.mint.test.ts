@@ -4,7 +4,7 @@ import type { GameState } from "./game.ts";
 import { advance, initialState, isMintUnlocked, mintUnlockEarned, perform } from "./game.ts";
 import { num } from "./num.ts";
 
-// 造幣所を持っている状態の解放。解放の条件が 5e7 だった版の保存は、今の条件 1.5e8 に届かずに造幣所を持っていることがある。
+// 造幣所を持っている状態の解放。解放の条件が 5e7 だった版の保存は、今の条件 1.3e8 に届かずに造幣所を持っていることがある。
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
