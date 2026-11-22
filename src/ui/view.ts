@@ -3,13 +3,17 @@ import {
   AUTO_BUYER_COST,
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
+  UPGRADE_MULTIPLIER,
+  UPGRADE_UNLOCK_EARNED,
   collectorCost,
   factoryCost,
   isFactoryUnlocked,
   isMintUnlocked,
+  isUpgradeUnlocked,
   mintCost,
   perform,
   production,
+  upgradeCost,
   withPurchase,
 } from "../core/game.ts";
 import type { Num, Rounding } from "../core/num.ts";
@@ -18,7 +22,7 @@ import { add, atLeast, div, format, num, sub, toNumber } from "../core/num.ts";
 export interface ShopItem {
   readonly action: Action;
   readonly label: string;
-  /** 買うと得られるもの。採集機・工場・造幣所は増える毎秒の生産、自動購入は働き。 */
+  /** 買うと得られるもの。採集機・工場・造幣所・改良は増える毎秒の生産、自動購入は働き。 */
   readonly effect: string;
   /** 解放されていて、まだ買える（一度きりの品物を買い終えていない）。 */
   readonly visible: boolean;
@@ -33,6 +37,7 @@ export interface View {
   readonly collectors: string;
   readonly factories: string;
   readonly mints: string;
+  readonly upgrades: string;
   readonly autoBuyer: string;
   /**
    * 次に何かを買えるまでの待ち時間。今買えるときと、生産が無くて届かないときは、その旨。時計が戻って生産が
@@ -94,8 +99,9 @@ const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = 
   buyCollector: (state) => productionGain(state, { type: "buyCollector" }),
   buyFactory: (state) => productionGain(state, { type: "buyFactory" }),
   buyMint: (state) => productionGain(state, { type: "buyMint" }),
-  buyUpgrade: (state) => productionGain(state, { type: "buyUpgrade" }),
-  buyAutoBuyer: () => "採集機・工場・造幣所を、買える額に達するたびに自動で買う",
+  buyUpgrade: (state) =>
+    `${productionGain(state, { type: "buyUpgrade" })}（すべての施設の生産が ${toNumber(UPGRADE_MULTIPLIER)} 倍になる）`,
+  buyAutoBuyer: () => "採集機・工場・造幣所・改良を、買える額に達するたびに自動で買う",
 };
 
 /** 品物と、その値段。値段は、品物が見えていないとき（解放の前や買い終えた後）も求まる。 */
@@ -155,6 +161,7 @@ const unlocks: readonly {
   readonly unlocked: (state: GameState) => boolean;
 }[] = [
   { name: "工場", earned: FACTORY_UNLOCK_EARNED, unlocked: isFactoryUnlocked },
+  { name: "改良", earned: UPGRADE_UNLOCK_EARNED, unlocked: isUpgradeUnlocked },
   { name: "造幣所", earned: MINT_UNLOCK_EARNED, unlocked: isMintUnlocked },
 ];
 
@@ -177,6 +184,7 @@ export function view(state: GameState, pausedSeconds = 0): View {
     offer(state, { type: "buyCollector" }, "採集機", collectorCost(state), true),
     offer(state, { type: "buyFactory" }, "工場", factoryCost(state), isFactoryUnlocked(state)),
     offer(state, { type: "buyMint" }, "造幣所", mintCost(state), isMintUnlocked(state)),
+    offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), isUpgradeUnlocked(state)),
     offer(state, { type: "buyAutoBuyer" }, "自動購入", AUTO_BUYER_COST, !state.autoBuyer),
   ];
   return {
@@ -186,6 +194,7 @@ export function view(state: GameState, pausedSeconds = 0): View {
     collectors: state.collectors.toString(),
     factories: state.factories.toString(),
     mints: state.mints.toString(),
+    upgrades: state.upgrades.toString(),
     autoBuyer: state.autoBuyer ? "稼働中" : "なし",
     nextPurchase: nextPurchase(state, offers, pausedSeconds),
     nextUnlock: nextUnlock(state),

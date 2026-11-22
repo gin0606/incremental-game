@@ -27,8 +27,8 @@ const AWAY_REPORT_MIN_SECONDS = 10;
 
 /**
  * 離れていた間に進んだことの知らせ。`before` は保存した状態、`after` はそれを `seconds` 秒進めた状態。生産した
- * コインは、離れている間に自動購入が使った分も数えるよう、これまでに生産したコインの増分で示す。施設が増えるのは
- * 離れている間の自動購入だけ。離れていた時間が {@link AWAY_REPORT_MIN_SECONDS} 以下なら `undefined`。
+ * コインは、離れている間に自動購入が使った分も数えるよう、これまでに生産したコインの増分で示す。施設と改良が
+ * 増えるのは離れている間の自動購入だけ。離れていた時間が {@link AWAY_REPORT_MIN_SECONDS} 以下なら `undefined`。
  */
 export function awayReport(
   before: GameState,
@@ -41,13 +41,14 @@ export function awayReport(
   const report = `離れていた ${formatDuration(num(seconds), "down")}のあいだに、コインを ${format(sub(after.totalEarned, before.totalEarned))} 生産した。`;
   const added = (
     [
-      { name: "採集機", count: after.collectors - before.collectors },
-      { name: "工場", count: after.factories - before.factories },
-      { name: "造幣所", count: after.mints - before.mints },
+      { name: "採集機", count: after.collectors - before.collectors, unit: "台" },
+      { name: "工場", count: after.factories - before.factories, unit: "台" },
+      { name: "造幣所", count: after.mints - before.mints, unit: "台" },
+      { name: "改良", count: after.upgrades - before.upgrades, unit: "個" },
     ] as const
   )
     .filter(({ count }) => count > 0)
-    .map(({ name, count }) => `${name}が ${count} 台`);
+    .map(({ name, count, unit }) => `${name}が ${count} ${unit}`);
   return added.length === 0 ? report : `${report}自動購入で${added.join("、")}増えた。`;
 }
 

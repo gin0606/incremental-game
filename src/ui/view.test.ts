@@ -18,7 +18,19 @@ const lockedMint = {
   affordable: false,
 } as const;
 
-test("初期状態では採集機と自動購入を並べ、工場と造幣所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
+/** 解放の前の、改良を買う品物（数 0）。 */
+const lockedUpgrade = (gain: number) =>
+  ({
+    action: { type: "buyUpgrade" },
+    label: "改良を買う（400000 コイン）",
+    effect: `買うと毎秒の生産が ${gain} 増える（すべての施設の生産が 1.25 倍になる）`,
+    visible: false,
+    affordable: false,
+  }) as const;
+
+const autoBuyerWork = "採集機・工場・造幣所・改良を、買える額に達するたびに自動で買う";
+
+test("初期状態では採集機と自動購入を並べ、工場・造幣所・改良は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",
     totalEarned: "0",
@@ -26,6 +38,7 @@ test("初期状態では採集機と自動購入を並べ、工場と造幣所�
     collectors: "1",
     factories: "0",
     mints: "0",
+    upgrades: "0",
     autoBuyer: "なし",
     // 採集機の値段 11.5 に毎秒 1 で届くまで 11.5 秒。切り上げる。
     nextPurchase: "今の生産のままで約 12 秒",
@@ -46,10 +59,12 @@ test("初期状態では採集機と自動購入を並べ、工場と造幣所�
         affordable: false,
       },
       lockedMint,
+      // 採集機 1 台の毎秒 1 の 0.25 倍を切り捨てる。
+      lockedUpgrade(0),
       {
         action: { type: "buyAutoBuyer" },
         label: "自動購入を買う（300000 コイン）",
-        effect: "採集機・工場・造幣所を、買える額に達するたびに自動で買う",
+        effect: autoBuyerWork,
         visible: true,
         affordable: false,
       },
@@ -57,7 +72,7 @@ test("初期状態では採集機と自動購入を並べ、工場と造幣所�
   });
 });
 
-test("工場が解放されたら造幣所の解放の条件を示し、工場は買える額があれば買える。自動購入を買い終えたら隠す", () => {
+test("工場が解放されたら改良の解放の条件を示し、工場は買える額があれば買える。自動購入を買い終えたら隠す", () => {
   const current = view(
     state({
       coins: num(200.7),
@@ -75,9 +90,10 @@ test("工場が解放されたら造幣所の解放の条件を示し、工場�
     collectors: "3",
     factories: "2",
     mints: "0",
+    upgrades: "0",
     autoBuyer: "稼働中",
     nextPurchase: "今買える",
-    nextUnlock: "造幣所: これまでに生産したコインが 50000000 に達すると解放（あと 49999000）",
+    nextUnlock: "改良: これまでに生産したコインが 6000000 に達すると解放（あと 5999000）",
     shop: [
       {
         action: { type: "buyCollector" },
@@ -94,10 +110,12 @@ test("工場が解放されたら造幣所の解放の条件を示し、工場�
         affordable: false,
       },
       lockedMint,
+      // 毎秒 23 の 0.25 倍の 5.75 を切り捨てる。
+      lockedUpgrade(5),
       {
         action: { type: "buyAutoBuyer" },
         label: "自動購入を買う（300000 コイン）",
-        effect: "採集機・工場・造幣所を、買える額に達するたびに自動で買う",
+        effect: autoBuyerWork,
         visible: false,
         affordable: false,
       },
@@ -191,10 +209,10 @@ test("待ち時間は、見えている品物のうち最も安いものまで�
 });
 
 test("見えていない品物は、より安くても待ち時間に数えない", () => {
-  // 買い終えた自動購入（300000）と解放の前の造幣所（5000000）は、採集機（約 1.2e7）と工場（約 8.5e6）より安い。
-  // 工場までを毎秒 700 で割る。
+  // 買い終えた自動購入（300000）と、解放の前の改良（400000）・造幣所（5000000）は、採集機（約 1.2e7）と工場
+  // （約 8.5e6）より安い。工場までを毎秒 700 で割る。
   const bought = view(
-    state({ totalEarned: num(4e7), collectors: 100, factories: 60, autoBuyer: true }),
+    state({ totalEarned: num(5e6), collectors: 100, factories: 60, autoBuyer: true }),
   );
   // 解放の前の工場（150）は、採集機（約 164）より安い。採集機までを毎秒 20 で割る。
   const locked = view(state({ collectors: 20 }));

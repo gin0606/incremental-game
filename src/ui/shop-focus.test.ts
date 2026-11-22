@@ -35,12 +35,14 @@ test("見えている品物が無いときと、店の品物がフォーカス�
   expect(shopFocus(shopOf(true), 1)).toBeUndefined();
 });
 
-test("自動購入を買い終えると、フォーカスは前で最も近い見えている品物（造幣所、工場、採集機の順）へ移す", () => {
-  const mintUnlocked = view({ ...initialState, totalEarned: num(5e7), autoBuyer: true }).shop;
-  const unlocked = view({ ...initialState, totalEarned: num(1000), autoBuyer: true }).shop;
-  const locked = view({ ...initialState, autoBuyer: true }).shop;
+/** 自動購入を買い終え、これまでに生産したコインが `earned` の状態の店。 */
+const shopAt = (earned: number): readonly ShopItem[] =>
+  view({ ...initialState, totalEarned: num(earned), autoBuyer: true }).shop;
 
-  expect(shopFocus(mintUnlocked, 3)).toBe(2);
-  expect(shopFocus(unlocked, 3)).toBe(1);
-  expect(shopFocus(locked, 3)).toBe(0);
+test("自動購入を買い終えると、フォーカスは前で最も近い見えている品物（改良、工場、採集機の順）へ移す", () => {
+  // 店の並びは採集機・工場・造幣所・改良・自動購入。改良は造幣所より先に解放される。
+  expect(shopFocus(shopAt(1e9), 4)).toBe(3);
+  expect(shopFocus(shopAt(1e7), 4)).toBe(3);
+  expect(shopFocus(shopAt(1000), 4)).toBe(1);
+  expect(shopFocus(shopAt(0), 4)).toBe(0);
 });

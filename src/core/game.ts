@@ -40,7 +40,7 @@ const MINT_COST_GROWTH = num(1.1);
 const MINT_PRODUCTION = num(30);
 const UPGRADE_BASE_COST = num(4e5);
 const UPGRADE_COST_GROWTH = num(1.6);
-const UPGRADE_MULTIPLIER = num(1.25);
+export const UPGRADE_MULTIPLIER: Num = num(1.25);
 
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
 export const UPGRADE_UNLOCK_EARNED: Num = num(6e6);

@@ -2,7 +2,7 @@ import * as fc from "fast-check";
 import { assert, expect, test } from "vitest";
 
 import type { GameState } from "../core/game.ts";
-import { advance, initialState, perform } from "../core/game.ts";
+import { UPGRADE_UNLOCK_EARNED, advance, initialState, perform } from "../core/game.ts";
 import { num } from "../core/num.ts";
 import type { View } from "./view.ts";
 import { view } from "./view.ts";
@@ -33,6 +33,33 @@ test("造幣所が解放されたら解放の条件を示さず、造幣所を�
   });
 });
 
+test("改良が解放されたら改良の解放の条件を示さず、改良を並べる。買うと得られるものと、買った数を示す", () => {
+  const current = view(
+    state({
+      coins: num(7e5),
+      totalEarned: UPGRADE_UNLOCK_EARNED,
+      collectors: 4,
+      factories: 2,
+      upgrades: 1,
+      autoBuyer: true,
+    }),
+  );
+
+  // 毎秒の生産は (4 + 20) × 1.25 = 30。改良を買うと 37.5 になる。
+  expect(current).toMatchObject({
+    production: "30",
+    upgrades: "1",
+    nextUnlock: "造幣所: これまでに生産したコインが 50000000 に達すると解放（あと 44000000）",
+  });
+  expect(current.shop[3]).toStrictEqual({
+    action: { type: "buyUpgrade" },
+    label: "改良を買う（640000 コイン）",
+    effect: "買うと毎秒の生産が 7 増える（すべての施設の生産が 1.25 倍になる）",
+    visible: true,
+    affordable: true,
+  });
+});
+
 test("解放までの残りは、生産で減り、購入では変わらない。端数は切り上げる", () => {
   // 採集機 1 台で毎秒 1。残り 87.3 を切り上げる。
   const produced = advance(initialState, 12.7);
@@ -55,16 +82,16 @@ test("解放までの残りは、生産で減り、購入では変わらない�
   });
 });
 
-test("これまでに生産したコインが工場の解放の条件に達すると、工場を並べ、次の造幣所の条件を示す", () => {
+test("これまでに生産したコインが工場の解放の条件に達すると、工場を並べ、次の改良の条件を示す", () => {
   const reached = view(advance(initialState, 100));
   // 許容誤差の範囲で条件に届いた値は、工場の解放と同じく達したとみなす。
   const withinTolerance = view(state({ totalEarned: num(100 * (1 - 1e-10)) }));
   const below = view(state({ totalEarned: num(99.9999) }));
-  const mint = "造幣所: これまでに生産したコインが 50000000 に達すると解放";
+  const upgrade = "改良: これまでに生産したコインが 6000000 に達すると解放";
 
-  expect(reached.nextUnlock).toBe(`${mint}（あと 49999900）`);
+  expect(reached.nextUnlock).toBe(`${upgrade}（あと 5999900）`);
   expect(reached.shop[1]?.visible).toBe(true);
-  expect(withinTolerance.nextUnlock).toBe(`${mint}（あと 49999900）`);
+  expect(withinTolerance.nextUnlock).toBe(`${upgrade}（あと 5999900）`);
   expect(withinTolerance.shop[1]?.visible).toBe(true);
   expect(below.shop[1]?.visible).toBe(false);
 });
@@ -79,14 +106,15 @@ test("造幣所の解放までの残りは、端数を切り上げる。条件�
   expect(withinTolerance.shop[2]?.visible).toBe(true);
 });
 
-/** 工場と造幣所が見えているかと、次の解放の表示が示す要素（無ければ「なし」）。 */
-const unlockShown = (current: View): readonly [boolean, boolean, string] => [
+/** 工場・改良・造幣所が見えているかと、次の解放の表示が示す要素（無ければ「なし」）。 */
+const unlockShown = (current: View): readonly [boolean, boolean, boolean, string] => [
   current.shop[1]?.visible === true,
+  current.shop[3]?.visible === true,
   current.shop[2]?.visible === true,
   current.nextUnlock?.split(":")[0] ?? "なし",
 ];
 
-test("工場の解放の条件は工場が隠れている間だけ、造幣所の条件は工場が見えて造幣所が隠れている間だけ示す", () => {
+test("次の解放の条件は、工場・改良・造幣所の順に、まだ隠れている最初のものだけを示す", () => {
   fc.assert(
     fc.property(
       fc.oneof(
@@ -95,9 +123,10 @@ test("工場の解放の条件は工場が隠れている間だけ、造幣所�
       ),
       (earned) => {
         expect([
-          [false, false, "工場"],
-          [true, false, "造幣所"],
-          [true, true, "なし"],
+          [false, false, false, "工場"],
+          [true, false, false, "改良"],
+          [true, true, false, "造幣所"],
+          [true, true, true, "なし"],
         ]).toContainEqual(unlockShown(view(state({ totalEarned: num(earned) }))));
       },
     ),

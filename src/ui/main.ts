@@ -27,6 +27,7 @@ const productionText = requireElement("production");
 const collectors = requireElement("collectors");
 const factories = requireElement("factories");
 const mints = requireElement("mints");
+const upgrades = requireElement("upgrades");
 const autoBuyer = requireElement("auto-buyer");
 const stats = requireElement("stats");
 const nextPurchase = requireElement("next-purchase");
@@ -107,6 +108,7 @@ const renderStats = (current: View): void => {
   collectors.textContent = current.collectors;
   factories.textContent = current.factories;
   mints.textContent = current.mints;
+  upgrades.textContent = current.upgrades;
   autoBuyer.textContent = current.autoBuyer;
   nextPurchase.textContent = current.nextPurchase;
   nextUnlockLabel.hidden = current.nextUnlock === undefined;

@@ -86,14 +86,28 @@ test("生産したコインは、手元のコインではなく、これまで�
 });
 
 test.each([
-  { collectors: 5, factories: 1, mints: 0, added: "採集機が 3 台" },
-  { collectors: 2, factories: 4, mints: 0, added: "工場が 3 台" },
-  { collectors: 2, factories: 1, mints: 2, added: "造幣所が 2 台" },
-  { collectors: 3, factories: 2, mints: 1, added: "採集機が 1 台、工場が 1 台、造幣所が 1 台" },
+  { collectors: 5, factories: 1, mints: 0, upgrades: 0, added: "採集機が 3 台" },
+  { collectors: 2, factories: 4, mints: 0, upgrades: 0, added: "工場が 3 台" },
+  { collectors: 2, factories: 1, mints: 2, upgrades: 0, added: "造幣所が 2 台" },
+  { collectors: 2, factories: 1, mints: 0, upgrades: 2, added: "改良が 2 個" },
+  {
+    collectors: 3,
+    factories: 2,
+    mints: 1,
+    upgrades: 1,
+    added: "採集機が 1 台、工場が 1 台、造幣所が 1 台、改良が 1 個",
+  },
 ] as const)(
-  "自動購入で増えた施設だけを示す（採集機 $collectors 台、工場 $factories 台、造幣所 $mints 台）",
-  ({ collectors, factories, mints, added }) => {
-    const after: GameState = { ...saved, totalEarned: num(120), collectors, factories, mints };
+  "自動購入で増えた施設と改良だけを示す（採集機 $collectors 台、工場 $factories 台、造幣所 $mints 台、改良 $upgrades）",
+  ({ collectors, factories, mints, upgrades, added }) => {
+    const after: GameState = {
+      ...saved,
+      totalEarned: num(120),
+      collectors,
+      factories,
+      mints,
+      upgrades,
+    };
 
     expect(awayReport(saved, after, 86_400 * 2 + 3600 * 5 + 59)).toBe(
       `離れていた 2 日 5 時間のあいだに、コインを 100 生産した。自動購入で${added}増えた。`,
@@ -101,12 +115,12 @@ test.each([
   },
 );
 
-test("増えた台数は、離れる前の台数との差で示す", () => {
-  const before: GameState = { ...saved, mints: 2 };
-  const after: GameState = { ...before, totalEarned: num(120), mints: 3 };
+test("増えた数は、離れる前の数との差で示す", () => {
+  const before: GameState = { ...saved, mints: 2, upgrades: 3 };
+  const after: GameState = { ...before, totalEarned: num(120), mints: 3, upgrades: 15 };
 
   expect(awayReport(before, after, 3600)).toBe(
-    "離れていた 1 時間 0 分のあいだに、コインを 100 生産した。自動購入で造幣所が 1 台増えた。",
+    "離れていた 1 時間 0 分のあいだに、コインを 100 生産した。自動購入で造幣所が 1 台、改良が 12 個増えた。",
   );
 });
 
