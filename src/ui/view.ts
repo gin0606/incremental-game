@@ -11,13 +11,15 @@ import {
   isMintUnlocked,
   isUpgradeUnlocked,
   mintCost,
+  mintUnlockEarned,
   perform,
+  priceOf,
   production,
   upgradeCost,
   withPurchase,
 } from "../core/game.ts";
 import type { Num, Rounding } from "../core/num.ts";
-import { add, atLeast, div, format, num, sub, toNumber } from "../core/num.ts";
+import { ZERO, add, atLeast, div, format, max, num, sub, toNumber } from "../core/num.ts";
 
 export interface ShopItem {
   readonly action: Action;
@@ -108,6 +110,8 @@ const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = 
 interface Offer {
   readonly item: ShopItem;
   readonly price: Num;
+  /** これまでに生産したコインがこの量に達すると買えるようになる。買い終えて、もう買えなければ `undefined`。 */
+  readonly unlock: Num | undefined;
 }
 
 const offer = (
@@ -115,22 +119,24 @@ const offer = (
   action: Action,
   name: string,
   price: Num,
-  visible: boolean,
+  unlock: Num | undefined,
 ): Offer => ({
   item: {
     action,
     label: `${name}を買う（${format(price, "up")} コイン）`,
     effect: effects[action.type](state),
-    visible,
+    visible: priceOf(state, action) !== undefined,
     affordable: perform(state, action) !== undefined,
   },
   price,
+  unlock,
 });
 
 /**
- * 次に何かを買えるまでの表示。待ち時間は、見えている品物のうち最も安いものの値段に、手元のコインが今の毎秒の
- * 生産量で届くまでの秒数。生産量は何かを買うまで変わらず、自動購入が最初に買うのもその品物なので、待つ間の
- * 自動購入による支出は見積もりを変えない。生産が止まっている間（`pausedSeconds` が正）は、その秒数を足す。
+ * 次に何かを買えるまでの表示。待ち時間は、品物ごとに手元のコインが値段に、これまでに生産したコインが解放の条件に、
+ * どちらも今の毎秒の生産量で届くまでの秒数のうち最も短いもの。解放の前の品物も、待つ間に解放されて先に買えることが
+ * あるため数える。生産量は何かを買うまで変わらず、自動購入が最初に買うのもその品物なので、待つ間の自動購入による
+ * 支出は見積もりを変えない。生産が止まっている間（`pausedSeconds` が正）は、その秒数を足す。
  */
 function nextPurchase(state: GameState, offers: readonly Offer[], pausedSeconds: number): string {
   // 買えるのは見えている品物だけ（解放の前や買い終えた後は買えない）。
@@ -141,12 +147,14 @@ function nextPurchase(state: GameState, offers: readonly Offer[], pausedSeconds:
   if (toNumber(rate) === 0) {
     return "生産が無いため届かない";
   }
-  // 採集機はいつも見えているので、見えている品物は空にならない。
-  const cheapest = offers
-    .filter(({ item }) => item.visible)
-    .map(({ price }) => price)
-    .reduce((lowest, price) => (atLeast(price, lowest) ? lowest : price));
-  const wait = div(sub(cheapest, state.coins), rate);
+  // これまでに生産したコインも手元のコインと同じ速さで増えるので、どちらの不足も同じ生産量で割る。採集機は
+  // いつも買えるので、不足の一覧は空にならない。
+  const shortest = offers
+    .flatMap(({ price, unlock }) =>
+      unlock === undefined ? [] : [max(sub(price, state.coins), sub(unlock, state.totalEarned))],
+    )
+    .reduce((lowest, shortfall) => (atLeast(shortfall, lowest) ? lowest : shortfall));
+  const wait = div(shortest, rate);
   if (pausedSeconds > 0) {
     const paused = num(pausedSeconds);
     return `時計が戻ったため生産が止まっている（再開まで約 ${formatDuration(paused, "up")}）。止まっている間を含めて約 ${formatDuration(add(paused, wait), "up")}`;
@@ -181,11 +189,17 @@ function nextUnlock(state: GameState): string | undefined {
 /** 状態 `state` の表示。`pausedSeconds` は、時計が戻って止めている生産を再開するまでの秒数。 */
 export function view(state: GameState, pausedSeconds = 0): View {
   const offers = [
-    offer(state, { type: "buyCollector" }, "採集機", collectorCost(state), true),
-    offer(state, { type: "buyFactory" }, "工場", factoryCost(state), isFactoryUnlocked(state)),
-    offer(state, { type: "buyMint" }, "造幣所", mintCost(state), isMintUnlocked(state)),
-    offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), isUpgradeUnlocked(state)),
-    offer(state, { type: "buyAutoBuyer" }, "自動購入", AUTO_BUYER_COST, !state.autoBuyer),
+    offer(state, { type: "buyCollector" }, "採集機", collectorCost(state), ZERO),
+    offer(state, { type: "buyFactory" }, "工場", factoryCost(state), FACTORY_UNLOCK_EARNED),
+    offer(state, { type: "buyMint" }, "造幣所", mintCost(state), mintUnlockEarned(state)),
+    offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), UPGRADE_UNLOCK_EARNED),
+    offer(
+      state,
+      { type: "buyAutoBuyer" },
+      "自動購入",
+      AUTO_BUYER_COST,
+      state.autoBuyer ? undefined : ZERO,
+    ),
   ];
   return {
     coins: format(state.coins),

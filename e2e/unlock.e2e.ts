@@ -46,22 +46,27 @@ test("工場が解放される前は解放の条件と残りを示し、解放�
 });
 
 /**
- * 開く時刻 `at(60_000)` に保存した保存データ（保存形式の版 3）。改良の解放の条件まであと 30 で、改良の値段 400000 を
- * 持ち、採集機 10 台と工場 2 つ（毎秒 30）で、自動購入なし。
+ * 開く時刻 `at(60_000)` に保存した保存データ（保存形式の版 3）。改良の値段 400000 を持ち、改良と造幣所はまだ無い。
  */
-const beforeUpgradeUnlock = JSON.stringify({
-  version: 3,
-  savedAt: at(60_000).getTime(),
-  state: {
-    coins: { sign: 1, layer: 0, mag: 400_000 },
-    totalEarned: { sign: 1, layer: 0, mag: 5_999_970 },
-    collectors: 10,
-    factories: 2,
-    mints: 0,
-    upgrades: 0,
-    autoBuyer: false,
-  },
-});
+const beforeUpgradeUnlock = (state: {
+  readonly totalEarned: number;
+  readonly collectors: number;
+  readonly factories: number;
+  readonly autoBuyer: boolean;
+}): string =>
+  JSON.stringify({
+    version: 3,
+    savedAt: at(60_000).getTime(),
+    state: {
+      coins: { sign: 1, layer: 0, mag: 400_000 },
+      totalEarned: { sign: 1, layer: 0, mag: state.totalEarned },
+      collectors: state.collectors,
+      factories: state.factories,
+      mints: 0,
+      upgrades: 0,
+      autoBuyer: state.autoBuyer,
+    },
+  });
 
 const putSave = (save: string): void => {
   localStorage.setItem("incremental-game:save", save);
@@ -70,7 +75,11 @@ const putSave = (save: string): void => {
 test("改良が解放される前は店に並べず、解放されると次の造幣所の条件を示して並べ、買うと改良の数と毎秒の生産が増える", async ({
   page,
 }) => {
-  await page.addInitScript(putSave, beforeUpgradeUnlock);
+  // 改良の解放の条件まであと 30 で、採集機 10 台と工場 2 つ（毎秒 30）、自動購入なし。
+  await page.addInitScript(
+    putSave,
+    beforeUpgradeUnlock({ totalEarned: 5_999_970, collectors: 10, factories: 2, autoBuyer: false }),
+  );
   await page.clock.install({ time: at(0) });
   await page.clock.pauseAt(at(60_000));
   await page.goto("/");
@@ -100,6 +109,34 @@ test("改良が解放される前は店に並べず、解放されると次の�
   await upgrade.click();
   await expect(page.locator("#upgrades")).toHaveText("1");
   await expect(page.locator("#production")).toHaveText("37");
+});
+
+test("解放の前の改良も、解放されて値段に届くまでの時間を次に買えるまでの待ち時間に示す", async ({
+  page,
+}) => {
+  // 改良の解放の条件まであと 10000。採集機 100 台と工場 60 台（毎秒 700）の値段は 800 万を超え、自動購入は買い終えている。
+  await page.addInitScript(
+    putSave,
+    beforeUpgradeUnlock({
+      totalEarned: 5_990_000,
+      collectors: 100,
+      factories: 60,
+      autoBuyer: true,
+    }),
+  );
+  await page.clock.install({ time: at(0) });
+  await page.clock.pauseAt(at(60_000));
+  await page.goto("/");
+  await expect(page.locator("#collectors")).toHaveText("100");
+
+  // 残りの 10000 に毎秒 700 で約 14.3 秒で届く。
+  const wait = page.locator("#next-purchase");
+  await expect(wait).toHaveText("今の生産のままで約 15 秒");
+
+  // 解放されると自動購入が改良を買い、毎秒の生産が 700 の 1.25 倍になる。
+  await page.clock.runFor(15_000);
+  await expect(page.locator("#upgrades")).toHaveText("1");
+  await expect(page.locator("#production")).toHaveText("875");
 });
 
 test("造幣所が解放される前は店に並べず、解放されると条件を隠して並べ、買うと造幣所の数と毎秒の生産が増える", async ({
