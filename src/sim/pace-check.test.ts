@@ -169,6 +169,11 @@ test("evaluate は放置の許容間隔が局面とともに縮む組を、購�
   ]);
 });
 
+test("evaluate は放置の許容間隔が局面をまたいで同じままの組を、縮むとみなさない", () => {
+  const level: Measurement = { ...passing, idles: [idle(0, 600), idle(50, 600)] };
+  expect(problemsOf(evaluate(settings, targets, level))).toStrictEqual([]);
+});
+
 test("evaluate は戻ったときの報酬の頭打ちと低下、不在を罰する違反を局面ごとに挙げる", () => {
   const violating: Measurement = {
     ...passing,
