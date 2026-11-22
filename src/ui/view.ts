@@ -46,8 +46,8 @@ export interface View {
    * 止まっている間は、そのことと、再開までの時間と、それを含めた待ち時間。
    */
   readonly nextPurchase: string;
-  /** 次に解放される要素と、その条件と、条件までの残り。解放を待つ要素が無ければ `undefined`。 */
-  readonly nextUnlock: string | undefined;
+  /** 次に解放される要素と、その条件と、条件までの残り。解放を待つ要素が無ければ、その旨。 */
+  readonly nextUnlock: string;
   readonly shop: readonly ShopItem[];
 }
 
@@ -175,12 +175,13 @@ const unlocks: readonly {
 
 /**
  * 次の解放の表示。まだ解放されていない要素のうち最初のものを示す。条件の値と残りは切り上げ、表示した量を生産すれば
- * 解放されるようにする。
+ * 解放されるようにする。すべて解放した後も行を消さずにその旨を示し、後に続く店の行の位置を変えない
+ * （docs/design/next-unlock.md）。
  */
-function nextUnlock(state: GameState): string | undefined {
+function nextUnlock(state: GameState): string {
   const next = unlocks.find(({ unlocked }) => !unlocked(state));
   if (next === undefined) {
-    return undefined;
+    return "なし（すべて解放済み）";
   }
   const remaining = sub(next.earned, state.totalEarned);
   return `${next.name}: これまでに生産したコインが ${format(next.earned, "up")} に達すると解放（あと ${format(remaining, "up")}）`;

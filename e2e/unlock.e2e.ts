@@ -1,6 +1,8 @@
+import type { Locator } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
 import { at } from "./clock.ts";
+import { rendered } from "./rendered.ts";
 
 test("工場が解放される前は解放の条件と残りを示し、解放されると工場を並べて次の改良の条件を示す", async ({
   page,
@@ -139,7 +141,7 @@ test("解放の前の改良も、解放されて値段に届くまでの時間�
   await expect(page.locator("#production")).toHaveText("875");
 });
 
-test("造幣所が解放される前は店に並べず、解放されると条件を隠して並べ、買うと造幣所の数と毎秒の生産が増える", async ({
+test("造幣所が解放される前は店に並べず、解放されると条件に替えてすべて解放したことを示して並べ、買うと造幣所の数と毎秒の生産が増える", async ({
   page,
 }) => {
   // 解放の条件まであと 30 で、造幣所の値段 10000000 を持つ、採集機 10 台と工場 2 つ（毎秒 30）の保存データ（保存形式の
@@ -177,9 +179,9 @@ test("造幣所が解放される前は店に並べず、解放されると条�
 
   // 毎秒 30 で残りの 30 に 1 秒で届く。
   await page.clock.runFor(1000);
-  await expect(label).toBeHidden();
-  // 中身が空の要素は隠さなくても toBeHidden を満たすため、隠したことは hidden 属性で確かめる。
-  await expect(condition).toHaveAttribute("hidden");
+  await expect(label).toBeVisible();
+  await expect(condition).toBeVisible();
+  await expect(condition).toHaveText("なし（すべて解放済み）");
   await expect(mint).toBeVisible();
   await expect(mint).toHaveText("造幣所を買う（10000000 コイン）");
   await expect(mint).toHaveAccessibleDescription("買うと毎秒の生産が 30 増える");
@@ -188,4 +190,56 @@ test("造幣所が解放される前は店に並べず、解放されると条�
   await expect(page.locator("#mints")).toHaveText("1");
   await expect(page.locator("#factories")).toHaveText("2");
   await expect(page.locator("#production")).toHaveText("60");
+});
+
+/** 要素ごとの位置と大きさ。見えていない要素は null。 */
+const boxesOf = async (
+  locators: readonly Readonly<Pick<Locator, "boundingBox">>[],
+): Promise<Awaited<ReturnType<Locator["boundingBox"]>>[]> => {
+  const boxes = await Promise.all(
+    locators.map(async (locator) => {
+      const box = await locator.boundingBox();
+      return box;
+    }),
+  );
+  return boxes;
+};
+
+test("品物が解放されると店の行は後ろに足され、それまで並んでいた品物のボタンの位置は変わらない", async ({
+  page,
+}) => {
+  // 造幣所の解放の条件まであと 30 で、採集機 10 台と工場 2 つ（毎秒 30）、自動購入なし。工場と改良は解放済みで、店には
+  // 採集機・自動購入・工場・改良が並ぶ。
+  await page.addInitScript(
+    putSave,
+    beforeUpgradeUnlock({
+      totalEarned: 149_999_970,
+      collectors: 10,
+      factories: 2,
+      autoBuyer: false,
+    }),
+  );
+  await page.clock.install({ time: at(0) });
+  await page.clock.pauseAt(at(60_000));
+  await page.goto("/");
+  await expect(page.locator("#collectors")).toHaveText("10");
+
+  const shown = [/^採集機を買う/v, /^自動購入を買う/v, /^工場を買う/v, /^改良を買う/v].map((name) =>
+    page.getByRole("button", { name }),
+  );
+  const mint = page.getByRole("button", { name: /^造幣所を買う/v });
+  await expect(mint).toBeHidden();
+  const before = await boxesOf(shown);
+  // 隠れたボタンの位置は null になるため、どれも並んでいることを確かめる。
+  expect(before).not.toContain(null);
+
+  // 毎秒 30 で残りの 30 に 1 秒で届く。
+  await page.clock.runFor(1000);
+  await expect(mint).toBeVisible();
+  await rendered(page);
+  const after = await boxesOf(shown);
+  expect(after).toStrictEqual(before);
+  // 造幣所の行は、それまで並んでいた行の後ろに足される。
+  const added = await mint.boundingBox();
+  expect(added?.y ?? Number.NaN).toBeGreaterThan(before.at(-1)?.y ?? Number.NaN);
 });

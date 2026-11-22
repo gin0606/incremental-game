@@ -31,7 +31,6 @@ const upgrades = requireElement("upgrades");
 const autoBuyer = requireElement("auto-buyer");
 const stats = requireElement("stats");
 const nextPurchase = requireElement("next-purchase");
-const nextUnlockLabel = requireElement("next-unlock-label");
 const nextUnlock = requireElement("next-unlock");
 const shop = requireElement("shop");
 const notice = requireElement("notice");
@@ -111,9 +110,7 @@ const renderStats = (current: View): void => {
   upgrades.textContent = current.upgrades;
   autoBuyer.textContent = current.autoBuyer;
   nextPurchase.textContent = current.nextPurchase;
-  nextUnlockLabel.hidden = current.nextUnlock === undefined;
-  nextUnlock.hidden = current.nextUnlock === undefined;
-  nextUnlock.textContent = current.nextUnlock ?? "";
+  nextUnlock.textContent = current.nextUnlock;
 };
 
 // 時刻は Date.now() で測る。performance.now() は端末のスリープ中に進まないことがあり、その間の生産が失われる。

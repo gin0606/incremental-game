@@ -22,6 +22,9 @@ import { view } from "./view.ts";
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
+/** すべて解放した後の、次の解放の表示。 */
+const allUnlocked = "なし（すべて解放済み）";
+
 test("造幣所が解放されたら解放の条件を示さず、造幣所を並べる。買える額があれば買える", () => {
   const current = view(
     state({
@@ -34,7 +37,7 @@ test("造幣所が解放されたら解放の条件を示さず、造幣所を�
     }),
   );
 
-  expect(current).toMatchObject({ production: "53", mints: "1", nextUnlock: undefined });
+  expect(current).toMatchObject({ production: "53", mints: "1", nextUnlock: allUnlocked });
   expect(current.shop[4]).toStrictEqual({
     action: { type: "buyMint" },
     label: "造幣所を買う（11000000 コイン）",
@@ -115,7 +118,7 @@ test("造幣所の解放までの残りは、端数を切り上げる。条件�
   expect(view(state({ totalEarned: num(149_999_999.5) })).nextUnlock).toBe(
     `${condition}（あと 1）`,
   );
-  expect(withinTolerance.nextUnlock).toBeUndefined();
+  expect(withinTolerance.nextUnlock).toBe(allUnlocked);
   expect(withinTolerance.shop[4]?.visible).toBe(true);
 });
 
@@ -136,12 +139,12 @@ test("改良: 毎秒の生産が 10 億未満の間、買った後に示す毎�
   );
 });
 
-/** 工場・改良・造幣所が見えているかと、次の解放の表示が示す要素（無ければ「なし」）。 */
+/** 工場・改良・造幣所が見えているかと、次の解放の表示が示す要素（無ければその旨）。 */
 const unlockShown = (current: View): readonly [boolean, boolean, boolean, string] => [
   current.shop[2]?.visible === true,
   current.shop[3]?.visible === true,
   current.shop[4]?.visible === true,
-  current.nextUnlock?.split(":")[0] ?? "なし",
+  current.nextUnlock.split(":")[0] ?? "",
 ];
 
 test("次の解放の条件は、工場・改良・造幣所の順に、まだ隠れている最初のものだけを示す", () => {
@@ -156,7 +159,7 @@ test("次の解放の条件は、工場・改良・造幣所の順に、まだ�
           [false, false, false, "工場"],
           [true, false, false, "改良"],
           [true, true, false, "造幣所"],
-          [true, true, true, "なし"],
+          [true, true, true, allUnlocked],
         ]).toContainEqual(unlockShown(view(state({ totalEarned: num(earned) }))));
       },
     ),
@@ -183,7 +186,7 @@ test("解放の条件が 5e7 だった版の保存で造幣所を持っていれ
   const current = view(loaded.data.state);
 
   expect(current.shop[4]).toMatchObject({ visible: true, affordable: true });
-  expect(current.nextUnlock).toBeUndefined();
+  expect(current.nextUnlock).toBe(allUnlocked);
 });
 
 /** 見えている品物の種類を、店に並ぶ順に並べたもの。 */
