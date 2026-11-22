@@ -2,9 +2,10 @@
 // 読み込んだ値の検査。各項目の意味は docs/design/README.md にある。時間はすべて秒、生産量は常用対数で書く。
 import type { PurchaseRule } from "./bot.ts";
 import { purchaseRules } from "./bot.ts";
+import type { Reach } from "./pace-reach.ts";
+import { reachStages } from "./pace-reach.ts";
 import type { Fields, Reader } from "./fields.ts";
 import { fail, fieldsOf, finite, list, positive, reader, record, series } from "./fields.ts";
-import { largest } from "./metrics.ts";
 
 /** 測り方と目標値の誤りを表す。読み込みの関数がこれを投げる。 */
 export { TargetsError } from "./fields.ts";
@@ -91,9 +92,8 @@ export interface Targets {
   readonly idle: {
     /** 効率（常に開いているボットに対する生産の割合）がこれ以上なら、損をしていないとみなす。 */
     readonly efficiency: number;
-    /** この時刻以降の局面では、放置の許容間隔が `reach` 以上になる。 */
-    readonly reachBy: number;
-    readonly reach: number;
+    /** 放置の許容間隔の段（src/sim/pace-reach.ts）。 */
+    readonly reach: readonly Reach[];
   };
 }
 
@@ -241,12 +241,11 @@ const choice: Reader<Targets["choice"]> = (value, path) => {
 const idle =
   (phases: readonly number[]): Reader<Targets["idle"]> =>
   (value, path) => {
-    const field = targetFieldsOf(value, path, ["efficiency", "reachBy", "reach"], measuring.idle);
-    const reachBy = field("reachBy", finite);
-    // 最後の局面より後の reachBy では、許容間隔の到達を確かめる局面が無く、検査が何もしないまま通る。
-    return reachBy > largest(phases)
-      ? fail(`${path}.reachBy`, "測り方の最後の局面（settings.idle.phases の最後）以下にする")
-      : { efficiency: field("efficiency", efficiency), reachBy, reach: field("reach", positive) };
+    const field = targetFieldsOf(value, path, ["efficiency", "reach"], measuring.idle);
+    return {
+      efficiency: field("efficiency", efficiency),
+      reach: field("reach", reachStages(phases)),
+    };
   };
 
 /**

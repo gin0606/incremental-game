@@ -23,7 +23,7 @@ const targets: Targets = {
   novelty: { perDay: { min: 1 }, longestGap: { max: 90 } },
   walls: { longest: { max: 30 } },
   choice: { lead: { min: 0.01, max: 1 } },
-  idle: { efficiency: 0.99, reachBy: 50, reach: 600 },
+  idle: { efficiency: 0.99, reach: [{ by: 50, tolerance: 600 }] },
 };
 
 const play: PlayMeasure = {
@@ -166,11 +166,6 @@ test("evaluate は放置の許容間隔が局面とともに縮む組を、購�
     ],
     ["放置の許容間隔が 50 秒以降の局面で 600 秒以上", ["efficiency、局面 50 秒: 許容間隔 60 秒"]],
   ]);
-});
-
-test("evaluate は reachBy より前の局面の許容間隔を reach と比べない", () => {
-  const early: Measurement = { ...passing, idles: [idle(0, 0), idle(49, 0), idle(50, 600)] };
-  expect(problemsOf(evaluate(settings, targets, early))).toStrictEqual([]);
 });
 
 test("evaluate は戻ったときの報酬の頭打ちと低下、不在を罰する違反を局面ごとに挙げる", () => {

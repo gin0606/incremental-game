@@ -22,7 +22,7 @@ const validTargets = {
   novelty: { perDay: { min: 0.5 }, longestGap: { max: 3600 } },
   walls: { longest: { max: 1800 } },
   choice: { lead: { min: 0, max: 1 } },
-  idle: { efficiency: 0.99, reachBy: 600, reach: 60 },
+  idle: { efficiency: 0.99, reach: [{ by: 600, tolerance: 60 }] },
 };
 
 const settings = parseSettings(validSettings);
@@ -224,13 +224,14 @@ test.each([
     value: 1.01,
     message: "targets.idle.efficiency: 1 以下で書く（1 を超えると損をしない以上を求める）",
   },
-  { path: ["idle", "reachBy"], value: "1", message: "targets.idle.reachBy: 有限の数で書く" },
-  { path: ["idle", "reach"], value: 0, message: "targets.idle.reach: 正の数で書く" },
+  { path: ["idle", "reach"], value: [], message: "targets.idle.reach: 空でない配列で書く" },
   {
-    path: ["idle", "reachBy"],
-    value: 601,
-    message: "targets.idle.reachBy: 測り方の最後の局面（settings.idle.phases の最後）以下にする",
+    path: ["idle", "reach"],
+    value: [{ by: 601, tolerance: 60 }],
+    message:
+      "targets.idle.reach[0].by: 測り方の最後の局面（settings.idle.phases の最後）以下にする",
   },
+  { path: ["idle", "reachBy"], value: 0, message: "targets.idle.reachBy: 知らない項目" },
   { path: ["milestones"], value: undefined, message: "targets.milestones: オブジェクトで書く" },
   { path: ["growth"], value: undefined, message: "targets.growth: オブジェクトで書く" },
   { path: ["purchases"], value: undefined, message: "targets.purchases: オブジェクトで書く" },
@@ -283,11 +284,11 @@ test("parseTargets は下限ちょうどの効率を受け付ける", () => {
 test("parseTargets は min と max が等しい帯と、1 の効率と、0 以下の時刻を受け付ける", () => {
   const early = parseSettings(replaced(validSettings, ["idle", "phases"], [-1, 0]));
   const targets = parseTargets(
-    replaced(validTargets, ["idle"], { ...validTargets.idle, efficiency: 1, reachBy: -1 }),
+    replaced(validTargets, ["idle"], { efficiency: 1, reach: [{ by: -1, tolerance: 60 }] }),
     early,
   );
   expect(early.idle.phases).toStrictEqual([-1, 0]);
-  expect(targets.idle).toStrictEqual({ ...validTargets.idle, efficiency: 1, reachBy: -1 });
+  expect(targets.idle).toStrictEqual({ efficiency: 1, reach: [{ by: -1, tolerance: 60 }] });
   expect(
     parseTargets(replaced(validTargets, ["milestones", "ratio"], { min: 1, max: 1 }), settings),
   ).toHaveProperty("milestones.ratio", { min: 1, max: 1 });

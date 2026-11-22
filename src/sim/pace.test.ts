@@ -72,7 +72,7 @@ const targets: Targets = {
   novelty: { perDay: { min: 0 }, longestGap: { min: 0 } },
   walls: { longest: { min: 0 } },
   choice: { lead: { min: 0 } },
-  idle: { efficiency: 0.99, reachBy: 0, reach: 1 },
+  idle: { efficiency: 0.99, reach: [{ by: 0, tolerance: 1 }] },
 };
 
 const trial = (purchase: PurchaseRule, checkIn: CheckIn, seed = 1): Trial => ({

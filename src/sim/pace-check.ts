@@ -135,12 +135,17 @@ const idleChecks = (
   targets: Targets,
   idles: readonly IdleMeasure[],
 ): Check[] => {
-  const { reachBy, reach } = targets.idle;
   const { away } = settings.idle;
   return [
     toleranceShrinks(idles),
-    idleCheck("傾向", `放置の許容間隔が ${reachBy} 秒以降の局面で ${reach} 秒以上`, idles, (each) =>
-      each.phase >= reachBy && each.tolerance < reach ? [`許容間隔 ${each.tolerance} 秒`] : [],
+    ...targets.idle.reach.map(({ by, tolerance }) =>
+      idleCheck(
+        "傾向",
+        `放置の許容間隔が ${by} 秒以降の局面で ${tolerance} 秒以上`,
+        idles,
+        (each) =>
+          each.phase >= by && each.tolerance < tolerance ? [`許容間隔 ${each.tolerance} 秒`] : [],
+      ),
     ),
     idleCheck(
       "傾向",
