@@ -22,7 +22,7 @@ const lockedMint = {
 const lockedUpgrade = (gain: number) =>
   ({
     action: { type: "buyUpgrade" },
-    label: "改良を買う（400000 コイン）",
+    label: "改良を買う（800000 コイン）",
     effect: `買うと毎秒の生産が ${gain} 増える（すべての施設の生産が 1.25 倍になる）`,
     visible: false,
     affordable: false,
@@ -93,7 +93,7 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
     upgrades: "0",
     autoBuyer: "稼働中",
     nextPurchase: "今買える",
-    nextUnlock: "改良: これまでに生産したコインが 6000000 に達すると解放（あと 5999000）",
+    nextUnlock: "改良: これまでに生産したコインが 12000000 に達すると解放（あと 11999000）",
     shop: [
       {
         action: { type: "buyCollector" },

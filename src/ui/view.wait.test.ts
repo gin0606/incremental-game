@@ -22,10 +22,16 @@ test("解放されている品物どうしでは、待ち時間は最も安い�
 });
 
 test("買い終えた品物は、より安くても待ち時間に数えない", () => {
-  // 買い終えた自動購入（300000）は、採集機（約 1.2e7）、工場（約 8.5e6）、改良（約 4.4e7）より安い。造幣所は
+  // 買い終えた自動購入（300000）は、採集機（約 1.2e7）、工場（約 8.5e6）、改良（約 6.4e7）より安い。造幣所は
   // 解放の条件 1.5e8 まで遠い。工場までの約 8.5e6 を毎秒 700 × 1.25^10 で割る。
   const bought = view(
-    state({ totalEarned: num(6e6), collectors: 100, factories: 60, upgrades: 10, autoBuyer: true }),
+    state({
+      totalEarned: num(1.2e7),
+      collectors: 100,
+      factories: 60,
+      upgrades: 10,
+      autoBuyer: true,
+    }),
   );
 
   expect(bought.nextPurchase).toBe("今の生産のままで約 21 分 37 秒");
@@ -33,7 +39,7 @@ test("買い終えた品物は、より安くても待ち時間に数えない",
 
 /**
  * 自動購入を買い終えた、採集機 100 台と工場 60 台（毎秒 700）の状態の待ち時間。採集機（約 1.2e7）と工場（約 8.5e6）は、
- * 解放の前の改良（400000、解放の条件 6e6）より高い。
+ * 解放の前の改良（800000、解放の条件 1.2e7）より高い。
  */
 const waitBeforeUpgrade = (totalEarned: number, coins: number): string =>
   view(
@@ -48,11 +54,11 @@ const waitBeforeUpgrade = (totalEarned: number, coins: number): string =>
 
 test("解放の前の品物は、解放の条件と値段の両方に届くまでの時間で待ち時間に数える", () => {
   // 条件まであと 1e6 で、値段に届くより遅い。
-  expect(waitBeforeUpgrade(5e6, 0)).toBe("今の生産のままで約 23 分 49 秒");
-  // 値段まであと 400000 で、条件に届くより遅い。
-  expect(waitBeforeUpgrade(5.9e6, 0)).toBe("今の生産のままで約 9 分 32 秒");
+  expect(waitBeforeUpgrade(1.1e7, 0)).toBe("今の生産のままで約 23 分 49 秒");
+  // 値段まであと 800000 で、条件に届くより遅い。
+  expect(waitBeforeUpgrade(1.19e7, 0)).toBe("今の生産のままで約 19 分 3 秒");
   // 値段のコインを持っていれば、条件に届くまで。
-  expect(waitBeforeUpgrade(5.99e6, 4e5)).toBe("今の生産のままで約 15 秒");
+  expect(waitBeforeUpgrade(1.199e7, 8e5)).toBe("今の生産のままで約 15 秒");
 });
 
 test("まだ買っていない自動購入は、見えている品物として待ち時間に数える", () => {
@@ -64,7 +70,7 @@ test("まだ買っていない自動購入は、見えている品物として�
 
 test("造幣所を持っていれば、解放の条件に届いていなくても、値段に届くまでの時間で数える", () => {
   // 造幣所 4 台（値段約 1.46e7）を持ち、累計 8e7 は解放の条件 1.5e8 に届かない。ほかの品物は造幣所より高い
-  // （改良は約 1.72e7）。1.4641e7 を毎秒 1320 × 1.25^8 ≈ 7868 で割る。
+  // （改良は約 2.67e7）。1.4641e7 を毎秒 1320 × 1.25^8 ≈ 7868 で割る。
   const current = view(
     state({
       totalEarned: num(8e7),
@@ -77,6 +83,16 @@ test("造幣所を持っていれば、解放の条件に届いていなくて�
   );
 
   expect(current.nextPurchase).toBe("今の生産のままで約 31 分 1 秒");
+});
+
+test("改良を持っていれば、解放の条件に届いていなくても、値段に届くまでの時間で数える", () => {
+  // 改良 1 つを持ち、累計 8e6 は解放の条件 1.2e7 に届かない（条件までは約 44 分 27 秒）。ほかの品物は改良（1.24e6）より
+  // 高い。1.24e6 を毎秒 1200 × 1.25 = 1500 で割る。
+  const current = view(
+    state({ totalEarned: num(8e6), collectors: 200, factories: 100, upgrades: 1, autoBuyer: true }),
+  );
+
+  expect(current.nextPurchase).toBe("今の生産のままで約 13 分 47 秒");
 });
 
 test("細かく刻んで進めたときの誤差で、待ち時間を 1 秒長く見せない", () => {

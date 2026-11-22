@@ -50,7 +50,7 @@ test("造幣所が解放されたら解放の条件を示さず、造幣所を�
 test("改良が解放されたら改良の解放の条件を示さず、改良を並べる。買うと得られるものと、買った数を示す", () => {
   const current = view(
     state({
-      coins: num(7e5),
+      coins: num(1.3e6),
       totalEarned: UPGRADE_UNLOCK_EARNED,
       collectors: 4,
       factories: 2,
@@ -63,15 +63,27 @@ test("改良が解放されたら改良の解放の条件を示さず、改良�
   expect(current).toMatchObject({
     production: "30",
     upgrades: "1",
-    nextUnlock: "造幣所: これまでに生産したコインが 150000000 に達すると解放（あと 144000000）",
+    nextUnlock: "造幣所: これまでに生産したコインが 150000000 に達すると解放（あと 138000000）",
   });
   expect(current.shop[3]).toStrictEqual({
     action: { type: "buyUpgrade" },
-    label: "改良を買う（640000 コイン）",
+    label: "改良を買う（1240000 コイン）",
     effect: "買うと毎秒の生産が 7 増える（すべての施設の生産が 1.25 倍になる）",
     visible: true,
     affordable: true,
   });
+});
+
+test("改良を持っていれば、解放の条件に届いていなくても改良を並べ、次の造幣所の条件を示す", () => {
+  // 解放の条件が 6e6 だった版の保存は、今の条件 1.2e7 に届かずに改良を持っていることがある。
+  const current = view(
+    state({ coins: num(1.3e6), totalEarned: num(8e6), collectors: 4, factories: 2, upgrades: 1 }),
+  );
+
+  expect(current.nextUnlock).toBe(
+    "造幣所: これまでに生産したコインが 150000000 に達すると解放（あと 142000000）",
+  );
+  expect(current.shop[3]).toMatchObject({ visible: true, affordable: true });
 });
 
 test("解放までの残りは、生産で減り、購入では変わらない。端数は切り上げる", () => {
@@ -101,11 +113,11 @@ test("これまでに生産したコインが工場の解放の条件に達す�
   // 許容誤差の範囲で条件に届いた値は、工場の解放と同じく達したとみなす。
   const withinTolerance = view(state({ totalEarned: num(100 * (1 - 1e-10)) }));
   const below = view(state({ totalEarned: num(99.9999) }));
-  const upgrade = "改良: これまでに生産したコインが 6000000 に達すると解放";
+  const upgrade = "改良: これまでに生産したコインが 12000000 に達すると解放";
 
-  expect(reached.nextUnlock).toBe(`${upgrade}（あと 5999900）`);
+  expect(reached.nextUnlock).toBe(`${upgrade}（あと 11999900）`);
   expect(reached.shop[2]?.visible).toBe(true);
-  expect(withinTolerance.nextUnlock).toBe(`${upgrade}（あと 5999900）`);
+  expect(withinTolerance.nextUnlock).toBe(`${upgrade}（あと 11999900）`);
   expect(withinTolerance.shop[2]?.visible).toBe(true);
   expect(below.shop[2]?.visible).toBe(false);
 });

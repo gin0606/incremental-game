@@ -16,6 +16,7 @@ import {
   priceOf,
   production,
   upgradeCost,
+  upgradeUnlockEarned,
   withPurchase,
 } from "../core/game.ts";
 import type { Num, Rounding } from "../core/num.ts";
@@ -201,7 +202,7 @@ export function view(state: GameState, pausedSeconds = 0): View {
       state.autoBuyer ? undefined : ZERO,
     ),
     offer(state, { type: "buyFactory" }, "工場", factoryCost(state), FACTORY_UNLOCK_EARNED),
-    offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), UPGRADE_UNLOCK_EARNED),
+    offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), upgradeUnlockEarned(state)),
     offer(state, { type: "buyMint" }, "造幣所", mintCost(state), mintUnlockEarned(state)),
   ];
   return {

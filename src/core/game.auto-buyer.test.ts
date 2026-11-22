@@ -89,7 +89,7 @@ test("自動購入があれば、工場の値段に達する時刻に工場を�
   expect(after.coins).toBeApprox(num(0.5 * 30), 1e-6);
 });
 
-// 採集機 200 台（次は約 1.4e13）と工場 100 台（次は約 1.2e10）に改良 8 つ（次は 4e5 × 1.6^8 ≈ 1.7e7）で、毎秒
+// 採集機 200 台（次は約 1.4e13）と工場 100 台（次は約 1.2e10）に改良 8 つ（次は 8e5 × 1.55^8 ≈ 2.7e7）で、毎秒
 // 1200 × 1.25^8。造幣所（1e7）のほかは、テストの間に値段に届かない。
 const MULTIPLIER = 1.25 ** 8;
 const MINT_TRIAL_RATE = 1200 * MULTIPLIER;
@@ -141,7 +141,7 @@ test("自動購入は、解放された造幣所を、値段に届く時刻に�
 test("自動購入は、造幣所とそれより安い工場を買える額でも、値段あたりの増分が大きければ造幣所を買う", () => {
   // 造幣所は 1e7 で増分 30（値段あたり 3e-6）、工場 61 台目は 150 × 1.2^60 ≈ 8.45e6 で増分 10（約 1.18e-6）、
   // 採集機 98 台目は 10 × 1.15^97 ≈ 7.7e6 で増分 1。1.05e7 コインでは、どれを買っても残りで次を買えない。増分は
-  // どれも改良 8 つの倍率を掛けた値になるが、大小は変わらない。改良（次は約 1.7e7）は買えない。
+  // どれも改良 8 つの倍率を掛けた値になるが、大小は変わらない。改良（次は約 2.7e7）は買えない。
   const after = advance(
     state({
       coins: num(1.05e7),
@@ -175,26 +175,26 @@ test("造幣所の解放の前後で区切っても、一度に進めたとき�
   expect(split.coins).toBeApprox(once.coins, 1e-6);
 });
 
-// 採集機 200 台と工場 100 台で毎秒 1200。改良（4e5）のほかは、テストの間に値段に届かない。
+// 採集機 200 台と工場 100 台で毎秒 1200。改良（8e5）のほかは、テストの間に値段に届かない。
 const upgradeTrial = (totalEarned: number): GameState =>
   state({ totalEarned: num(totalEarned), collectors: 200, factories: 100, autoBuyer: true });
 
 test("自動購入は、改良の値段に届いても、累計の生産量が解放の条件に届くまで買わない", () => {
-  // コインは 4e5 / 1200 ≈ 333 秒で値段に届くが、累計の生産量は 6e5 / 1200 = 500 秒で 6e6 に届く。解放の時刻の
-  // コイン 6e5 から 4e5 を払うと、2 つ目（6.4e5）には届かない。
-  const start = upgradeTrial(5.4e6);
+  // コインは 8e5 / 1200 ≈ 667 秒で値段に届くが、累計の生産量は 1.2e6 / 1200 = 1000 秒で 1.2e7 に届く。解放の時刻の
+  // コイン 1.2e6 から 8e5 を払うと、2 つ目（1.24e6）には届かない。
+  const start = upgradeTrial(1.08e7);
 
-  expect(advance(start, 490).upgrades).toBe(0);
-  const after = advance(start, 510);
+  expect(advance(start, 990).upgrades).toBe(0);
+  const after = advance(start, 1010);
   expect(after.upgrades).toBe(1);
   // 残りの 10 秒は、改良で 1.25 倍になった毎秒 1500 で生産する。
-  expect(after.coins).toBeApprox(num(6e5 - 4e5 + 10 * 1500), 1e-6);
+  expect(after.coins).toBeApprox(num(1.2e6 - 8e5 + 10 * 1500), 1e-6);
 });
 
 test("改良の解放の前後で区切っても、一度に進めたときと同じ時刻に改良を買う", () => {
-  const start = upgradeTrial(5.4e6);
-  const once = advance(start, 600);
-  const split = advance(advance(start, 400), 200);
+  const start = upgradeTrial(1.08e7);
+  const once = advance(start, 1100);
+  const split = advance(advance(start, 700), 400);
 
   expect(split.upgrades).toBe(1);
   expect(counts(split)).toStrictEqual(counts(once));
@@ -202,13 +202,13 @@ test("改良の解放の前後で区切っても、一度に進めたときと�
 });
 
 test("自動購入は、改良とそれより安い工場を買える額でも、値段あたりの増分が大きければ改良を買う", () => {
-  // 改良は 4e5 で増分 (200 + 400) × 0.25 = 150（値段あたり 3.75e-4）、工場 41 台目は 150 × 1.2^40 ≈ 2.20e5 で
-  // 増分 10（約 4.5e-5）、採集機 201 台目は約 1.4e13。4.1e5 コインで改良を買うと、残りの 1e4 で工場を買えない。
+  // 改良は 8e5 で増分 (200 + 400) × 0.25 = 150（値段あたり 1.875e-4）、工場 41 台目は 150 × 1.2^40 ≈ 2.20e5 で
+  // 増分 10（約 4.5e-5）、採集機 201 台目は約 1.4e13。8.1e5 コインで改良を買うと、残りの 1e4 で工場を買えない。
   // 工場を先に買うと改良に届かない。
   const after = advance(
     state({
-      coins: num(4.1e5),
-      totalEarned: num(6e6),
+      coins: num(8.1e5),
+      totalEarned: num(1.2e7),
       collectors: 200,
       factories: 40,
       autoBuyer: true,
@@ -227,12 +227,12 @@ test("自動購入は、改良とそれより安い工場を買える額でも�
 });
 
 test("自動購入は、改良を買える額でも、値段あたりの増分が大きければ工場を先に買う", () => {
-  // 工場 26 台目は 150 × 1.2^25 ≈ 1.43e4 で増分 10（約 7.0e-4）、改良は 4e5 で増分 (200 + 250) × 0.25 = 112.5
-  // （約 2.8e-4）。4.1e5 コインで工場を先に買うと、残りでは改良に届かない。
+  // 工場 26 台目は 150 × 1.2^25 ≈ 1.43e4 で増分 10（約 7.0e-4）、改良は 8e5 で増分 (200 + 250) × 0.25 = 112.5
+  // （約 1.4e-4）。8.1e5 コインで工場を先に買うと、残りでは改良に届かない。
   const after = advance(
     state({
-      coins: num(4.1e5),
-      totalEarned: num(6e6),
+      coins: num(8.1e5),
+      totalEarned: num(1.2e7),
       collectors: 200,
       factories: 25,
       autoBuyer: true,

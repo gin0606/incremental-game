@@ -43,12 +43,12 @@ test("工場が解放される前は解放の条件と残りを示し、解放�
   await expect(label).toBeVisible();
   await expect(condition).toBeVisible();
   await expect(condition).toHaveText(
-    "改良: これまでに生産したコインが 6000000 に達すると解放（あと 5999900）",
+    "改良: これまでに生産したコインが 12000000 に達すると解放（あと 11999900）",
   );
 });
 
 /**
- * 開く時刻 `at(60_000)` に保存した保存データ（保存形式の版 3）。改良の値段 400000 を持ち、改良と造幣所は持っていない。
+ * 開く時刻 `at(60_000)` に保存した保存データ（保存形式の版 3）。改良の値段 800000 を持ち、改良と造幣所は持っていない。
  */
 const withoutUpgradesOrMints = (state: {
   readonly totalEarned: number;
@@ -60,7 +60,7 @@ const withoutUpgradesOrMints = (state: {
     version: 3,
     savedAt: at(60_000).getTime(),
     state: {
-      coins: { sign: 1, layer: 0, mag: 400_000 },
+      coins: { sign: 1, layer: 0, mag: 800_000 },
       totalEarned: { sign: 1, layer: 0, mag: state.totalEarned },
       collectors: state.collectors,
       factories: state.factories,
@@ -81,7 +81,7 @@ test("改良が解放される前は店に並べず、解放されると次の�
   await page.addInitScript(
     putSave,
     withoutUpgradesOrMints({
-      totalEarned: 5_999_970,
+      totalEarned: 11_999_970,
       collectors: 10,
       factories: 2,
       autoBuyer: false,
@@ -95,7 +95,7 @@ test("改良が解放される前は店に並べず、解放されると次の�
   const condition = page.locator('dt:text-is("次の解放") + dd');
   const upgrade = page.getByRole("button", { name: /^改良を買う/v });
   await expect(condition).toHaveText(
-    "改良: これまでに生産したコインが 6000000 に達すると解放（あと 30）",
+    "改良: これまでに生産したコインが 12000000 に達すると解放（あと 30）",
   );
   await expect(page.locator("#upgrades")).toHaveText("0");
   await expect(upgrade).toBeHidden();
@@ -103,10 +103,10 @@ test("改良が解放される前は店に並べず、解放されると次の�
   // 毎秒 30 で残りの 30 に 1 秒で届く。
   await page.clock.runFor(1000);
   await expect(condition).toHaveText(
-    "造幣所: これまでに生産したコインが 150000000 に達すると解放（あと 144000000）",
+    "造幣所: これまでに生産したコインが 150000000 に達すると解放（あと 138000000）",
   );
   await expect(upgrade).toBeVisible();
-  await expect(upgrade).toHaveText("改良を買う（400000 コイン）");
+  await expect(upgrade).toHaveText("改良を買う（800000 コイン）");
   // 毎秒 30 の 0.25 倍の 7.5 を切り捨てる。
   await expect(upgrade).toHaveAccessibleDescription(
     "買うと毎秒の生産が 7 増える（すべての施設の生産が 1.25 倍になる）",
@@ -125,7 +125,7 @@ test("解放の前の改良も、解放されて値段に届くまでの時間�
   await page.addInitScript(
     putSave,
     withoutUpgradesOrMints({
-      totalEarned: 5_990_000,
+      totalEarned: 11_990_000,
       collectors: 100,
       factories: 60,
       autoBuyer: true,
