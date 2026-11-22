@@ -139,6 +139,12 @@ test("改良: 毎秒の生産が 10 億未満の間、買った後に示す毎�
   );
 });
 
+/** これまでに生産したコイン。工場の解放の条件の前後を細かく、造幣所の解放の条件の先までを粗く覆う。 */
+const earnedAcrossUnlocks = fc.oneof(
+  fc.double({ min: 0, max: 200, noNaN: true }),
+  fc.double({ min: 0, max: 3e8, noNaN: true }),
+);
+
 /** 工場・改良・造幣所が見えているかと、次の解放の表示が示す要素（無ければその旨）。 */
 const unlockShown = (current: View): readonly [boolean, boolean, boolean, string] => [
   current.shop[2]?.visible === true,
@@ -149,20 +155,14 @@ const unlockShown = (current: View): readonly [boolean, boolean, boolean, string
 
 test("次の解放の条件は、工場・改良・造幣所の順に、まだ隠れている最初のものだけを示す", () => {
   fc.assert(
-    fc.property(
-      fc.oneof(
-        fc.double({ min: 0, max: 200, noNaN: true }),
-        fc.double({ min: 0, max: 3e8, noNaN: true }),
-      ),
-      (earned) => {
-        expect([
-          [false, false, false, "工場"],
-          [true, false, false, "改良"],
-          [true, true, false, "造幣所"],
-          [true, true, true, allUnlocked],
-        ]).toContainEqual(unlockShown(view(state({ totalEarned: num(earned) }))));
-      },
-    ),
+    fc.property(earnedAcrossUnlocks, (earned) => {
+      expect([
+        [false, false, false, "工場"],
+        [true, false, false, "改良"],
+        [true, true, false, "造幣所"],
+        [true, true, true, allUnlocked],
+      ]).toContainEqual(unlockShown(view(state({ totalEarned: num(earned) }))));
+    }),
   );
 });
 
@@ -221,10 +221,7 @@ test.each([false, true])(
 const reachable = fc
   .oneof(
     fc.record({
-      earned: fc.oneof(
-        fc.double({ min: 0, max: 200, noNaN: true }),
-        fc.double({ min: 0, max: 3e8, noNaN: true }),
-      ),
+      earned: earnedAcrossUnlocks,
       mints: fc.constant(0),
       autoBuyer: fc.boolean(),
     }),
