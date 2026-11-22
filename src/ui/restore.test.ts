@@ -121,11 +121,17 @@ test.each([
 );
 
 test("増えた数は、離れる前の数との差で示す", () => {
-  const before: GameState = { ...saved, mints: 2, upgrades: 3 };
-  const after: GameState = { ...before, totalEarned: num(120), mints: 3, upgrades: 15 };
+  const before: GameState = { ...saved, mints: 2, refineries: 4, upgrades: 3 };
+  const after: GameState = {
+    ...before,
+    totalEarned: num(120),
+    mints: 3,
+    refineries: 6,
+    upgrades: 15,
+  };
 
   expect(awayReport(before, after, 3600)).toBe(
-    "離れていた 1 時間 0 分のあいだに、コインを 100 生産した。自動購入で造幣所が 1 台、改良が 12 個増えた。",
+    "離れていた 1 時間 0 分のあいだに、コインを 100 生産した。自動購入で造幣所が 1 台、精錬所が 2 台、改良が 12 個増えた。",
   );
 });
 
