@@ -7,6 +7,7 @@ import {
   AUTO_BUYER_COST,
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
+  UPGRADE_UNLOCK_EARNED,
   advance,
   collectorCost,
   factoryCost,
@@ -17,6 +18,7 @@ import {
   perform,
   priceOf,
   production,
+  upgradeCost,
   withPurchase,
 } from "./game.ts";
 import { add, atLeast, mul, num } from "./num.ts";
@@ -38,10 +40,11 @@ const performed = (before: GameState, action: Action): GameState => {
 };
 
 /** 数を除いた部分（台数など）。 */
-const counts = ({ collectors, factories, mints, autoBuyer }: GameState): object => ({
+const counts = ({ collectors, factories, mints, upgrades, autoBuyer }: GameState): object => ({
   collectors,
   factories,
   mints,
+  upgrades,
   autoBuyer,
 });
 
@@ -105,6 +108,9 @@ test("priceOf は買えるものの値段を、解放されていないものと
   expect(priceOf(unlocked, { type: "buyMint" })).toBeUndefined();
   const mintUnlocked = state({ mints: 3, totalEarned: MINT_UNLOCK_EARNED });
   expect(priceOf(mintUnlocked, { type: "buyMint" })).toBeApprox(mintCost(mintUnlocked));
+  expect(priceOf(unlocked, { type: "buyUpgrade" })).toBeUndefined();
+  const upgradeUnlocked = state({ upgrades: 2, totalEarned: UPGRADE_UNLOCK_EARNED });
+  expect(priceOf(upgradeUnlocked, { type: "buyUpgrade" })).toBeApprox(upgradeCost(upgradeUnlocked));
   expect(priceOf(locked, { type: "buyAutoBuyer" })).toBeApprox(AUTO_BUYER_COST);
   expect(priceOf(state({ autoBuyer: true }), { type: "buyAutoBuyer" })).toBeUndefined();
 });
@@ -118,6 +124,7 @@ test("withPurchase は値段を払わずに買ったものを足す", () => {
   });
   expect(withPurchase(before, { type: "buyFactory" })).toStrictEqual({ ...before, factories: 2 });
   expect(withPurchase(before, { type: "buyMint" })).toStrictEqual({ ...before, mints: 1 });
+  expect(withPurchase(before, { type: "buyUpgrade" })).toStrictEqual({ ...before, upgrades: 1 });
   expect(withPurchase(before, { type: "buyAutoBuyer" })).toStrictEqual({
     ...before,
     autoBuyer: true,
@@ -127,7 +134,13 @@ test("withPurchase は値段を払わずに買ったものを足す", () => {
 test("採集機を買うと台数が増え、値段の分だけコインが減る", () => {
   const after = performed(state({ coins: num(25), collectors: 1 }), { type: "buyCollector" });
 
-  expect(counts(after)).toStrictEqual({ collectors: 2, factories: 0, mints: 0, autoBuyer: false });
+  expect(counts(after)).toStrictEqual({
+    collectors: 2,
+    factories: 0,
+    mints: 0,
+    upgrades: 0,
+    autoBuyer: false,
+  });
   expect(after.coins).toBeApprox(num(25 - 11.5));
 });
 
@@ -158,7 +171,13 @@ test("工場は累計の生産量が 100 に達すると解放され、買える
   expect(isFactoryUnlocked(unlocked)).toBe(true);
   const after = performed(unlocked, { type: "buyFactory" });
 
-  expect(counts(after)).toStrictEqual({ collectors: 1, factories: 1, mints: 0, autoBuyer: false });
+  expect(counts(after)).toStrictEqual({
+    collectors: 1,
+    factories: 1,
+    mints: 0,
+    upgrades: 0,
+    autoBuyer: false,
+  });
   expect(after.coins).toBeApprox(num(10));
 });
 
@@ -175,7 +194,13 @@ test("造幣所は累計の生産量が 5e7 に達すると解放され、買え
   expect(isMintUnlocked(unlocked)).toBe(true);
   const after = performed(unlocked, { type: "buyMint" });
 
-  expect(counts(after)).toStrictEqual({ collectors: 1, factories: 0, mints: 1, autoBuyer: false });
+  expect(counts(after)).toStrictEqual({
+    collectors: 1,
+    factories: 0,
+    mints: 1,
+    upgrades: 0,
+    autoBuyer: false,
+  });
   expect(after.coins).toBeApprox(num(1e6));
 });
 
@@ -184,7 +209,13 @@ test("自動購入は一度だけ買える", () => {
     type: "buyAutoBuyer",
   });
 
-  expect(counts(after)).toStrictEqual({ collectors: 1, factories: 0, mints: 0, autoBuyer: true });
+  expect(counts(after)).toStrictEqual({
+    collectors: 1,
+    factories: 0,
+    mints: 0,
+    upgrades: 0,
+    autoBuyer: true,
+  });
   expect(after.coins).toBeApprox(AUTO_BUYER_COST);
   expect(perform(after, { type: "buyAutoBuyer" })).toBeUndefined();
 });
@@ -197,7 +228,13 @@ test("自動購入が無ければ、時間の経過でコインと累計の生�
 
   expect(after.coins).toBeApprox(num(5 + 36));
   expect(after.totalEarned).toBeApprox(num(7 + 36));
-  expect(counts(after)).toStrictEqual({ collectors: 2, factories: 1, mints: 0, autoBuyer: false });
+  expect(counts(after)).toStrictEqual({
+    collectors: 2,
+    factories: 1,
+    mints: 0,
+    upgrades: 0,
+    autoBuyer: false,
+  });
 });
 
 test.each([-1, Number.NaN, Number.POSITIVE_INFINITY])("経過時間 %s は RangeError", (seconds) => {

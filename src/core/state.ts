@@ -19,6 +19,7 @@ export type Action =
   | { readonly type: "buyCollector" }
   | { readonly type: "buyFactory" }
   | { readonly type: "buyMint" }
+  | { readonly type: "buyUpgrade" }
   | { readonly type: "buyAutoBuyer" };
 
 export const initialState: GameState = {

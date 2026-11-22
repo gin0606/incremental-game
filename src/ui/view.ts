@@ -94,6 +94,7 @@ const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = 
   buyCollector: (state) => productionGain(state, { type: "buyCollector" }),
   buyFactory: (state) => productionGain(state, { type: "buyFactory" }),
   buyMint: (state) => productionGain(state, { type: "buyMint" }),
+  buyUpgrade: (state) => productionGain(state, { type: "buyUpgrade" }),
   buyAutoBuyer: () => "採集機・工場・造幣所を、買える額に達するたびに自動で買う",
 };
 

@@ -4,6 +4,7 @@ import {
   initialState,
   isFactoryUnlocked,
   isMintUnlocked,
+  isUpgradeUnlocked,
   perform,
   priceOf,
   production,
@@ -32,6 +33,7 @@ const byAction: {
   buyCollector: { id: "collector", action: { type: "buyCollector" }, unlocked: always },
   buyAutoBuyer: { id: "autoBuyer", action: { type: "buyAutoBuyer" }, unlocked: always },
   buyFactory: { id: "factory", action: { type: "buyFactory" }, unlocked: isFactoryUnlocked },
+  buyUpgrade: { id: "upgrade", action: { type: "buyUpgrade" }, unlocked: isUpgradeUnlocked },
   buyMint: { id: "mint", action: { type: "buyMint" }, unlocked: isMintUnlocked },
 };
 

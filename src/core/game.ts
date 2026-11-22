@@ -18,10 +18,11 @@ import type { Action, GameState } from "./state.ts";
 // 判定の仕組み（シミュレーター、指標のテスト）を確かめるための仮の最小ゲームの規則。状態と行動の型は state.ts にある。
 //
 // - 資源はコインの 1 つ。採集機・工場・造幣所がコインを毎秒生む。
-// - 改良は、1 つごとにすべての施設の生産を UPGRADE_MULTIPLIER 倍にする。
-// - 工場は、累計で稼いだコインが FACTORY_UNLOCK_EARNED に、造幣所は MINT_UNLOCK_EARNED に達すると解放される。
-// - 自動購入を買うと、採集機・工場・造幣所を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。買える額に
-//   達したもののうち、値段あたりの生産量の増分が大きいものから買う。
+// - 改良は、1 つごとにすべての施設の生産を UPGRADE_MULTIPLIER 倍にする。値段は施設と同じく数に対して指数的に伸びる。
+// - 工場は、累計で稼いだコインが FACTORY_UNLOCK_EARNED に、改良は UPGRADE_UNLOCK_EARNED に、造幣所は
+//   MINT_UNLOCK_EARNED に達すると解放される。
+// - 自動購入を買うと、採集機・工場・造幣所・改良を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。
+//   買える額に達したもののうち、値段あたりの生産量の増分が大きいものから買う。
 //
 // 時間の経過は advance だけで進める。オフラインの経過も同じ関数で一度に計算する。
 
@@ -37,9 +38,12 @@ const FACTORY_PRODUCTION = num(10);
 const MINT_BASE_COST = num(5e6);
 const MINT_COST_GROWTH = num(1.1);
 const MINT_PRODUCTION = num(30);
+const UPGRADE_BASE_COST = num(4e5);
+const UPGRADE_COST_GROWTH = num(1.6);
 const UPGRADE_MULTIPLIER = num(1.25);
 
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
+export const UPGRADE_UNLOCK_EARNED: Num = num(6e6);
 export const MINT_UNLOCK_EARNED: Num = num(5e7);
 export const AUTO_BUYER_COST: Num = num(3e5);
 
@@ -55,12 +59,20 @@ export function mintCost(state: GameState): Num {
   return mul(MINT_BASE_COST, pow(MINT_COST_GROWTH, state.mints));
 }
 
+export function upgradeCost(state: GameState): Num {
+  return mul(UPGRADE_BASE_COST, pow(UPGRADE_COST_GROWTH, state.upgrades));
+}
+
 export function isFactoryUnlocked(state: GameState): boolean {
   return atLeast(state.totalEarned, FACTORY_UNLOCK_EARNED);
 }
 
 export function isMintUnlocked(state: GameState): boolean {
   return atLeast(state.totalEarned, MINT_UNLOCK_EARNED);
+}
+
+export function isUpgradeUnlocked(state: GameState): boolean {
+  return atLeast(state.totalEarned, UPGRADE_UNLOCK_EARNED);
 }
 
 /** 改良の倍率を掛ける前の、施設の毎秒の生産量の和。 */
@@ -98,6 +110,10 @@ const purchases: Readonly<Record<Action["type"], Purchase>> = {
   buyMint: {
     price: (state) => (isMintUnlocked(state) ? mintCost(state) : undefined),
     receive: (state) => ({ ...state, mints: state.mints + 1 }),
+  },
+  buyUpgrade: {
+    price: (state) => (isUpgradeUnlocked(state) ? upgradeCost(state) : undefined),
+    receive: (state) => ({ ...state, upgrades: state.upgrades + 1 }),
   },
   buyAutoBuyer: {
     price: (state) => (state.autoBuyer ? undefined : AUTO_BUYER_COST),
@@ -144,36 +160,45 @@ function produce(state: GameState, seconds: number): GameState {
 }
 
 /**
- * 自動購入が買うものと、その値段と解放の条件。値段は解放の前でも返す。造幣所の値段（5e6 から）は解放に要る累計の
- * 生産量（{@link MINT_UNLOCK_EARNED}）より安く、解放の前にコインが値段に届きうる。そのため、買う時刻は、コインが値段に
- * 届く時刻と、累計の生産量が解放の条件に届く時刻の遅いほうにする（{@link nextAutoBuy}）。累計の生産量もコインと同じ
- * 速さで増えるため、どちらの時刻も進め方によらない。
+ * 自動購入が買うものと、その値段と解放の条件。値段は解放の前でも返す。造幣所と改良の値段は解放に要る累計の生産量
+ * （{@link MINT_UNLOCK_EARNED}・{@link UPGRADE_UNLOCK_EARNED}）より安く、解放の前にコインが値段に届きうる。そのため、
+ * 買う時刻は、コインが値段に届く時刻と、累計の生産量が解放の条件に届く時刻の遅いほうにする（{@link nextAutoBuy}）。
+ * 累計の生産量もコインと同じ速さで増えるため、どちらの時刻も進め方によらない。
  */
 const automated: readonly {
   readonly action: Action;
   readonly cost: (state: GameState) => Num;
-  /** 1 つ買ったときの生産量の増分。 */
-  readonly gain: Num;
+  /**
+   * 1 つ買ったときの、改良の倍率を掛ける前の生産量の増分。どの増分にも同じ倍率が掛かるため、値段あたりの増分の大小は
+   * 倍率を掛けても変わらない。
+   */
+  readonly gain: (state: GameState) => Num;
   /** 解放に要る累計の生産量。 */
   readonly unlock: Num;
 }[] = [
   {
     action: { type: "buyCollector" },
     cost: collectorCost,
-    gain: COLLECTOR_PRODUCTION,
+    gain: () => COLLECTOR_PRODUCTION,
     unlock: ZERO,
   },
   {
     action: { type: "buyFactory" },
     cost: factoryCost,
-    gain: FACTORY_PRODUCTION,
+    gain: () => FACTORY_PRODUCTION,
     unlock: FACTORY_UNLOCK_EARNED,
   },
   {
     action: { type: "buyMint" },
     cost: mintCost,
-    gain: MINT_PRODUCTION,
+    gain: () => MINT_PRODUCTION,
     unlock: MINT_UNLOCK_EARNED,
+  },
+  {
+    action: { type: "buyUpgrade" },
+    cost: upgradeCost,
+    gain: (state) => mul(baseProduction(state), sub(UPGRADE_MULTIPLIER, num(1))),
+    unlock: UPGRADE_UNLOCK_EARNED,
   },
 ];
 
@@ -182,12 +207,12 @@ const automated: readonly {
  * 同じ値（許容誤差の範囲）なら先のもの。買えるものが無ければ `undefined`。
  */
 function autoBuyOnce(state: GameState): GameState | undefined {
-  // 手元のコインが多いと何千回も買うため、生産量を求め直さず、増分を値段で割るだけで比べる。
+  // 手元のコインが多いと何千回も買うため、買った後の生産量を求めず、増分を値段で割るだけで比べる。
   let best: { readonly action: Action; readonly price: Num; readonly value: Num } | undefined;
   for (const { action, gain } of automated) {
     const price = priceOf(state, action);
     if (price !== undefined && atLeast(state.coins, price)) {
-      const value = div(gain, price);
+      const value = div(gain(state), price);
       if (best === undefined || !atLeast(best.value, value)) {
         best = { action, price, value };
       }
