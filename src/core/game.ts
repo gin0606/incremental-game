@@ -30,8 +30,9 @@ import type { Action, GameState } from "./state.ts";
 //   MINT_UNLOCK_EARNED に達すると解放される。造幣所と改良は、持っていれば解放されている（mintUnlockEarned・upgradeUnlockEarned）。
 // - 自動購入を買うと、採集機・工場・造幣所・改良を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。
 //   買える額に達したもののうち、値段あたりの生産量の増分が大きいものから買う。
-// - 控えめな自動購入は、自動購入より安く、同じものを、コインが値段の CAUTIOUS_AUTO_BUYER_MARGIN 倍に達したときだけ
-//   買う。自動化を 2 段に分け、先に手に入る段では、プレイヤーが品物を選んで貯めている間のコインを使い切らない。
+// - 控えめな自動購入は、自動購入より安く、同じものを、払った後も今の生産の CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS 秒分の
+//   コインが手元に残るときだけ買う。自動化を 2 段に分け、先に手に入る段では、店を見て買っているプレイヤーの選択を
+//   奪わず（値段に届けば買うプレイヤーの手元には、ふつうそれだけのコインが貯まらない）、離れている間に買う。
 //   自動購入を持てば、控えめな自動購入の働きは自動購入の働きに含まれる。
 //
 // 時間の経過は advance だけで進める。オフラインの経過も同じ関数で一度に計算する。
@@ -57,9 +58,9 @@ export {
 } from "./economy.ts";
 
 export const AUTO_BUYER_COST: Num = num(3e5);
-export const CAUTIOUS_AUTO_BUYER_COST: Num = num(1e4);
-/** 控えめな自動購入が買うのに要るコインの、値段に対する倍率。 */
-export const CAUTIOUS_AUTO_BUYER_MARGIN: Num = num(2);
+export const CAUTIOUS_AUTO_BUYER_COST: Num = num(3e4);
+/** 控えめな自動購入が、払った後も手元に残すコインの量を、今の毎秒の生産の何秒分かで表したもの。 */
+export const CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS = 600;
 
 interface Purchase {
   /** 今の状態で買えるときの値段。解放されていない、買い終えたなどで買えなければ `undefined`。 */
@@ -180,26 +181,33 @@ const automated: readonly {
 ];
 
 /**
- * 自動で買うのに要るコインの、値段に対する倍率。自動購入を持てば 1、控えめな自動購入だけを持てば
- * {@link CAUTIOUS_AUTO_BUYER_MARGIN}。どちらも持たなければ `undefined`（自動では買わない）。
+ * 自動で買うときに、払った後も手元に残すコイン。自動購入を持てば 0、控えめな自動購入だけを持てば今の毎秒の生産の
+ * {@link CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS} 秒分。どちらも持たなければ `undefined`（自動では買わない）。
  */
-function autoBuyMargin(state: GameState): Num | undefined {
+function autoBuyReserve(state: GameState): Num | undefined {
   if (state.autoBuyer) {
-    return num(1);
+    return ZERO;
   }
-  return state.cautiousAutoBuyer ? CAUTIOUS_AUTO_BUYER_MARGIN : undefined;
+  return state.cautiousAutoBuyer
+    ? mul(production(state), num(CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS))
+    : undefined;
 }
 
 /**
- * 自動購入が次に買った後の状態。コインが値段の `margin` 倍に達したもののうち、値段あたりの生産量の増分が最も大きい
- * ものを買う。同じ値（許容誤差の範囲）なら先のもの。買えるものが無ければ `undefined`。
+ * 自動購入が次に買った後の状態。コインが値段と {@link autoBuyReserve} の和に達したもののうち、値段あたりの生産量の
+ * 増分が最も大きいものを買う。同じ値（許容誤差の範囲）なら先のもの。買えるものが無ければ `undefined`。
  */
-function autoBuyOnce(state: GameState, margin: Num): GameState | undefined {
+function autoBuyOnce(state: GameState): GameState | undefined {
+  // 残すコインは買うたびに増える生産に合わせて、買う前の状態から求め直す。
+  const reserve = autoBuyReserve(state);
+  if (reserve === undefined) {
+    return undefined;
+  }
   // 手元のコインが多いと何千回も買うため、買った後の生産量を求めず、増分を値段で割るだけで比べる。
   let best: { readonly action: Action; readonly price: Num; readonly value: Num } | undefined;
   for (const { action, gain } of automated) {
     const price = priceOf(state, action);
-    if (price !== undefined && atLeast(state.coins, mul(price, margin))) {
+    if (price !== undefined && atLeast(state.coins, add(price, reserve))) {
       const value = div(gain(state), price);
       if (best === undefined || !atLeast(best.value, value)) {
         best = { action, price, value };
@@ -211,39 +219,31 @@ function autoBuyOnce(state: GameState, margin: Num): GameState | undefined {
 
 /** 自動購入か控えめな自動購入を持っていれば、その働きで買えるだけ買う。 */
 function autoBuy(state: GameState): GameState {
-  const margin = autoBuyMargin(state);
-  if (margin === undefined) {
-    return state;
-  }
   let current = state;
-  for (
-    let next = autoBuyOnce(current, margin);
-    next !== undefined;
-    next = autoBuyOnce(current, margin)
-  ) {
+  for (let next = autoBuyOnce(current); next !== undefined; next = autoBuyOnce(current)) {
     current = next;
   }
   return current;
 }
 
 /**
- * 次に自動購入が起きるまでの秒数と、そのとき買うもの。起きなければ `undefined`。{@link perform} と同じく、コインが
- * 値段（控えめな自動購入では、値段の {@link autoBuyMargin} 倍）に許容誤差の範囲で届いた時刻を返す。値段そのものに
- * 届く時刻にすると、刻んで進めたときだけ区切りの時点で早めに買えてしまう。解放の前のものは、累計の生産量が解放の
- * 条件に許容誤差の範囲で届く時刻まで待つ。
+ * 次に自動購入が起きるまでの秒数と、そのとき買うもの。起きなければ `undefined`。コインが値段と
+ * {@link autoBuyReserve} の和に、{@link perform} と同じく許容誤差の範囲で届いた時刻を返す（残すコインは生産の速さで
+ * 決まり、次の購入まで変わらない）。和そのものに届く時刻にすると、刻んで進めたときだけ区切りの時点で早めに買えて
+ * しまう。解放の前のものは、累計の生産量が解放の条件に許容誤差の範囲で届く時刻まで待つ。
  */
 function nextAutoBuy(
   state: GameState,
 ): { readonly seconds: number; readonly buy: (typeof automated)[number] } | undefined {
   const rate = production(state);
-  const margin = autoBuyMargin(state);
-  if (margin === undefined || toNumber(rate) === 0) {
+  const reserve = autoBuyReserve(state);
+  if (reserve === undefined || toNumber(rate) === 0) {
     return undefined;
   }
   let next: { readonly seconds: number; readonly buy: (typeof automated)[number] } | undefined;
   for (const buy of automated) {
     const seconds = Math.max(
-      toNumber(div(sub(toleranceFloor(mul(buy.cost(state), margin)), state.coins), rate)),
+      toNumber(div(sub(toleranceFloor(add(buy.cost(state), reserve)), state.coins), rate)),
       toNumber(div(sub(toleranceFloor(buy.unlock(state)), state.totalEarned), rate)),
     );
     if (next === undefined || seconds < next.seconds) {

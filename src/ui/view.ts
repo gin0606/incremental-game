@@ -2,7 +2,7 @@ import type { Action, GameState } from "../core/game.ts";
 import {
   AUTO_BUYER_COST,
   CAUTIOUS_AUTO_BUYER_COST,
-  CAUTIOUS_AUTO_BUYER_MARGIN,
+  CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS,
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
   UPGRADE_MULTIPLIER,
@@ -108,7 +108,7 @@ const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = 
     `${productionGain(state, { type: "buyUpgrade" })}（すべての施設の生産が ${toNumber(UPGRADE_MULTIPLIER)} 倍になる）`,
   buyAutoBuyer: () => "採集機・工場・造幣所・改良を、買える額に達するたびに自動で買う",
   buyCautiousAutoBuyer: () =>
-    `採集機・工場・造幣所・改良を、コインが値段の ${toNumber(CAUTIOUS_AUTO_BUYER_MARGIN)} 倍に達するたびに自動で買う`,
+    `採集機・工場・造幣所・改良を、払った後も今の生産の ${CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS / 60} 分ぶんのコインが残るときに自動で買う`,
 };
 
 /** 品物と、その値段。値段は、品物が見えていないとき（解放の前や買い終えた後）も求まる。 */

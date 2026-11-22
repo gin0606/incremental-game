@@ -71,10 +71,10 @@ test("まだ買っていない自動購入は、見えている品物として�
 });
 
 test("まだ買っていない控えめな自動購入は、見えている品物として待ち時間に数え、買い終えたら数えない", () => {
-  // 控えめな自動購入（10000）は、採集機（約 2.9e6）・工場（約 1.4e6）・自動購入（300000）より安い。毎秒 590。
+  // 控えめな自動購入（30000）は、採集機（約 2.9e6）・工場（約 1.4e6）・自動購入（300000）より安い。毎秒 590。
   const before = state({ totalEarned: num(1e6), collectors: 90, factories: 50 });
 
-  expect(view(before).nextPurchase).toBe("今の生産のままで約 17 秒");
+  expect(view(before).nextPurchase).toBe("今の生産のままで約 51 秒");
   // 自動購入を買い終えると、控えめな自動購入も買えない。最も安いのは工場の約 1.37e6 で、毎秒 590 で約 2314 秒。
   expect(view({ ...before, autoBuyer: true }).nextPurchase).toBe("今の生産のままで約 38 分 34 秒");
 });

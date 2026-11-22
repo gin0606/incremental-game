@@ -2,8 +2,8 @@ import type { Num } from "./num.ts";
 import { ZERO, add, atLeast, mul, num, pow } from "./num.ts";
 import type { GameState } from "./state.ts";
 
-// 最小ゲームの値段・解放の条件・生産の規則。購入と時間の経過の規則は game.ts にあり、game.ts はここの公開する規則を
-// そのまま公開する。
+// 最小ゲームの値段・解放の条件・生産の規則。購入と時間の経過の規則は game.ts にあり、ここの規則のうち画面などが使う
+// ものは game.ts から公開する。
 
 const COLLECTOR_BASE_COST = num(10);
 const COLLECTOR_COST_GROWTH = num(1.15);

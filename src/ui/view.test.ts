@@ -34,8 +34,9 @@ const autoBuyerWork = "採集機・工場・造幣所・改良を、買える額
 const cautiousRow = (visible: boolean) =>
   ({
     action: { type: "buyCautiousAutoBuyer" },
-    label: "控えめな自動購入を買う（10000 コイン）",
-    effect: "採集機・工場・造幣所・改良を、コインが値段の 2 倍に達するたびに自動で買う",
+    label: "控えめな自動購入を買う（30000 コイン）",
+    effect:
+      "採集機・工場・造幣所・改良を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
     visible,
     affordable: false,
   }) as const;
