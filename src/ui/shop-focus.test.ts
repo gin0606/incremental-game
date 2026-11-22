@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 
 import { initialState } from "../core/game.ts";
 import { num } from "../core/num.ts";
-import { shopFocus } from "./shop-focus.ts";
+import { focusMove, shopFocus } from "./shop-focus.ts";
 import type { ShopItem } from "./view.ts";
 import { view } from "./view.ts";
 
@@ -45,4 +45,20 @@ test("自動購入を買い終えると、フォーカスは後ろで最も近�
   expect(shopFocus(shopAt(1e7), 1)).toBe(2);
   expect(shopFocus(shopAt(1000), 1)).toBe(2);
   expect(shopFocus(shopAt(0), 1)).toBe(0);
+});
+
+test("フォーカスを移すとき、キーボードで操作していれば巻き取り、マウスで押した後は巻き取らない", () => {
+  expect(focusMove(shopOf(true, false, true), 1, true)).toStrictEqual({
+    index: 2,
+    preventScroll: false,
+  });
+  expect(focusMove(shopOf(true, false, true), 1, false)).toStrictEqual({
+    index: 2,
+    preventScroll: true,
+  });
+});
+
+test("フォーカスを移さないときは、移す先も巻き取りも返さない", () => {
+  expect(focusMove(shopOf(true, true), 1, true)).toBeUndefined();
+  expect(focusMove(shopOf(true, true), -1, false)).toBeUndefined();
 });

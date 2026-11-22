@@ -5,7 +5,7 @@ import type { Action } from "../core/game.ts";
 import { createNotices } from "./notices.ts";
 import { startSession } from "./session.ts";
 import type { SaveStorage, Session } from "./session.ts";
-import { shopFocus } from "./shop-focus.ts";
+import { focusMove } from "./shop-focus.ts";
 import type { RowDisplay } from "./shop-rows.ts";
 import { rowDisplay } from "./shop-rows.ts";
 import { playInOneTab, webLocks } from "./tab-lock.ts";
@@ -149,11 +149,13 @@ const start = (): void => {
     const current = view(session.state(), session.pausedFor(Date.now()));
     renderStats(current);
     let focused = -1;
+    let focusVisible = false;
     for (const [index, item] of current.shop.entries()) {
       const offer = offers[index];
       if (offer !== undefined) {
         if (offer.button === document.activeElement) {
           focused = index;
+          focusVisible = offer.button.matches(":focus-visible");
         }
         offer.render(item, rowDisplay(item.visible, shownRows.has(offer.row)));
         if (item.visible) {
@@ -162,9 +164,9 @@ const start = (): void => {
       }
     }
     // 隠した品物のボタンがフォーカスを持っていたら、ブラウザが文書の先頭へ外す前に店の中へ移す。
-    const target = shopFocus(current.shop, focused);
-    if (target !== undefined) {
-      offers[target]?.button.focus();
+    const move = focusMove(current.shop, focused, focusVisible);
+    if (move !== undefined) {
+      offers[move.index]?.button.focus({ preventScroll: move.preventScroll });
     }
   }
 

@@ -17,3 +17,25 @@ export function shopFocus(shop: readonly ShopItem[], focused: number): number | 
   const target = visible.find((index) => index >= focused) ?? visible.at(-1);
   return target === focused ? undefined : target;
 }
+
+/** フォーカスを移す先の品物の位置と、移すときにページを巻き取らないか。 */
+export interface FocusMove {
+  readonly index: number;
+  readonly preventScroll: boolean;
+}
+
+/**
+ * {@link shopFocus} が返す移す先と、そのときのページの巻き取り。`focusVisible` は、フォーカスを持っていた品物のボタンに
+ * フォーカスの印が出ていたか（`:focus-visible`。キーボードで操作していたか）。
+ *
+ * 印が出ていなければ（マウスで押した後）、移す先が画面の外にあってもページを巻き取らない。巻き取ると、続けて同じ位置を
+ * 押したときに別の品物のボタンに当たる。キーボードで操作していれば、移した先が見えるよう巻き取る。
+ */
+export function focusMove(
+  shop: readonly ShopItem[],
+  focused: number,
+  focusVisible: boolean,
+): FocusMove | undefined {
+  const index = shopFocus(shop, focused);
+  return index === undefined ? undefined : { index, preventScroll: !focusVisible };
+}
