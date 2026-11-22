@@ -1,6 +1,8 @@
-// シミュレーターの時系列から、ペースの指標（節目、対数成長速度、購入間隔、新要素、壁、選択の重み）を求める。
+// シミュレーターの時系列から、ペースの指標（節目、対数成長速度、2 つの時刻の毎秒の生産量の比、購入間隔、
+// 新要素、壁、選択の重み）を求める。
 // 指標の意味と、目標値と比べる理由は docs/design/README.md にある。
-import { log10 } from "../core/num.ts";
+import type { Num } from "../core/num.ts";
+import { ZERO, atLeast, div, log10, toNumber } from "../core/num.ts";
 import type { Entry } from "./simulate.ts";
 
 const HOUR = 3600;
@@ -63,14 +65,19 @@ export function largest(values: readonly number[]): number {
  * 前の時刻は `-Infinity`。生産量が 0 の時期も `-Infinity` になる。速度や差を求める側は、両端が同じ値なら伸びを 0 とみなす。
  */
 export function levelsAt(timeline: readonly Entry[], times: readonly number[]): number[] {
+  return ratesAt(timeline, times).map((rate) => log10(rate));
+}
+
+/** 時刻 `times`（昇順）それぞれでの生産量。その時刻までの最後の記録（出来事の後の値）を使い、最初の記録より前は 0。 */
+function ratesAt(timeline: readonly Entry[], times: readonly number[]): Num[] {
   const entries = timeline[Symbol.iterator]();
   let pending = entries.next();
-  let level = Number.NEGATIVE_INFINITY;
+  let rate = ZERO;
   return times.map((time) => {
     for (; pending.done !== true && pending.value.t <= time; pending = entries.next()) {
-      level = log10(pending.value.rate);
+      rate = pending.value.rate;
     }
-    return level;
+    return rate;
   });
 }
 
@@ -94,6 +101,23 @@ export function segmentSpeeds(timeline: readonly Entry[], bounds: readonly numbe
   return consecutive(zip(bounds, levelsAt(timeline, bounds))).map(
     ([[start, from], [end, to]]) => rise(from, to) / ((end - start) / HOUR),
   );
+}
+
+/** 生産量が 0 か。 */
+const none = (rate: Num): boolean => atLeast(ZERO, rate, 0);
+
+/**
+ * 時刻 `times`（秒、昇順）の隣り合う組ごとの、毎秒の生産量の比（後 / 前）。どちらも生産量 0 なら 1、前だけが 0 なら
+ * `Infinity`。比が number で表せないほど大きければ `Infinity`。常用対数の差からは求めない（50 / 5 が
+ * 9.999999999999998 になり、下限ちょうどの比を下回るとみなすため）。
+ */
+export function rateRatios(timeline: readonly Entry[], times: readonly number[]): number[] {
+  return consecutive(ratesAt(timeline, times)).map(([from, to]) => {
+    if (none(from)) {
+      return none(to) ? 1 : Number.POSITIVE_INFINITY;
+    }
+    return toNumber(div(to, from));
+  });
 }
 
 /** 隣り合う区間の速度の比（後 / 前）。前の速度が 0 以下の組は除く。 */

@@ -12,6 +12,7 @@ import {
   median,
   milestoneRatios,
   milestoneTimes,
+  rateRatios,
   segmentSpeeds,
   speedChanges,
   zip,
@@ -103,6 +104,30 @@ test("segmentSpeeds は区間ごとに 1 時間あたりに伸びた桁数を返
   ]);
   expect(segmentSpeeds(timeline, [0, 3600, 5400])).toStrictEqual([2, 2]);
   expect(segmentSpeeds(timeline, [1800, 5400])).toStrictEqual([3 / 1]);
+});
+
+test("rateRatios は隣り合う時刻の組ごとに、後の時刻の生産量が前の時刻の何倍かを返す", () => {
+  const timeline = samples([
+    [0, 1],
+    [3600, 3],
+    [5400, 2],
+  ]);
+  // 時刻 1800 は、それまでの最後の記録（時刻 0）の生産量。
+  expect(rateRatios(timeline, [1800, 3600, 5400])).toStrictEqual([100, 0.1]);
+  expect(rateRatios(timeline, [0, 5400])).toStrictEqual([10]);
+  // 常用対数の差から求めると 9.999999999999998 になる 50 / 5 も、ちょうど 10 にする。
+  const rates = [5, 50].map((rate, t): Entry => ({
+    kind: "sample",
+    t,
+    resource: ZERO,
+    rate: num(rate),
+  }));
+  expect(rateRatios(rates, [0, 1])).toStrictEqual([10]);
+  // 前の時刻だけ生産量が 0。
+  const start: Entry = { kind: "sample", t: 0, resource: ZERO, rate: ZERO };
+  expect(rateRatios([start, ...samples([[10, 1]])], [0, 3600])).toStrictEqual([
+    Number.POSITIVE_INFINITY,
+  ]);
 });
 
 test("speedChanges は隣り合う区間の速度の比を返し、前の速度が 0 以下の組を除く", () => {
@@ -232,6 +257,7 @@ test("largest は最大値を返し、空なら -Infinity、NaN を含めば NaN
 test("生産量が 0 のまま（常用対数が -Infinity のまま）の区間は伸びが 0 で、壁に数え、先行は 0", () => {
   const zero: Entry[] = [{ kind: "sample", t: 0, resource: ZERO, rate: ZERO }];
   expect(segmentSpeeds(zero, [0, 3600])).toStrictEqual([0]);
+  expect(rateRatios(zero, [0, 3600])).toStrictEqual([1]);
   expect(longestWall(zero, { window: 3600, below: 0.5, every: 3600, duration: 7200 })).toBe(7200);
   expect(largestLead(zero, zero, 10, 20)).toBe(0);
   expect(largestLead(samples([[0, 1]]), zero, 10, 20)).toBe(Number.POSITIVE_INFINITY);

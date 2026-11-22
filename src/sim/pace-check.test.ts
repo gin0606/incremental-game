@@ -33,6 +33,7 @@ const play: PlayMeasure = {
   ratios: [1, 10],
   speeds: [1, 0.5],
   changes: [0.5],
+  rateRatios: [],
   purchaseMedian: 10,
   purchaseLongest: 30,
   perDay: 2,

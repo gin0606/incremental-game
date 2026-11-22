@@ -11,6 +11,7 @@ import {
   median,
   milestoneRatios,
   milestoneTimes,
+  rateRatios,
   segmentSpeeds,
   speedChanges,
 } from "./metrics.ts";
@@ -27,6 +28,8 @@ export interface PlayMeasure {
   readonly ratios: readonly number[];
   readonly speeds: readonly number[];
   readonly changes: readonly number[];
+  /** 目標値の `growth.rateRatios` のそれぞれの、2 つの時刻の毎秒の生産量の比。 */
+  readonly rateRatios: readonly number[];
   readonly purchaseMedian: number | undefined;
   readonly purchaseLongest: number | undefined;
   readonly perDay: number;
@@ -86,6 +89,9 @@ const playMeasure = <S>(
     ratios: milestoneRatios(times),
     speeds,
     changes: speedChanges(speeds),
+    rateRatios: (targets.growth.rateRatios ?? []).flatMap(({ from, to }) =>
+      rateRatios(timeline, [from, to]),
+    ),
     purchaseMedian: median(purchases),
     purchaseLongest: purchases.length === 0 ? undefined : largest(purchases),
     perDay: unlocks.length / (duration / DAY),

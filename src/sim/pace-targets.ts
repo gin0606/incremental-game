@@ -1,7 +1,10 @@
 // ペースの指標の測り方（src/sim/pace-settings.json）と、設計記録の目標値のファイル（docs/design/*.targets.json）の形と、
-// 読み込んだ値の検査。各項目の意味は docs/design/README.md にある。時間はすべて秒、生産量は常用対数で書く。
+// 読み込んだ値の検査。各項目の意味は docs/design/README.md にある。時間はすべて秒、生産量は常用対数で書く
+// （毎秒の生産量の比の下限 `growth.rateRatios` の `min` は倍率）。
 import type { PurchaseRule } from "./bot.ts";
 import { purchaseRules } from "./bot.ts";
+import type { RateRatio } from "./pace-ratio.ts";
+import { rateRatios } from "./pace-ratio.ts";
 import type { Reach } from "./pace-reach.ts";
 import { reachStages } from "./pace-reach.ts";
 import type { Fields, Reader } from "./fields.ts";
@@ -70,6 +73,8 @@ export interface Targets {
     readonly speed: Band;
     /** 隣り合う区間の速度の比。 */
     readonly change: Band;
+    /** 2 つの時刻の毎秒の生産量の比の下限（src/sim/pace-ratio.ts）。省くと確かめない。 */
+    readonly rateRatios?: readonly RateRatio[];
   };
   readonly purchases: {
     /** ボットの購入の時刻の間隔の中央値。 */
@@ -215,10 +220,15 @@ const milestones: Reader<Targets["milestones"]> = (value, path) => {
   return { levels: field("levels", series), ratio: field("ratio", band) };
 };
 
-const growth: Reader<Targets["growth"]> = (value, path) => {
-  const field = targetFieldsOf(value, path, ["speed", "change"], measuring.growth);
-  return { speed: field("speed", band), change: field("change", band) };
-};
+/** 目標値の成長の節。`duration` は測り方の遊ぶ時間。 */
+const growth =
+  (duration: number): Reader<Targets["growth"]> =>
+  (value, path) => {
+    const field = targetFieldsOf(value, path, ["speed", "change", "rateRatios"], measuring.growth);
+    const read = { speed: field("speed", band), change: field("change", band) };
+    const ratios = field("rateRatios", rateRatios(duration));
+    return ratios === undefined ? read : { ...read, rateRatios: ratios };
+  };
 
 const purchases: Reader<Targets["purchases"]> = (value, path) => {
   const field = fieldsOf(value, path, ["median", "longest"]);
@@ -265,7 +275,7 @@ export function parseTargets(value: unknown, settings: Settings): Targets {
   );
   return {
     milestones: field("milestones", milestones),
-    growth: field("growth", growth),
+    growth: field("growth", growth(settings.duration)),
     purchases: field("purchases", purchases),
     novelty: field("novelty", novelty),
     walls: field("walls", walls),

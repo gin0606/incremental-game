@@ -120,7 +120,15 @@ const bandChecks = (settings: Settings, targets: Targets, measurement: Measureme
       (play) => [play.wall],
     ],
   ];
-  return table.map(([name, band, values]) =>
+  const ratios = (growth.rateRatios ?? []).map(
+    ({ from, to, min }, index) =>
+      [
+        `${to} 秒の毎秒の生産量が ${from} 秒の何倍か`,
+        { min },
+        (play: PlayMeasure) => [play.rateRatios[index]],
+      ] as const,
+  );
+  return [...table, ...ratios].map(([name, band, values]) =>
     bandCheck(
       name,
       band,
@@ -184,7 +192,10 @@ export const GUARD_FACTOR = 7;
 /** 刻み幅の守りで、同じとみなす指標の相対誤差。 */
 export const GUARD_TOLERANCE = 1e-3;
 
-/** 刻み幅の守りで比べる指標の名前と値。比や許容間隔など、ほかの指標から求める値は除く。 */
+/**
+ * 刻み幅の守りで比べる指標の名前と値。節目の比や許容間隔など、ほかの指標から求める値は除く。毎秒の生産量の比は、ほかの
+ * 指標から求めないので含める。
+ */
 const numbersOf = (measurement: Measurement): (readonly [string, number | undefined])[] => [
   ...measurement.plays.flatMap((play) => [
     ...play.milestones.map(
@@ -192,6 +203,9 @@ const numbersOf = (measurement: Measurement): (readonly [string, number | undefi
     ),
     ...play.speeds.map(
       (value, index) => [`${play.bot} の区間 ${index} の成長速度`, value] as const,
+    ),
+    ...play.rateRatios.map(
+      (value, index) => [`${play.bot} の毎秒の生産量の比 ${index}`, value] as const,
     ),
     [`${play.bot} の購入の間隔の中央値`, play.purchaseMedian] as const,
     [`${play.bot} の購入の間隔の最長`, play.purchaseLongest] as const,
