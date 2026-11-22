@@ -30,6 +30,18 @@ const lockedUpgrade = (gain: number) =>
 
 const autoBuyerWork = "採集機・工場・造幣所・改良を、買える額に達するたびに自動で買う";
 
+test.each([
+  { autoBuyer: false, cautiousAutoBuyer: false, expected: "なし" },
+  { autoBuyer: false, cautiousAutoBuyer: true, expected: "控えめに稼働中" },
+  { autoBuyer: true, cautiousAutoBuyer: false, expected: "稼働中" },
+  { autoBuyer: true, cautiousAutoBuyer: true, expected: "稼働中" },
+] as const)(
+  "自動購入の欄は、自動購入を持てば稼働中、控えめな自動購入だけを持てば控えめに稼働中と示す（自動購入 $autoBuyer、控えめな自動購入 $cautiousAutoBuyer）",
+  ({ autoBuyer, cautiousAutoBuyer, expected }) => {
+    expect(view(state({ autoBuyer, cautiousAutoBuyer })).autoBuyer).toBe(expected);
+  },
+);
+
 test("初期状態では採集機と自動購入を並べ、工場・改良・造幣所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",

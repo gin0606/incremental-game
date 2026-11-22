@@ -19,13 +19,17 @@ export const gameState: fc.Arbitrary<GameState> = fc
     mints: fc.nat({ max: 100 }),
     upgrades: fc.nat({ max: 60 }),
     autoBuyer: fc.boolean(),
+    cautiousAutoBuyer: fc.boolean(),
   })
-  .map(({ coins, spent, collectors, factories, mints, upgrades, autoBuyer }) => ({
-    coins,
-    totalEarned: add(coins, spent),
-    collectors,
-    factories,
-    mints,
-    upgrades,
-    autoBuyer,
-  }));
+  .map(
+    ({ coins, spent, collectors, factories, mints, upgrades, autoBuyer, cautiousAutoBuyer }) => ({
+      coins,
+      totalEarned: add(coins, spent),
+      collectors,
+      factories,
+      mints,
+      upgrades,
+      autoBuyer,
+      cautiousAutoBuyer,
+    }),
+  );

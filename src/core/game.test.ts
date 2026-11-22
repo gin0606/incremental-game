@@ -57,6 +57,7 @@ test("初期状態はコイン 0、採集機 1 台で始まる", () => {
     mints: 0,
     upgrades: 0,
     autoBuyer: false,
+    cautiousAutoBuyer: false,
   });
 });
 

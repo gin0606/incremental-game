@@ -20,6 +20,7 @@ const saved: GameState = {
   mints: 0,
   upgrades: 0,
   autoBuyer: false,
+  cautiousAutoBuyer: false,
 };
 
 type Event = readonly ["show" | "clear" | "saveError", string | undefined];

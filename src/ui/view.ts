@@ -188,6 +188,14 @@ function nextUnlock(state: GameState): string {
   return `${next.name}: これまでに生産したコインが ${format(next.earned, "up")} に達すると解放（あと ${format(remaining, "up")}）`;
 }
 
+/** 自動購入の欄の表示。自動購入を持てば、控えめな自動購入も持っていても自動購入の働きだけを示す。 */
+const autoBuyerStatus = (state: GameState): string => {
+  if (state.autoBuyer) {
+    return "稼働中";
+  }
+  return state.cautiousAutoBuyer ? "控えめに稼働中" : "なし";
+};
+
 /** 状態 `state` の表示。`pausedSeconds` は、時計が戻って止めている生産を再開するまでの秒数。 */
 export function view(state: GameState, pausedSeconds = 0): View {
   // 店は品物を見え始める順（最初から見える採集機と自動購入、続いて解放される順）に並べ、解放された品物の行を後ろに
@@ -213,7 +221,7 @@ export function view(state: GameState, pausedSeconds = 0): View {
     factories: state.factories.toString(),
     mints: state.mints.toString(),
     upgrades: state.upgrades.toString(),
-    autoBuyer: state.autoBuyer ? "稼働中" : "なし",
+    autoBuyer: autoBuyerStatus(state),
     nextPurchase: nextPurchase(state, offers, pausedSeconds),
     nextUnlock: nextUnlock(state),
     shop: offers.map(({ item }) => item),

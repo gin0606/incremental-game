@@ -14,6 +14,7 @@ const saved: GameState = {
   mints: 0,
   upgrades: 0,
   autoBuyer: false,
+  cautiousAutoBuyer: false,
 };
 const savedAt = 1_000_000;
 
