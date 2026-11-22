@@ -48,8 +48,10 @@ export interface Settings {
   readonly idle: {
     /** 局面の始まりの時刻（昇順）。常に開いているボットがその時刻まで遊んだ状態から測る。 */
     readonly phases: readonly number[];
-    /** 局面ごとに遊ばせる長さ。 */
+    /** 局面ごとに効率を測る長さの下限。 */
     readonly window: number;
+    /** 局面ごとに効率を測る長さを、ボットが開く間隔の何倍以上にするか。 */
+    readonly cycles: number;
     /** 戻ったときの報酬曲線と不変条件で、局面の始まりから離れる時間（昇順）。 */
     readonly away: readonly number[];
   };
@@ -156,7 +158,7 @@ const measuring = {
   growth: ["bounds"],
   walls: ["window", "below"],
   choice: ["best", "restricted"],
-  idle: ["phases", "window", "away"],
+  idle: ["phases", "window", "cycles", "away"],
 } as const;
 
 const settingsGrowth: Reader<Settings["growth"]> = (value, path) => ({
@@ -178,6 +180,7 @@ const settingsIdle: Reader<Settings["idle"]> = (value, path) => {
   return {
     phases: field("phases", series),
     window: field("window", positive),
+    cycles: field("cycles", positive),
     away: field("away", series),
   };
 };

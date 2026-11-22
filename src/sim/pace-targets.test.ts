@@ -10,7 +10,7 @@ const validSettings = {
   growth: { bounds: [0, 3600] },
   walls: { window: 600, below: 0.001 },
   choice: { best: "efficiency", restricted: ["cheapest"] },
-  idle: { phases: [0, 600], window: 1800, away: [60, 600] },
+  idle: { phases: [0, 600], window: 1800, cycles: 3, away: [60, 600] },
 };
 
 const ruleError = "購入規則（efficiency・roi・cheapest・expensive・newest・random）で書く";
@@ -112,6 +112,8 @@ test.each([
   },
   { path: ["idle", "phases"], value: [0], message: "settings.idle.phases: 2 つ以上の値を書く" },
   { path: ["idle", "window"], value: 0, message: "settings.idle.window: 正の数で書く" },
+  { path: ["idle", "cycles"], value: 0, message: "settings.idle.cycles: 正の数で書く" },
+  { path: ["idle", "cycles"], value: undefined, message: "settings.idle.cycles: 有限の数で書く" },
   { path: ["idle", "away"], value: [], message: "settings.idle.away: 空でない配列で書く" },
   { path: ["idle", "away"], value: [60], message: "settings.idle.away: 2 つ以上の値を書く" },
 ] as const)("parseSettings は $message で失敗する", ({ path, value, message }) => {
@@ -257,6 +259,7 @@ const measuring: readonly (readonly string[])[] = [
   ["choice", "restricted"],
   ["idle", "phases"],
   ["idle", "window"],
+  ["idle", "cycles"],
   ["idle", "away"],
 ];
 

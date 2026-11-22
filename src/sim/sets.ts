@@ -7,8 +7,8 @@ export interface Trial {
   readonly seed: number;
 }
 
-/** `every` の予定でゲームを開く間隔（秒）: 1 分、10 分、1 時間、4 時間、8 時間。 */
-export const checkInIntervals: readonly number[] = [60, 600, 3600, 14_400, 28_800];
+/** `every` の予定でゲームを開く間隔（秒）: 1 分、10 分、1 時間、4 時間、8 時間、12 時間、24 時間。 */
+export const checkInIntervals: readonly number[] = [60, 600, 3600, 14_400, 28_800, 43_200, 86_400];
 
 const checkIns: readonly CheckIn[] = [
   { kind: "always" },
@@ -30,7 +30,10 @@ const trial = (purchase: PurchaseRule, checkIn: CheckIn, seed = 1): Trial => ({
  * 速い組（11 回）と全組（48 回）は、同じ機械で比べた CPU 時間がどちらも約 1 割多かった（2026-11-21）。ペースの指標の
  * テスト（src/sim/pace.slow.test.ts）は、組のほかに放置の指標のための実行（局面ごと・間隔ごと）と、刻み幅の守りのための
  * 2 つ目の刻み幅での実行を足すため長くなり、最小ゲームで速い組（11 回）が約 5 秒、全組（48 回）が約 9 秒（CPU 時間、
- * 2026-11-21）だった。ゲームを広げて目安を超えたら、組の分け方か刻み幅を見直す。
+ * 2026-11-21）だった。12 時間・24 時間の間隔を足し、放置の効率を間隔の 3 倍以上の長さで測るようにした版
+ * （速い組 13 回、全組 64 回）は、同じ機械で、CLI の 3 日分が速い組で約 3.0 秒、全組で約 9.6 秒（足す前の版は約 2.9 秒、
+ * 約 8.4 秒）、ペースの指標のテストが Vitest の起動を含めて速い組で約 16 秒、全組で約 29 秒（足す前の版は約 10 秒、
+ * 約 16 秒）だった（user の CPU 時間、2026-11-22）。ゲームを広げて目安を超えたら、組の分け方か刻み幅を見直す。
  */
 export const fastSet: readonly Trial[] = [
   ...checkIns.map((checkIn) => trial("efficiency", checkIn)),

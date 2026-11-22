@@ -124,7 +124,7 @@ const idleMeasures = <S>(
   );
   return idle.phases.map((phase) => {
     const start = phaseStart(model, rule, phase, timing);
-    const efficiency = efficiencies(model, start, rule, intervals, idle.window, timing);
+    const efficiency = efficiencies(model, start, rule, intervals, idle, timing);
     return {
       rule,
       bots,

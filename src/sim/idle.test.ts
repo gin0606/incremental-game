@@ -95,16 +95,41 @@ test("efficiencies は間隔ごとに、常に開いているボットに対す�
   // 常に開いていると 10 秒で買い、30 秒で 10 + 2 × 20 = 50。20 秒ごとなら 20 秒で買い 20 + 2 × 10 = 40。
   // 60 秒ごとなら時刻 0 にしか開かず 30。
   const game = toy([10]);
-  const [every20, every60] = efficiencies(game, game.initial, "efficiency", [20, 60], 30, timing);
+  const [every20, every60] = efficiencies(
+    game,
+    game.initial,
+    "efficiency",
+    [20, 60],
+    { window: 30, cycles: 0.5 },
+    timing,
+  );
   expect(every20).toBeCloseTo(40 / 50, 12);
   expect(every60).toBeCloseTo(30 / 50, 12);
+});
+
+test("efficiencies は、間隔の cycles 倍が window より長い間隔を、その長さで測る", () => {
+  // 20 秒ごとは window の 30 秒（20 × 1.5）で 40 / 50。60 秒ごとは 90 秒で測る: 常に開いていると 10 + 2 × 80 = 170、
+  // 60 秒ごとなら 60 秒で買い 60 + 2 × 30 = 120。
+  const game = toy([10]);
+  const [every20, every60] = efficiencies(
+    game,
+    game.initial,
+    "efficiency",
+    [20, 60],
+    { window: 30, cycles: 1.5 },
+    timing,
+  );
+  expect(every20).toBeCloseTo(40 / 50, 12);
+  expect(every60).toBeCloseTo(120 / 170, 12);
 });
 
 test("efficiencies は渡した状態から遊ばせる", () => {
   const game = toy([10]);
   const start = { coins: num(10), gens: 0 };
   // どちらも時刻 0 に買い、差が出ない。
-  expect(efficiencies(game, start, "efficiency", [60], 30, timing)).toStrictEqual([1]);
+  expect(
+    efficiencies(game, start, "efficiency", [60], { window: 30, cycles: 0.5 }, timing),
+  ).toStrictEqual([1]);
 });
 
 test.each([

@@ -7,10 +7,10 @@ import { checkInIntervals, fastSet, fullSet, randomSeeds } from "./sets.ts";
 const names = (set: readonly Trial[]): readonly string[] =>
   set.map(({ bot, seed }) => `${botName(bot)}#${seed}`);
 
-const intervals = ["60s", "600s", "3600s", "14400s", "28800s"];
+const intervals = ["60s", "600s", "3600s", "14400s", "28800s", "43200s", "86400s"];
 
-test("チェックインの間隔は 1 分から 8 時間", () => {
-  expect(checkInIntervals).toStrictEqual([60, 600, 3600, 14_400, 28_800]);
+test("チェックインの間隔は 1 分から 24 時間", () => {
+  expect(checkInIntervals).toStrictEqual([60, 600, 3600, 14_400, 28_800, 43_200, 86_400]);
   expect(randomSeeds).toStrictEqual([1, 2, 3]);
 });
 

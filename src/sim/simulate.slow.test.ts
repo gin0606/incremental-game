@@ -14,8 +14,9 @@ import { simulate } from "./simulate.ts";
 // ためのものではない（所要時間は src/sim/sets.ts の目安で見る）。
 vi.setConfig({ testTimeout: 120_000 });
 
-// 最小ゲームの 1 日分を速い組のボットで遊ばせ、シミュレーターの性質を確かめる。
-const settings: Settings = { duration: 86_400, step: 60, sampleEvery: 3600, seed: 0 };
+// 最小ゲームの 2 日分を速い組のボットで遊ばせ、シミュレーターの性質を確かめる。1 日分だと、24 時間ごとに開くボットが
+// 時刻 0 にしか開かず（終わりの時刻には行動しない）、一度も買わない。
+const settings: Settings = { duration: 172_800, step: 60, sampleEvery: 3600, seed: 0 };
 
 const cases: readonly { readonly name: string; readonly bot: Bot; readonly seed: number }[] =
   fastSet.map(({ bot, seed }) => ({ name: botName(bot), bot, seed }));

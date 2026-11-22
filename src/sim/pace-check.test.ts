@@ -13,7 +13,7 @@ const settings: Settings = {
   growth: { bounds: [0, 50, 100] },
   walls: { window: 50, below: 0.01 },
   choice: { best: "efficiency", restricted: ["cheapest"] },
-  idle: { phases: [0, 50], window: 50, away: [5, 50] },
+  idle: { phases: [0, 50], window: 50, cycles: 0.5, away: [5, 50] },
 };
 
 const targets: Targets = {

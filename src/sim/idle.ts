@@ -44,25 +44,39 @@ export function produced<S>(run: Run<S>): Num {
   );
 }
 
+/** 効率を測る長さの決め方。 */
+export interface Span {
+  /** 効率を測る長さの下限（秒）。 */
+  readonly window: number;
+  /** 効率を測る長さを、ボットが開く間隔の何倍以上にするか。 */
+  readonly cycles: number;
+}
+
 /**
- * 状態 `start` から `window` 秒遊ばせたとき、`intervals` 秒ごとにしか開かないボットそれぞれが、常に開いている
- * ボットの何割を生産したか（効率）。どちらも購入規則は `purchase`。
+ * 状態 `start` から遊ばせたとき、昇順の `intervals` 秒ごとにしか開かないボットそれぞれが、常に開いているボットの何割を
+ * 生産したか（効率）。どちらも購入規則は `purchase`。間隔 Δ の効率は、`span` の `window` 秒と Δ の `cycles` 倍の
+ * 長いほうの時間で測り、常に開いているボットも同じ時間だけ遊ばせる。長く遊ばせた結果の前の部分では代えない。遊ぶ
+ * 時間の終わりで止まる時刻が変わるため、購入なしに資源が減るゲームでは、短い時間でだけ買える機会がありうる。
  */
 export function efficiencies<S>(
   model: Model<S>,
   start: S,
   purchase: PurchaseRule,
   intervals: readonly number[],
-  window: number,
+  span: Span,
   timing: Timing,
 ): number[] {
   const game = from(model, start);
-  const always = produced(play(game, purchase, { kind: "always" }, window, timing));
-  return intervals.map((seconds) =>
-    toNumber(
-      div(produced(play(game, purchase, { kind: "every", seconds }, window, timing)), always),
-    ),
-  );
+  const output = (checkIn: CheckIn, length: number): Num =>
+    produced(play(game, purchase, checkIn, length, timing));
+  const lengths = intervals.map((seconds) => Math.max(span.window, span.cycles * seconds));
+  // 間隔が昇順なら長さも昇順なので、長さごとにまとめても間隔の順に返る。
+  return [...new Set(lengths)].flatMap((length) => {
+    const always = output({ kind: "always" }, length);
+    return zip(intervals, lengths)
+      .filter(([, each]) => each === length)
+      .map(([seconds]) => toNumber(div(output({ kind: "every", seconds }, length), always)));
+  });
 }
 
 /**

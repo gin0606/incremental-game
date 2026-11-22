@@ -62,7 +62,7 @@ const settings: Settings = {
   growth: { bounds: [0, 50, 100] },
   walls: { window: 50, below: 1 },
   choice: { best: "efficiency", restricted: ["cheapest"] },
-  idle: { phases: [0, 50], window: 50, away: [5, 50] },
+  idle: { phases: [0, 50], window: 50, cycles: 0.5, away: [5, 50] },
 };
 
 const targets: Targets = {
@@ -175,6 +175,14 @@ test("measure は妥当な規則ごとに、組の間隔（重なりを除いて
   // 時刻 50 にはすべて買い終えていて、差が出ない。
   expect(second?.efficiency).toStrictEqual([1, 1]);
   expect(second?.tolerance).toBe(60);
+});
+
+test("measure は放置の効率を、測り方の window 秒と間隔の cycles 倍の長いほうで測る", () => {
+  const idle = { ...settings.idle, cycles: 1 };
+  const every60 = [trial("efficiency", { kind: "every", seconds: 60 })];
+  const { idles } = measure(toy, { ...settings, idle }, targets, every60, 10);
+  // 60 秒で測る。常に開いていると 50 秒までの 352 / 3 に 3.1 × 10 を足し、60 秒ごとなら時刻 0 だけ開き 60。
+  expect(idles[0]?.efficiency).toStrictEqual([expect.closeTo(60 / (352 / 3 + 31), 10)]);
 });
 
 /** 生成器 2 台と小物をそろえると、手元のコインが毎秒 1% 減っていくようになる版（不在を罰する）。 */

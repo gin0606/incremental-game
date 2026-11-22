@@ -97,7 +97,7 @@ const settings: Settings = {
   growth: { bounds: [0, 3600] },
   walls: { window: 600, below: 0 },
   choice: { best: "efficiency", restricted: [] },
-  idle: { phases: [0, 600, 3600], window: 600, away: [60, 600] },
+  idle: { phases: [0, 600, 3600], window: 600, cycles: 1, away: [60, 600] },
 };
 
 const targets: Targets = {
