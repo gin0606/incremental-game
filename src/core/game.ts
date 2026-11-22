@@ -13,35 +13,20 @@ import {
   toleranceFloor,
 } from "./num.ts";
 
-/**
- * 判定の仕組み（シミュレーター、指標のテスト）を確かめるための仮の最小ゲーム。
- *
- * - 資源はコインの 1 つ。採集機・工場・造幣所がコインを毎秒生む。
- * - 改良は、1 つごとにすべての施設の生産を {@link UPGRADE_MULTIPLIER} 倍にする。
- * - 工場は、累計で稼いだコインが {@link FACTORY_UNLOCK_EARNED} に、造幣所は {@link MINT_UNLOCK_EARNED} に達すると
- *   解放される。
- * - 自動購入を買うと、採集機・工場・造幣所を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。買える額に
- *   達したもののうち、値段あたりの生産量の増分が大きいものから買う。
- *
- * 時間の経過は {@link advance} だけで進める。オフラインの経過も同じ関数で一度に計算する。
- */
-export interface GameState {
-  readonly coins: Num;
-  /** これまでに生産したコインの累計。購入で減らない。 */
-  readonly totalEarned: Num;
-  readonly collectors: number;
-  readonly factories: number;
-  readonly mints: number;
-  /** 改良の数。 */
-  readonly upgrades: number;
-  readonly autoBuyer: boolean;
-}
+import type { Action, GameState } from "./state.ts";
 
-export type Action =
-  | { readonly type: "buyCollector" }
-  | { readonly type: "buyFactory" }
-  | { readonly type: "buyMint" }
-  | { readonly type: "buyAutoBuyer" };
+// 判定の仕組み（シミュレーター、指標のテスト）を確かめるための仮の最小ゲームの規則。状態と行動の型は state.ts にある。
+//
+// - 資源はコインの 1 つ。採集機・工場・造幣所がコインを毎秒生む。
+// - 改良は、1 つごとにすべての施設の生産を UPGRADE_MULTIPLIER 倍にする。
+// - 工場は、累計で稼いだコインが FACTORY_UNLOCK_EARNED に、造幣所は MINT_UNLOCK_EARNED に達すると解放される。
+// - 自動購入を買うと、採集機・工場・造幣所を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。買える額に
+//   達したもののうち、値段あたりの生産量の増分が大きいものから買う。
+//
+// 時間の経過は advance だけで進める。オフラインの経過も同じ関数で一度に計算する。
+
+export type { Action, GameState } from "./state.ts";
+export { initialState } from "./state.ts";
 
 const COLLECTOR_BASE_COST = num(10);
 const COLLECTOR_COST_GROWTH = num(1.15);
@@ -57,16 +42,6 @@ const UPGRADE_MULTIPLIER = num(1.25);
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
 export const MINT_UNLOCK_EARNED: Num = num(5e7);
 export const AUTO_BUYER_COST: Num = num(3e5);
-
-export const initialState: GameState = {
-  coins: ZERO,
-  totalEarned: ZERO,
-  collectors: 1,
-  factories: 0,
-  mints: 0,
-  upgrades: 0,
-  autoBuyer: false,
-};
 
 export function collectorCost(state: GameState): Num {
   return mul(COLLECTOR_BASE_COST, pow(COLLECTOR_COST_GROWTH, state.collectors));
