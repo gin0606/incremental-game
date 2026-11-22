@@ -20,7 +20,7 @@ import type { Action, GameState } from "./state.ts";
 // - 資源はコインの 1 つ。採集機・工場・造幣所がコインを毎秒生む。
 // - 改良は、1 つごとにすべての施設の生産を UPGRADE_MULTIPLIER 倍にする。値段は施設と同じく数に対して指数的に伸びる。
 // - 工場は、累計で稼いだコインが FACTORY_UNLOCK_EARNED に、改良は UPGRADE_UNLOCK_EARNED に、造幣所は
-//   MINT_UNLOCK_EARNED に達すると解放される。
+//   MINT_UNLOCK_EARNED に達すると解放される。造幣所は、持っていれば解放されている（mintUnlockEarned）。
 // - 自動購入を買うと、採集機・工場・造幣所・改良を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。
 //   買える額に達したもののうち、値段あたりの生産量の増分が大きいものから買う。
 //
@@ -35,7 +35,7 @@ const COLLECTOR_PRODUCTION = num(1);
 const FACTORY_BASE_COST = num(150);
 const FACTORY_COST_GROWTH = num(1.2);
 const FACTORY_PRODUCTION = num(10);
-const MINT_BASE_COST = num(5e6);
+const MINT_BASE_COST = num(1e7);
 const MINT_COST_GROWTH = num(1.1);
 const MINT_PRODUCTION = num(30);
 const UPGRADE_BASE_COST = num(4e5);
@@ -44,7 +44,7 @@ export const UPGRADE_MULTIPLIER: Num = num(1.25);
 
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
 export const UPGRADE_UNLOCK_EARNED: Num = num(6e6);
-export const MINT_UNLOCK_EARNED: Num = num(5e7);
+export const MINT_UNLOCK_EARNED: Num = num(1.5e8);
 export const AUTO_BUYER_COST: Num = num(3e5);
 
 export function collectorCost(state: GameState): Num {
@@ -67,8 +67,16 @@ export function isFactoryUnlocked(state: GameState): boolean {
   return atLeast(state.totalEarned, FACTORY_UNLOCK_EARNED);
 }
 
+/**
+ * 造幣所を買えるようになるのに要る累計の生産量。造幣所を持っていれば 0。解放の条件が 5e7 だった版の保存は、今の条件に
+ * 届かずに造幣所を持っていることがあり、持っている施設を買えなくしないため。
+ */
+export function mintUnlockEarned(state: GameState): Num {
+  return state.mints > 0 ? ZERO : MINT_UNLOCK_EARNED;
+}
+
 export function isMintUnlocked(state: GameState): boolean {
-  return atLeast(state.totalEarned, MINT_UNLOCK_EARNED);
+  return atLeast(state.totalEarned, mintUnlockEarned(state));
 }
 
 export function isUpgradeUnlocked(state: GameState): boolean {
@@ -174,31 +182,31 @@ const automated: readonly {
    */
   readonly gain: (state: GameState) => Num;
   /** 解放に要る累計の生産量。 */
-  readonly unlock: Num;
+  readonly unlock: (state: GameState) => Num;
 }[] = [
   {
     action: { type: "buyCollector" },
     cost: collectorCost,
     gain: () => COLLECTOR_PRODUCTION,
-    unlock: ZERO,
+    unlock: () => ZERO,
   },
   {
     action: { type: "buyFactory" },
     cost: factoryCost,
     gain: () => FACTORY_PRODUCTION,
-    unlock: FACTORY_UNLOCK_EARNED,
+    unlock: () => FACTORY_UNLOCK_EARNED,
   },
   {
     action: { type: "buyMint" },
     cost: mintCost,
     gain: () => MINT_PRODUCTION,
-    unlock: MINT_UNLOCK_EARNED,
+    unlock: mintUnlockEarned,
   },
   {
     action: { type: "buyUpgrade" },
     cost: upgradeCost,
     gain: (state) => mul(baseProduction(state), sub(UPGRADE_MULTIPLIER, num(1))),
-    unlock: UPGRADE_UNLOCK_EARNED,
+    unlock: () => UPGRADE_UNLOCK_EARNED,
   },
 ];
 
@@ -249,7 +257,7 @@ function nextAutoBuy(
   for (const buy of automated) {
     const seconds = Math.max(
       toNumber(div(sub(toleranceFloor(buy.cost(state)), state.coins), rate)),
-      toNumber(div(sub(toleranceFloor(buy.unlock), state.totalEarned), rate)),
+      toNumber(div(sub(toleranceFloor(buy.unlock(state)), state.totalEarned), rate)),
     );
     if (next === undefined || seconds < next.seconds) {
       next = { seconds, buy };

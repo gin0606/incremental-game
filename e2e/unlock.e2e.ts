@@ -87,7 +87,7 @@ test("改良が解放される前は店に並べず、解放されると次の�
   // 毎秒 30 で残りの 30 に 1 秒で届く。
   await page.clock.runFor(1000);
   await expect(condition).toHaveText(
-    "造幣所: これまでに生産したコインが 50000000 に達すると解放（あと 44000000）",
+    "造幣所: これまでに生産したコインが 150000000 に達すると解放（あと 144000000）",
   );
   await expect(upgrade).toBeVisible();
   await expect(upgrade).toHaveText("改良を買う（400000 コイン）");
@@ -105,7 +105,7 @@ test("改良が解放される前は店に並べず、解放されると次の�
 test("造幣所が解放される前は店に並べず、解放されると条件を隠して並べ、買うと造幣所の数と毎秒の生産が増える", async ({
   page,
 }) => {
-  // 解放の条件まであと 30 で、造幣所の値段 5000000 を持つ、採集機 10 台と工場 2 つ（毎秒 30）の保存データ（保存形式の
+  // 解放の条件まであと 30 で、造幣所の値段 10000000 を持つ、採集機 10 台と工場 2 つ（毎秒 30）の保存データ（保存形式の
   // 版 2）を、開く時刻に保存したものとして置く。工場の数を造幣所と違えて、造幣所の欄が造幣所の数を示すことを確かめる。
   await page.addInitScript(
     (save: string) => {
@@ -115,8 +115,8 @@ test("造幣所が解放される前は店に並べず、解放されると条�
       version: 2,
       savedAt: at(60_000).getTime(),
       state: {
-        coins: { sign: 1, layer: 0, mag: 5_000_000 },
-        totalEarned: { sign: 1, layer: 0, mag: 49_999_970 },
+        coins: { sign: 1, layer: 0, mag: 10_000_000 },
+        totalEarned: { sign: 1, layer: 0, mag: 149_999_970 },
         collectors: 10,
         factories: 2,
         mints: 0,
@@ -133,7 +133,7 @@ test("造幣所が解放される前は店に並べず、解放されると条�
   const condition = page.locator('dt:text-is("次の解放") + dd');
   const mint = page.getByRole("button", { name: /^造幣所を買う/v });
   await expect(condition).toHaveText(
-    "造幣所: これまでに生産したコインが 50000000 に達すると解放（あと 30）",
+    "造幣所: これまでに生産したコインが 150000000 に達すると解放（あと 30）",
   );
   await expect(page.locator("#mints")).toHaveText("0");
   await expect(mint).toBeHidden();
@@ -144,7 +144,7 @@ test("造幣所が解放される前は店に並べず、解放されると条�
   // 中身が空の要素は隠さなくても toBeHidden を満たすため、隠したことは hidden 属性で確かめる。
   await expect(condition).toHaveAttribute("hidden");
   await expect(mint).toBeVisible();
-  await expect(mint).toHaveText("造幣所を買う（5000000 コイン）");
+  await expect(mint).toHaveText("造幣所を買う（10000000 コイン）");
   await expect(mint).toHaveAccessibleDescription("買うと毎秒の生産が 30 増える");
 
   await mint.click();

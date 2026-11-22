@@ -91,10 +91,10 @@ test.each([
 });
 
 test.each([
-  { mints: 0, expected: 5e6 },
-  { mints: 1, expected: 5.5e6 },
-  { mints: 8, expected: 5e6 * 1.1 ** 8 },
-] as const)("造幣所の値段は 5e6 × 1.1^数（$mints）", ({ mints, expected }) => {
+  { mints: 0, expected: 1e7 },
+  { mints: 1, expected: 1.1e7 },
+  { mints: 8, expected: 1e7 * 1.1 ** 8 },
+] as const)("造幣所の値段は 1e7 × 1.1^数（$mints）", ({ mints, expected }) => {
   expect(mintCost(state({ mints }))).toBeApprox(num(expected));
 });
 
@@ -181,15 +181,15 @@ test("工場は累計の生産量が 100 に達すると解放され、買える
   expect(after.coins).toBeApprox(num(10));
 });
 
-test("造幣所は累計の生産量が 5e7 に達するまで解放されず、買えない", () => {
-  const locked = state({ coins: num(1e7), totalEarned: num(4.99e7) });
+test("造幣所は累計の生産量が 1.5e8 に達するまで解放されず、買えない", () => {
+  const locked = state({ coins: num(2e7), totalEarned: num(1.499e8) });
 
   expect(isMintUnlocked(locked)).toBe(false);
   expect(perform(locked, { type: "buyMint" })).toBeUndefined();
 });
 
-test("造幣所は累計の生産量が 5e7 に達すると解放され、買える", () => {
-  const unlocked = state({ coins: num(6e6), totalEarned: MINT_UNLOCK_EARNED });
+test("造幣所は累計の生産量が 1.5e8 に達すると解放され、買える", () => {
+  const unlocked = state({ coins: num(1.1e7), totalEarned: MINT_UNLOCK_EARNED });
 
   expect(isMintUnlocked(unlocked)).toBe(true);
   const after = performed(unlocked, { type: "buyMint" });

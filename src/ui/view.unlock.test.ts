@@ -4,6 +4,7 @@ import { assert, expect, test } from "vitest";
 import type { GameState } from "../core/game.ts";
 import { UPGRADE_UNLOCK_EARNED, advance, initialState, perform } from "../core/game.ts";
 import { num } from "../core/num.ts";
+import { deserialize } from "../save/save.ts";
 import type { View } from "./view.ts";
 import { view } from "./view.ts";
 
@@ -14,8 +15,8 @@ const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, 
 test("造幣所が解放されたら解放の条件を示さず、造幣所を並べる。買える額があれば買える", () => {
   const current = view(
     state({
-      coins: num(6e6),
-      totalEarned: num(6e7),
+      coins: num(1.2e7),
+      totalEarned: num(2e8),
       collectors: 3,
       factories: 2,
       mints: 1,
@@ -26,7 +27,7 @@ test("造幣所が解放されたら解放の条件を示さず、造幣所を�
   expect(current).toMatchObject({ production: "53", mints: "1", nextUnlock: undefined });
   expect(current.shop[2]).toStrictEqual({
     action: { type: "buyMint" },
-    label: "造幣所を買う（5500000 コイン）",
+    label: "造幣所を買う（11000000 コイン）",
     effect: "買うと毎秒の生産が 30 増える",
     visible: true,
     affordable: true,
@@ -49,7 +50,7 @@ test("改良が解放されたら改良の解放の条件を示さず、改良�
   expect(current).toMatchObject({
     production: "30",
     upgrades: "1",
-    nextUnlock: "造幣所: これまでに生産したコインが 50000000 に達すると解放（あと 44000000）",
+    nextUnlock: "造幣所: これまでに生産したコインが 150000000 に達すると解放（あと 144000000）",
   });
   expect(current.shop[3]).toStrictEqual({
     action: { type: "buyUpgrade" },
@@ -97,11 +98,13 @@ test("これまでに生産したコインが工場の解放の条件に達す�
 });
 
 test("造幣所の解放までの残りは、端数を切り上げる。条件に許容誤差の範囲で届くと、条件を示さずに造幣所を並べる", () => {
-  const condition = "造幣所: これまでに生産したコインが 50000000 に達すると解放";
-  const withinTolerance = view(state({ totalEarned: num(5e7 * (1 - 1e-10)) }));
+  const condition = "造幣所: これまでに生産したコインが 150000000 に達すると解放";
+  const withinTolerance = view(state({ totalEarned: num(1.5e8 * (1 - 1e-10)) }));
 
-  expect(view(state({ totalEarned: num(4e7) })).nextUnlock).toBe(`${condition}（あと 10000000）`);
-  expect(view(state({ totalEarned: num(49_999_999.5) })).nextUnlock).toBe(`${condition}（あと 1）`);
+  expect(view(state({ totalEarned: num(1.4e8) })).nextUnlock).toBe(`${condition}（あと 10000000）`);
+  expect(view(state({ totalEarned: num(149_999_999.5) })).nextUnlock).toBe(
+    `${condition}（あと 1）`,
+  );
   expect(withinTolerance.nextUnlock).toBeUndefined();
   expect(withinTolerance.shop[2]?.visible).toBe(true);
 });
@@ -131,4 +134,27 @@ test("次の解放の条件は、工場・改良・造幣所の順に、まだ�
       },
     ),
   );
+});
+
+test("解放の条件が 5e7 だった版の保存で造幣所を持っていれば、今の条件に届いていなくても造幣所を並べる", () => {
+  // 保存形式の版 2 の保存。累計 8e7 は今の解放の条件 1.5e8 に届かない。
+  const loaded = deserialize(
+    JSON.stringify({
+      version: 2,
+      savedAt: 0,
+      state: {
+        coins: { sign: 1, layer: 0, mag: 2e7 },
+        totalEarned: { sign: 1, layer: 0, mag: 8e7 },
+        collectors: 100,
+        factories: 60,
+        mints: 4,
+        autoBuyer: true,
+      },
+    }),
+  );
+  assert(loaded.ok);
+  const current = view(loaded.data.state);
+
+  expect(current.shop[2]).toMatchObject({ visible: true, affordable: true });
+  expect(current.nextUnlock).toBeUndefined();
 });

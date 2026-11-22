@@ -12,7 +12,7 @@ const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, 
 /** 解放の前の、造幣所を買う品物（台数 0）。 */
 const lockedMint = {
   action: { type: "buyMint" },
-  label: "造幣所を買う（5000000 コイン）",
+  label: "造幣所を買う（10000000 コイン）",
   effect: "買うと毎秒の生産が 30 増える",
   visible: false,
   affordable: false,
@@ -209,8 +209,8 @@ test("待ち時間は、見えている品物のうち最も安いものまで�
 });
 
 test("見えていない品物は、より安くても待ち時間に数えない", () => {
-  // 買い終えた自動購入（300000）と、解放の前の改良（400000）・造幣所（5000000）は、採集機（約 1.2e7）と工場
-  // （約 8.5e6）より安い。工場までを毎秒 700 で割る。
+  // 買い終えた自動購入（300000）と解放の前の改良（400000）は、採集機（約 1.2e7）と工場（約 8.5e6）より安い。
+  // 工場までを毎秒 700 で割る。
   const bought = view(
     state({ totalEarned: num(5e6), collectors: 100, factories: 60, autoBuyer: true }),
   );
