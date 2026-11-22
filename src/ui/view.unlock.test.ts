@@ -2,8 +2,16 @@ import * as fc from "fast-check";
 import { assert, expect, test } from "vitest";
 
 import type { GameState } from "../core/game.ts";
-import { UPGRADE_UNLOCK_EARNED, advance, initialState, perform } from "../core/game.ts";
-import { num } from "../core/num.ts";
+import { gameState } from "../core/game.arbitrary.ts";
+import {
+  UPGRADE_UNLOCK_EARNED,
+  advance,
+  initialState,
+  perform,
+  production,
+  withPurchase,
+} from "../core/game.ts";
+import { num, toNumber } from "../core/num.ts";
 import { deserialize } from "../save/save.ts";
 import type { View } from "./view.ts";
 import { view } from "./view.ts";
@@ -107,6 +115,23 @@ test("造幣所の解放までの残りは、端数を切り上げる。条件�
   );
   expect(withinTolerance.nextUnlock).toBeUndefined();
   expect(withinTolerance.shop[2]?.visible).toBe(true);
+});
+
+test("改良: 毎秒の生産が 10 億未満の間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい", () => {
+  const action = { type: "buyUpgrade" } as const;
+  const rule = "（すべての施設の生産が 1.25 倍になる）";
+  fc.assert(
+    fc.property(gameState, (current) => {
+      fc.pre(toNumber(production(withPurchase(current, action))) < 1e9);
+      const difference =
+        Number(view(withPurchase(current, action)).production) - Number(view(current).production);
+
+      expect([
+        `買うと毎秒の生産が ${difference} 増える${rule}`,
+        `買うと毎秒の生産が ${difference - 1} 増える${rule}`,
+      ]).toContain(view(current).shop[3]?.effect);
+    }),
+  );
 });
 
 /** 工場・改良・造幣所が見えているかと、次の解放の表示が示す要素（無ければ「なし」）。 */
