@@ -214,7 +214,7 @@ test("品物が解放されると店の行は後ろに足され、それまで�
   page,
 }) => {
   // 造幣所の解放の条件まであと 30 で、採集機 10 台と工場 2 つ（毎秒 30）、自動購入なし。工場と改良は解放済みで、店には
-  // 採集機・自動購入・工場・改良が並ぶ。
+  // 採集機・自動購入・控えめな自動購入・工場・改良が並ぶ。
   await page.addInitScript(
     putSave,
     withoutUpgradesOrMints({
@@ -229,9 +229,13 @@ test("品物が解放されると店の行は後ろに足され、それまで�
   await page.goto("/");
   await expect(page.locator("#collectors")).toHaveText("10");
 
-  const shown = [/^採集機を買う/v, /^自動購入を買う/v, /^工場を買う/v, /^改良を買う/v].map((name) =>
-    page.getByRole("button", { name }),
-  );
+  const shown = [
+    /^採集機を買う/v,
+    /^自動購入を買う/v,
+    /^控えめな自動購入を買う/v,
+    /^工場を買う/v,
+    /^改良を買う/v,
+  ].map((name) => page.getByRole("button", { name }));
   const mint = page.getByRole("button", { name: /^造幣所を買う/v });
   await expect(mint).toBeHidden();
   const before = await boxesOf(shown);
