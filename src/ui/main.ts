@@ -81,12 +81,13 @@ const keepPlaying = (session: Session, render: () => void): void => {
 };
 
 /**
- * 店に品物の行を足す。得られるものの説明は、支援技術でもボタンと一緒に読めるようボタンの説明にもする。`render` は、行を
+ * 店に品物の行を足す。得られるものの説明は、支援技術でもボタンと一緒に読めるようボタンの説明にもする。`buy` には、
+ * ボタンをキーボードで押したか（click の `detail` が 0）を渡す。`render` は、行を
  * 品物 `item` の状態と見せ方 `display` で描く。
  */
 const addOffer = (
   action: Action,
-  buy: () => void,
+  buy: (byKeyboard: boolean) => void,
 ): {
   readonly row: HTMLElement;
   readonly button: HTMLButtonElement;
@@ -95,7 +96,9 @@ const addOffer = (
   const row = document.createElement("p");
   const button = document.createElement("button");
   button.type = "button";
-  button.addEventListener("click", buy);
+  button.addEventListener("click", (event: Readonly<Pick<MouseEvent, "detail">>) => {
+    buy(event.detail === 0);
+  });
   const effect = document.createElement("span");
   effect.id = `effect-${action.type}`;
   button.setAttribute("aria-describedby", effect.id);
@@ -136,26 +139,25 @@ const start = (): void => {
   showAway(session.away);
 
   const offers = view(session.state()).shop.map((item) =>
-    addOffer(item.action, () => {
+    addOffer(item.action, (byKeyboard) => {
       session.perform(item.action, Date.now());
-      render();
+      render(byKeyboard);
     }),
   );
 
   /** ページを開いてから一度でも見せた品物の行。 */
   const shownRows = new Set<HTMLElement>();
 
-  function render(): void {
+  /** 画面を描き直す。`byKeyboard` は、描き直すきっかけの購入をキーボードで押したか。 */
+  function render(byKeyboard = false): void {
     const current = view(session.state(), session.pausedFor(Date.now()));
     renderStats(current);
     let focused = -1;
-    let focusVisible = false;
     for (const [index, item] of current.shop.entries()) {
       const offer = offers[index];
       if (offer !== undefined) {
         if (offer.button === document.activeElement) {
           focused = index;
-          focusVisible = offer.button.matches(":focus-visible");
         }
         offer.render(item, rowDisplay(item.visible, shownRows.has(offer.row)));
         if (item.visible) {
@@ -164,7 +166,7 @@ const start = (): void => {
       }
     }
     // 隠した品物のボタンがフォーカスを持っていたら、ブラウザが文書の先頭へ外す前に店の中へ移す。
-    const move = focusMove(current.shop, focused, focusVisible);
+    const move = focusMove(current.shop, focused, byKeyboard);
     if (move !== undefined) {
       offers[move.index]?.button.focus({ preventScroll: move.preventScroll });
     }

@@ -80,7 +80,7 @@ test("自動購入を買うと、そのボタンと説明を隠す", async ({ pa
   await expect(work).toBeHidden();
 });
 
-test("マウスで自動購入を買っても、ページも後ろの行も動かず、続けて同じ位置を押しても別の品物のボタンに当たらない", async ({
+test("キーボードでフォーカスを置いた自動購入をマウスで買っても、ページも後ろの行も動かず、続けて同じ位置を押しても別の品物のボタンに当たらない", async ({
   page,
 }) => {
   await page.addInitScript(putSave, savedWithCoins(3e5));
@@ -89,11 +89,16 @@ test("マウスで自動購入を買っても、ページも後ろの行も動�
   await page.goto("/");
   await expect(page.locator("#collectors")).toHaveText("1");
   const autoBuyer = page.getByRole("button", { name: /^自動購入を買う/v });
-  // 自動購入のボタンが画面の下端に来るまで巻き取る。その後ろの工場のボタンは画面の外にある。
+  const factory = page.getByRole("button", { name: /^工場を買う/v });
+  // 自動購入のボタンを画面の下端に置き、その後ろの工場のボタンを画面の外にする。フォーカスを置いたボタンには、マウスで
+  // 押してもフォーカスの印が残る。
   await autoBuyer.evaluate((button) => {
     button.scrollIntoView({ block: "end" });
+    button.focus({ preventScroll: true });
   });
   const scrolled = await page.evaluate(() => window.scrollY);
+  expect(scrolled).toBeGreaterThan(0);
+  await expect(factory).not.toBeInViewport();
   const pressed = await autoBuyer.boundingBox();
   const x = (pressed?.x ?? 0) + (pressed?.width ?? 0) / 2;
   const y = (pressed?.y ?? 0) + (pressed?.height ?? 0) / 2;
@@ -129,6 +134,7 @@ test("キーボードで自動購入を買うと、フォーカスを店の中�
     button.scrollIntoView({ block: "end" });
     button.focus({ preventScroll: true });
   });
+  await expect(factory).not.toBeInViewport();
   await page.keyboard.press("Enter");
   await expect(page.locator("#auto-buyer")).toHaveText("稼働中");
   await expect(autoBuyer).toBeHidden();

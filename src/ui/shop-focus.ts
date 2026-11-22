@@ -25,17 +25,18 @@ export interface FocusMove {
 }
 
 /**
- * {@link shopFocus} が返す移す先と、そのときのページの巻き取り。`focusVisible` は、フォーカスを持っていた品物のボタンに
- * フォーカスの印が出ていたか（`:focus-visible`。キーボードで操作していたか）。
+ * {@link shopFocus} が返す移す先と、そのときのページの巻き取り。`byKeyboard` は、フォーカスを移すきっかけの購入を
+ * キーボードで押したか。
  *
- * 印が出ていなければ（マウスで押した後）、移す先が画面の外にあってもページを巻き取らない。巻き取ると、続けて同じ位置を
- * 押したときに別の品物のボタンに当たる。キーボードで操作していれば、移した先が見えるよう巻き取る。
+ * マウスなどで押した後は、移す先が画面の外にあってもページを巻き取らない。巻き取ると、続けて同じ位置を押したときに別の
+ * 品物のボタンに当たる。キーボードで押した後は、移した先が見えるよう巻き取る。フォーカスの印（`:focus-visible`）では
+ * 決めない。キーボードでフォーカスを置いたボタンをマウスで押しても、印が残るため。
  */
 export function focusMove(
   shop: readonly ShopItem[],
   focused: number,
-  focusVisible: boolean,
+  byKeyboard: boolean,
 ): FocusMove | undefined {
   const index = shopFocus(shop, focused);
-  return index === undefined ? undefined : { index, preventScroll: !focusVisible };
+  return index === undefined ? undefined : { index, preventScroll: !byKeyboard };
 }
