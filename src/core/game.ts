@@ -1,21 +1,28 @@
 import type { Num } from "./num.ts";
-import {
-  ZERO,
-  add,
-  atLeast,
-  div,
-  max,
-  mul,
-  num,
-  pow,
-  sub,
-  toNumber,
-  toleranceFloor,
-} from "./num.ts";
+import { ZERO, add, atLeast, div, max, mul, num, sub, toNumber, toleranceFloor } from "./num.ts";
 
+import {
+  COLLECTOR_PRODUCTION,
+  FACTORY_PRODUCTION,
+  FACTORY_UNLOCK_EARNED,
+  MINT_PRODUCTION,
+  UPGRADE_MULTIPLIER,
+  baseProduction,
+  collectorCost,
+  factoryCost,
+  isFactoryUnlocked,
+  isMintUnlocked,
+  isUpgradeUnlocked,
+  mintCost,
+  mintUnlockEarned,
+  production,
+  upgradeCost,
+  upgradeUnlockEarned,
+} from "./economy.ts";
 import type { Action, GameState } from "./state.ts";
 
-// 判定の仕組み（シミュレーター、指標のテスト）を確かめるための仮の最小ゲームの規則。状態と行動の型は state.ts にある。
+// 判定の仕組み（シミュレーター、指標のテスト）を確かめるための仮の最小ゲームの規則。値段・解放の条件・生産は
+// economy.ts、状態と行動の型は state.ts にある。
 //
 // - 資源はコインの 1 つ。採集機・工場・造幣所がコインを毎秒生む。
 // - 改良は、1 つごとにすべての施設の生産を UPGRADE_MULTIPLIER 倍にする。値段は施設と同じく数に対して指数的に伸びる。
@@ -29,79 +36,24 @@ import type { Action, GameState } from "./state.ts";
 export type { Action, GameState } from "./state.ts";
 export { initialState } from "./state.ts";
 
-const COLLECTOR_BASE_COST = num(10);
-const COLLECTOR_COST_GROWTH = num(1.15);
-const COLLECTOR_PRODUCTION = num(1);
-const FACTORY_BASE_COST = num(150);
-const FACTORY_COST_GROWTH = num(1.2);
-const FACTORY_PRODUCTION = num(10);
-const MINT_BASE_COST = num(1e7);
-const MINT_COST_GROWTH = num(1.1);
-const MINT_PRODUCTION = num(30);
-const UPGRADE_BASE_COST = num(8e5);
-const UPGRADE_COST_GROWTH = num(1.55);
-export const UPGRADE_MULTIPLIER: Num = num(1.25);
+export {
+  FACTORY_UNLOCK_EARNED,
+  MINT_UNLOCK_EARNED,
+  UPGRADE_MULTIPLIER,
+  UPGRADE_UNLOCK_EARNED,
+  collectorCost,
+  factoryCost,
+  isFactoryUnlocked,
+  isMintUnlocked,
+  isUpgradeUnlocked,
+  mintCost,
+  mintUnlockEarned,
+  production,
+  upgradeCost,
+  upgradeUnlockEarned,
+} from "./economy.ts";
 
-export const FACTORY_UNLOCK_EARNED: Num = num(100);
-export const UPGRADE_UNLOCK_EARNED: Num = num(1.2e7);
-export const MINT_UNLOCK_EARNED: Num = num(1.5e8);
 export const AUTO_BUYER_COST: Num = num(3e5);
-
-export function collectorCost(state: GameState): Num {
-  return mul(COLLECTOR_BASE_COST, pow(COLLECTOR_COST_GROWTH, state.collectors));
-}
-
-export function factoryCost(state: GameState): Num {
-  return mul(FACTORY_BASE_COST, pow(FACTORY_COST_GROWTH, state.factories));
-}
-
-export function mintCost(state: GameState): Num {
-  return mul(MINT_BASE_COST, pow(MINT_COST_GROWTH, state.mints));
-}
-
-export function upgradeCost(state: GameState): Num {
-  return mul(UPGRADE_BASE_COST, pow(UPGRADE_COST_GROWTH, state.upgrades));
-}
-
-export function isFactoryUnlocked(state: GameState): boolean {
-  return atLeast(state.totalEarned, FACTORY_UNLOCK_EARNED);
-}
-
-/**
- * 造幣所を買えるようになるのに要る累計の生産量。造幣所を持っていれば 0。解放の条件が 5e7 だった版の保存は、今の条件に
- * 届かずに造幣所を持っていることがあり、持っている施設を買えなくしないため。
- */
-export function mintUnlockEarned(state: GameState): Num {
-  return state.mints > 0 ? ZERO : MINT_UNLOCK_EARNED;
-}
-
-export function isMintUnlocked(state: GameState): boolean {
-  return atLeast(state.totalEarned, mintUnlockEarned(state));
-}
-
-/** {@link mintUnlockEarned} の改良の版。解放の条件が 6e6 だった版の保存のため。 */
-export const upgradeUnlockEarned = (state: GameState): Num =>
-  state.upgrades > 0 ? ZERO : UPGRADE_UNLOCK_EARNED;
-
-export function isUpgradeUnlocked(state: GameState): boolean {
-  return atLeast(state.totalEarned, upgradeUnlockEarned(state));
-}
-
-/** 改良の倍率を掛ける前の、施設の毎秒の生産量の和。 */
-function baseProduction(state: GameState): Num {
-  return add(
-    add(
-      mul(COLLECTOR_PRODUCTION, num(state.collectors)),
-      mul(FACTORY_PRODUCTION, num(state.factories)),
-    ),
-    mul(MINT_PRODUCTION, num(state.mints)),
-  );
-}
-
-/** 毎秒のコインの生産量。 */
-export function production(state: GameState): Num {
-  return mul(baseProduction(state), pow(UPGRADE_MULTIPLIER, state.upgrades));
-}
 
 interface Purchase {
   /** 今の状態で買えるときの値段。解放されていない、買い終えたなどで買えなければ `undefined`。 */
