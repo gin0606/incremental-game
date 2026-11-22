@@ -55,6 +55,7 @@ test("初期状態はコイン 0、採集機 1 台で始まる", () => {
     collectors: 1,
     factories: 0,
     mints: 0,
+    refineries: 0,
     upgrades: 0,
     autoBuyer: false,
     cautiousAutoBuyer: false,
@@ -62,16 +63,20 @@ test("初期状態はコイン 0、採集機 1 台で始まる", () => {
 });
 
 test.each([
-  { collectors: 3, factories: 2, mints: 0, upgrades: 0, expected: 23 },
-  { collectors: 3, factories: 2, mints: 4, upgrades: 0, expected: 143 },
-  { collectors: 0, factories: 0, mints: 0, upgrades: 0, expected: 0 },
-  { collectors: 3, factories: 2, mints: 4, upgrades: 1, expected: 143 * 1.25 },
-  { collectors: 3, factories: 2, mints: 4, upgrades: 3, expected: 143 * 1.25 ** 3 },
-  { collectors: 0, factories: 0, mints: 0, upgrades: 3, expected: 0 },
+  { collectors: 3, factories: 2, mints: 0, refineries: 0, upgrades: 0, expected: 23 },
+  { collectors: 3, factories: 2, mints: 4, refineries: 0, upgrades: 0, expected: 143 },
+  { collectors: 3, factories: 2, mints: 4, refineries: 5, upgrades: 0, expected: 643 },
+  { collectors: 0, factories: 0, mints: 0, refineries: 2, upgrades: 0, expected: 200 },
+  { collectors: 0, factories: 0, mints: 0, refineries: 0, upgrades: 0, expected: 0 },
+  { collectors: 3, factories: 2, mints: 4, refineries: 0, upgrades: 1, expected: 143 * 1.25 },
+  { collectors: 3, factories: 2, mints: 4, refineries: 5, upgrades: 3, expected: 643 * 1.25 ** 3 },
+  { collectors: 0, factories: 0, mints: 0, refineries: 0, upgrades: 3, expected: 0 },
 ] as const)(
-  "生産量は採集機 1 台につき毎秒 1、工場 1 つにつき毎秒 10、造幣所 1 つにつき毎秒 30 の和で、改良 1 つごとに 1.25 倍（採集機 $collectors、工場 $factories、造幣所 $mints、改良 $upgrades）",
-  ({ collectors, factories, mints, upgrades, expected }) => {
-    expect(production(state({ collectors, factories, mints, upgrades }))).toBeApprox(num(expected));
+  "生産量は採集機 1 台につき毎秒 1、工場 1 つにつき毎秒 10、造幣所 1 つにつき毎秒 30、精錬所 1 つにつき毎秒 100 の和で、改良 1 つごとに 1.25 倍（採集機 $collectors、工場 $factories、造幣所 $mints、精錬所 $refineries、改良 $upgrades）",
+  ({ collectors, factories, mints, refineries, upgrades, expected }) => {
+    expect(production(state({ collectors, factories, mints, refineries, upgrades }))).toBeApprox(
+      num(expected),
+    );
   },
 );
 

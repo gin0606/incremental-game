@@ -10,6 +10,7 @@ export interface GameState {
   readonly collectors: number;
   readonly factories: number;
   readonly mints: number;
+  readonly refineries: number;
   /** 改良の数。 */
   readonly upgrades: number;
   readonly autoBuyer: boolean;
@@ -31,6 +32,7 @@ export const initialState: GameState = {
   collectors: 1,
   factories: 0,
   mints: 0,
+  refineries: 0,
   upgrades: 0,
   autoBuyer: false,
   cautiousAutoBuyer: false,

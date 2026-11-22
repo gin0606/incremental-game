@@ -24,10 +24,10 @@ import type { Action, GameState } from "./state.ts";
 // 判定の仕組み（シミュレーター、指標のテスト）を確かめるための仮の最小ゲームの規則。値段・解放の条件・生産は
 // economy.ts、状態と行動の型は state.ts にある。
 //
-// - 資源はコインの 1 つ。採集機・工場・造幣所がコインを毎秒生む。
+// - 資源はコインの 1 つ。採集機・工場・造幣所・精錬所がコインを毎秒生む。
 // - 改良は、1 つごとにすべての施設の生産を UPGRADE_MULTIPLIER 倍にする。値段は施設と同じく数に対して指数的に伸びる。
 // - 工場は、累計で稼いだコインが FACTORY_UNLOCK_EARNED に、改良は UPGRADE_UNLOCK_EARNED に、造幣所は
-//   MINT_UNLOCK_EARNED に達すると解放される。造幣所と改良は、持っていれば解放されている（mintUnlockEarned・upgradeUnlockEarned）。
+//   MINT_UNLOCK_EARNED に、精錬所は REFINERY_UNLOCK_EARNED に達すると解放される。造幣所と改良は、持っていれば解放されている（mintUnlockEarned・upgradeUnlockEarned）。
 // - 自動購入を買うと、採集機・工場・造幣所・改良を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。
 //   買える額に達したもののうち、値段あたりの生産量の増分が大きいものから買う。
 // - 控えめな自動購入は、自動購入より安く、同じものを、払った後も今の生産の CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS 秒分の
@@ -44,16 +44,19 @@ export { initialState } from "./state.ts";
 export {
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
+  REFINERY_UNLOCK_EARNED,
   UPGRADE_MULTIPLIER,
   UPGRADE_UNLOCK_EARNED,
   collectorCost,
   factoryCost,
   isFactoryUnlocked,
   isMintUnlocked,
+  isRefineryUnlocked,
   isUpgradeUnlocked,
   mintCost,
   mintUnlockEarned,
   production,
+  refineryCost,
   upgradeCost,
   upgradeUnlockEarned,
 } from "./economy.ts";

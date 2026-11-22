@@ -9,8 +9,9 @@ import { atLeast, fromParts, toParts } from "../core/num.ts";
  * - 2: 1 に造幣所の数（`mints`）を足した。1 の保存は造幣所 0 として読む。
  * - 3: 2 に改良の数（`upgrades`）を足した。1 と 2 の保存は改良 0 として読む。
  * - 4: 3 に控えめな自動購入を持つか（`cautiousAutoBuyer`）を足した。1〜3 の保存は持たないとして読む。
+ * - 5: 4 に精錬所の数（`refineries`）を足した。1〜4 の保存は精錬所 0 として読む。
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 /** 保存する内容。オフラインの経過時間を求めるため、保存した時刻（Unix 時刻のミリ秒）を持つ。 */
 export interface SaveData {
@@ -22,28 +23,29 @@ export type LoadResult =
   | { readonly ok: true; readonly data: SaveData }
   | { readonly ok: false; readonly error: string };
 
-interface SavedStateV4 {
+interface SavedStateV5 {
   readonly coins: NumParts;
   readonly totalEarned: NumParts;
   readonly collectors: number;
   readonly factories: number;
   readonly mints: number;
+  readonly refineries: number;
   readonly upgrades: number;
   readonly autoBuyer: boolean;
   readonly cautiousAutoBuyer: boolean;
 }
 
-interface SaveFileV4 {
-  readonly version: 4;
+interface SaveFileV5 {
+  readonly version: 5;
   readonly savedAt: number;
-  readonly state: SavedStateV4;
+  readonly state: SavedStateV5;
 }
 
-type Version = 1 | 2 | 3 | 4;
+type Version = 1 | 2 | 3 | 4 | 5;
 
 export function serialize(data: SaveData): string {
   const { state, savedAt } = data;
-  const file: SaveFileV4 = {
+  const file: SaveFileV5 = {
     version: SAVE_VERSION,
     savedAt,
     state: {
@@ -52,6 +54,7 @@ export function serialize(data: SaveData): string {
       collectors: state.collectors,
       factories: state.factories,
       mints: state.mints,
+      refineries: state.refineries,
       upgrades: state.upgrades,
       autoBuyer: state.autoBuyer,
       cautiousAutoBuyer: state.cautiousAutoBuyer,
@@ -82,7 +85,7 @@ const readAmount = (value: unknown): Num | undefined => {
 const readAddedCount = (
   value: Readonly<Record<string, unknown>>,
   version: Version,
-  key: "mints" | "upgrades",
+  key: "mints" | "refineries" | "upgrades",
   since: Version,
 ): number | string => {
   if (version < since) {
@@ -115,6 +118,10 @@ const readState = (value: unknown, version: Version): GameState | string => {
   if (typeof mints === "string") {
     return mints;
   }
+  const refineries = readAddedCount(value, version, "refineries", 5);
+  if (typeof refineries === "string") {
+    return refineries;
+  }
   const upgrades = readAddedCount(value, version, "upgrades", 3);
   if (typeof upgrades === "string") {
     return upgrades;
@@ -132,6 +139,7 @@ const readState = (value: unknown, version: Version): GameState | string => {
     collectors,
     factories,
     mints,
+    refineries,
     upgrades,
     autoBuyer,
     cautiousAutoBuyer,
@@ -172,7 +180,13 @@ export function deserialize(text: string): LoadResult {
     return { ok: false, error: "保存データがオブジェクトでない" };
   }
   const { version, savedAt } = parsed;
-  if (version !== 1 && version !== 2 && version !== 3 && version !== SAVE_VERSION) {
+  if (
+    version !== 1 &&
+    version !== 2 &&
+    version !== 3 &&
+    version !== 4 &&
+    version !== SAVE_VERSION
+  ) {
     return { ok: false, error: `未知の版: ${describeVersion(version)}` };
   }
   // Date.now() が返しうる値に限る。それより先の時刻を受け入れると、時計が追いつくまで生産が止まる。
