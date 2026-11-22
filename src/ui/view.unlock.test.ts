@@ -1,9 +1,10 @@
 import * as fc from "fast-check";
 import { assert, expect, test } from "vitest";
 
-import type { GameState } from "../core/game.ts";
+import type { Action, GameState } from "../core/game.ts";
 import { gameState } from "../core/game.arbitrary.ts";
 import {
+  MINT_UNLOCK_EARNED,
   UPGRADE_UNLOCK_EARNED,
   advance,
   initialState,
@@ -182,4 +183,27 @@ test("解放の条件が 5e7 だった版の保存で造幣所を持っていれ
 
   expect(current.shop[2]).toMatchObject({ visible: true, affordable: true });
   expect(current.nextUnlock).toBeUndefined();
+});
+
+/** 見えている品物の種類を、店に並ぶ順に並べたもの。 */
+const shownActions = (current: GameState): readonly Action["type"][] =>
+  view(current).shop.flatMap(({ action, visible }) => (visible ? [action.type] : []));
+
+// SUSPECTED_BUG: 造幣所が解放されると、それまで並んでいた改良と自動購入の行が 1 行ずつ後ろへずれる。改良は造幣所より
+// 先に解放されるのに、店は造幣所を改良より前に並べるため。解放で行が増えても、既に並んでいる行の順と位置は変わらない
+// （新しい行が後ろに足される）のが正しいと考える。改良を続けて押していたプレイヤーの次の押下が、造幣所に当たりうる。
+test("（不具合の疑い）造幣所が解放されると、それまで並んでいた改良と自動購入の行が後ろへずれる", () => {
+  expect(shownActions(state({ totalEarned: num(1e8) }))).toStrictEqual([
+    "buyCollector",
+    "buyFactory",
+    "buyUpgrade",
+    "buyAutoBuyer",
+  ]);
+  expect(shownActions(state({ totalEarned: MINT_UNLOCK_EARNED }))).toStrictEqual([
+    "buyCollector",
+    "buyFactory",
+    "buyMint",
+    "buyUpgrade",
+    "buyAutoBuyer",
+  ]);
 });
