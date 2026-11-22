@@ -6,12 +6,14 @@ import type { GameState } from "../core/game.ts";
 import {
   AUTO_BUYER_COST,
   CAUTIOUS_AUTO_BUYER_COST,
+  EXCHANGE_UNLOCK_EARNED,
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
   REFINERY_UNLOCK_EARNED,
   UPGRADE_UNLOCK_EARNED,
   advance,
   collectorCost,
+  exchangeCost,
   factoryCost,
   initialState,
   mintCost,
@@ -40,7 +42,7 @@ test("初期状態・時間の経過・資源・生産量は core のものを�
   expect(minimalGame.resource(state({ coins: num(42) }))).toBeApprox(num(42));
 });
 
-test("工場・改良・造幣所・精錬所は解放されるまで候補に無く、自動購入は買った後は候補に無い", () => {
+test("工場・改良・造幣所・精錬所・交易所は解放されるまで候補に無く、自動購入は買った後は候補に無い", () => {
   expect(ids(initialState)).toStrictEqual(["collector", "autoBuyer", "cautiousAutoBuyer"]);
   expect(ids(state({ totalEarned: FACTORY_UNLOCK_EARNED }))).toStrictEqual([
     "collector",
@@ -72,6 +74,16 @@ test("工場・改良・造幣所・精錬所は解放されるまで候補に�
     "mint",
     "refinery",
   ]);
+  expect(ids(state({ totalEarned: EXCHANGE_UNLOCK_EARNED }))).toStrictEqual([
+    "collector",
+    "autoBuyer",
+    "cautiousAutoBuyer",
+    "factory",
+    "upgrade",
+    "mint",
+    "refinery",
+    "exchange",
+  ]);
   expect(ids(state({ totalEarned: MINT_UNLOCK_EARNED, autoBuyer: true }))).toStrictEqual([
     "collector",
     "factory",
@@ -85,7 +97,7 @@ test("控えめな自動購入は、買った後と、自動購入を買った�
   expect(ids(state({ autoBuyer: true }))).toStrictEqual(["collector"]);
 });
 
-test("解放済みの要素は、工場・改良・造幣所・精錬所の解放で増え、自動購入と控えめな自動購入を買っても減らない", () => {
+test("解放済みの要素は、工場・改良・造幣所・精錬所・交易所の解放で増え、自動購入と控えめな自動購入を買っても減らない", () => {
   expect(minimalGame.unlocked(initialState)).toStrictEqual([
     "collector",
     "autoBuyer",
@@ -111,6 +123,18 @@ test("解放済みの要素は、工場・改良・造幣所・精錬所の解�
     "mint",
     "refinery",
   ]);
+  expect(
+    minimalGame.unlocked(state({ totalEarned: EXCHANGE_UNLOCK_EARNED, autoBuyer: true })),
+  ).toStrictEqual([
+    "collector",
+    "autoBuyer",
+    "cautiousAutoBuyer",
+    "factory",
+    "upgrade",
+    "mint",
+    "refinery",
+    "exchange",
+  ]);
 });
 
 test("候補の値段と生産量の増分は core の値段と生産量から決まる", () => {
@@ -119,8 +143,9 @@ test("候補の値段と生産量の増分は core の値段と生産量から�
     factories: 1,
     mints: 2,
     refineries: 3,
+    exchanges: 5,
     upgrades: 1,
-    totalEarned: REFINERY_UNLOCK_EARNED,
+    totalEarned: EXCHANGE_UNLOCK_EARNED,
   });
   const gainOf = (added: Partial<GameState>): Num =>
     sub(production({ ...game, ...added }), production(game));
@@ -134,8 +159,10 @@ test("候補の値段と生産量の増分は core の値段と生産量から�
     "upgrade",
     "mint",
     "refinery",
+    "exchange",
   ]);
-  const [collector, autoBuyer, cautiousAutoBuyer, factory, upgrade, mint, refinery] = offers;
+  const [collector, autoBuyer, cautiousAutoBuyer, factory, upgrade, mint, refinery, exchange] =
+    offers;
   expect(collector?.cost).toBeApprox(collectorCost(game));
   expect(collector?.rateGain).toBeApprox(gainOf({ collectors: 3 }));
   expect(autoBuyer?.cost).toBeApprox(AUTO_BUYER_COST);
@@ -150,6 +177,8 @@ test("候補の値段と生産量の増分は core の値段と生産量から�
   expect(mint?.rateGain).toBeApprox(gainOf({ mints: 3 }));
   expect(refinery?.cost).toBeApprox(refineryCost(game));
   expect(refinery?.rateGain).toBeApprox(gainOf({ refineries: 4 }));
+  expect(exchange?.cost).toBeApprox(exchangeCost(game));
+  expect(exchange?.rateGain).toBeApprox(gainOf({ exchanges: 6 }));
 });
 
 test("候補を買うと、core で同じ行動をした状態になる", () => {
@@ -162,6 +191,9 @@ test("候補を買うと、core で同じ行動をした状態になる", () => 
       expect(minimalGame.buy(game, "mint")).toStrictEqual(perform(game, { type: "buyMint" }));
       expect(minimalGame.buy(game, "refinery")).toStrictEqual(
         perform(game, { type: "buyRefinery" }),
+      );
+      expect(minimalGame.buy(game, "exchange")).toStrictEqual(
+        perform(game, { type: "buyExchange" }),
       );
       expect(minimalGame.buy(game, "upgrade")).toStrictEqual(perform(game, { type: "buyUpgrade" }));
       expect(minimalGame.buy(game, "autoBuyer")).toStrictEqual(

@@ -109,6 +109,7 @@ const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = 
   buyFactory: (state) => productionGain(state, { type: "buyFactory" }),
   buyMint: (state) => productionGain(state, { type: "buyMint" }),
   buyRefinery: (state) => productionGain(state, { type: "buyRefinery" }),
+  buyExchange: (state) => productionGain(state, { type: "buyExchange" }),
   buyUpgrade: (state) =>
     `${productionGain(state, { type: "buyUpgrade" })}（すべての施設の生産が ${toNumber(UPGRADE_MULTIPLIER)} 倍になる）`,
   buyAutoBuyer: () => "採集機・工場・造幣所・精錬所・改良を、買える額に達するたびに自動で買う",
