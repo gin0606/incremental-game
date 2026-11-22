@@ -61,6 +61,30 @@ test("解放の前の品物は、解放の条件と値段の両方に届くま�
   expect(waitBeforeUpgrade(1.199e7, 8e5)).toBe("今の生産のままで約 15 秒");
 });
 
+/**
+ * 自動購入を買い終えた、採集機 200 台・工場 100 台・造幣所 50・改良 20（毎秒 2700 × 1.25^20、約 234187）の状態の待ち時間。
+ * ほかの品物はどれも 1e9 より高く、解放の前の精錬所（30000000、解放の条件 4.5e8）が最も早い。
+ */
+const waitBeforeRefinery = (totalEarned: number, coins: number): string =>
+  view(
+    state({
+      coins: num(coins),
+      totalEarned: num(totalEarned),
+      collectors: 200,
+      factories: 100,
+      mints: 50,
+      upgrades: 20,
+      autoBuyer: true,
+    }),
+  ).nextPurchase;
+
+test("解放の前の精錬所も、解放の条件と値段の両方に届くまでの時間で待ち時間に数える", () => {
+  // 条件まであと 5e7 で、値段まであと 1e6 より遅い。
+  expect(waitBeforeRefinery(4e8, 2.9e7)).toBe("今の生産のままで約 3 分 34 秒");
+  // 値段まであと 3e7 で、条件まであと 1e6 より遅い。
+  expect(waitBeforeRefinery(4.49e8, 0)).toBe("今の生産のままで約 2 分 9 秒");
+});
+
 test("まだ買っていない自動購入は、見えている品物として待ち時間に数える", () => {
   // 自動購入（300000）は、採集機（約 2.9e6）と工場（約 1.4e6）より安い。控えめな自動購入は買い終えている。毎秒 590。
   const current = view(

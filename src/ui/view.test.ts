@@ -18,6 +18,15 @@ const lockedMint = {
   affordable: false,
 } as const;
 
+/** 解放の前の、精錬所を買う品物（数 0）。 */
+const lockedRefinery = {
+  action: { type: "buyRefinery" },
+  label: "精錬所を買う（30000000 コイン）",
+  effect: "買うと毎秒の生産が 100 増える",
+  visible: false,
+  affordable: false,
+} as const;
+
 /** 解放の前の、改良を買う品物（数 0）。 */
 const lockedUpgrade = (gain: number) =>
   ({
@@ -28,7 +37,7 @@ const lockedUpgrade = (gain: number) =>
     affordable: false,
   }) as const;
 
-const autoBuyerWork = "採集機・工場・造幣所・改良を、買える額に達するたびに自動で買う";
+const autoBuyerWork = "採集機・工場・造幣所・精錬所・改良を、買える額に達するたびに自動で買う";
 
 /** 控えめな自動購入を買う品物。自動購入か控えめな自動購入を買い終えると見えない。 */
 const cautiousRow = (visible: boolean) =>
@@ -36,7 +45,7 @@ const cautiousRow = (visible: boolean) =>
     action: { type: "buyCautiousAutoBuyer" },
     label: "控えめな自動購入を買う（30000 コイン）",
     effect:
-      "採集機・工場・造幣所・改良を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
+      "採集機・工場・造幣所・精錬所・改良を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
     visible,
     affordable: false,
   }) as const;
@@ -53,7 +62,7 @@ test.each([
   },
 );
 
-test("初期状態では採集機と 2 つの自動購入を並べ、工場・改良・造幣所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
+test("初期状態では採集機と 2 つの自動購入を並べ、工場・改良・造幣所・精錬所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",
     totalEarned: "0",
@@ -61,6 +70,7 @@ test("初期状態では採集機と 2 つの自動購入を並べ、工場・�
     collectors: "1",
     factories: "0",
     mints: "0",
+    refineries: "0",
     upgrades: "0",
     autoBuyer: "なし",
     // 採集機の値段 11.5 に毎秒 1 で届くまで 11.5 秒。切り上げる。
@@ -92,6 +102,7 @@ test("初期状態では採集機と 2 つの自動購入を並べ、工場・�
       // 採集機 1 台の毎秒 1 の 0.25 倍を切り捨てる。
       lockedUpgrade(0),
       lockedMint,
+      lockedRefinery,
     ],
   });
 });
@@ -113,6 +124,7 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
     collectors: "3",
     factories: "2",
     mints: "0",
+    refineries: "0",
     upgrades: "0",
     autoBuyer: "稼働中",
     nextPurchase: "今買える",
@@ -144,6 +156,7 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
       // 毎秒 23 の 0.25 倍の 5.75 を切り捨てる。
       lockedUpgrade(5),
       lockedMint,
+      lockedRefinery,
     ],
   });
 });
@@ -152,6 +165,7 @@ const producers = [
   { index: 0, action: { type: "buyCollector" } },
   { index: 3, action: { type: "buyFactory" } },
   { index: 5, action: { type: "buyMint" } },
+  { index: 6, action: { type: "buyRefinery" } },
 ] as const;
 
 /** 買うと増えると示す毎秒の生産と、買った後に示す毎秒の生産と今のものとの差。 */

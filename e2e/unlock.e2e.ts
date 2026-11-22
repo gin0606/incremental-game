@@ -146,7 +146,11 @@ test("解放の前の改良も、解放されて値段に届くまでの時間�
   await expect(page.locator("#production")).toHaveText("875");
 });
 
-test("造幣所が解放される前は店に並べず、解放されると条件に替えてすべて解放したことを示して並べ、買うと造幣所の数と毎秒の生産が増える", async ({
+/** 造幣所の解放の条件（150000000）にちょうど届いたときの、次の精錬所の解放の表示。 */
+const refineryAfterMint =
+  "精錬所: これまでに生産したコインが 450000000 に達すると解放（あと 300000000）";
+
+test("造幣所が解放される前は店に並べず、解放されると次の精錬所の条件を示して並べ、買うと造幣所の数と毎秒の生産が増える", async ({
   page,
 }) => {
   // 解放の条件まであと 30 で、造幣所の値段 10000000 を持つ、採集機 10 台と工場 2 つ（毎秒 30）の保存データ（保存形式の
@@ -186,7 +190,7 @@ test("造幣所が解放される前は店に並べず、解放されると条�
   await page.clock.runFor(1000);
   await expect(label).toBeVisible();
   await expect(condition).toBeVisible();
-  await expect(condition).toHaveText("なし（すべて解放済み）");
+  await expect(condition).toHaveText(refineryAfterMint);
   await expect(mint).toBeVisible();
   await expect(mint).toHaveText("造幣所を買う（10000000 コイン）");
   await expect(mint).toHaveAccessibleDescription("買うと毎秒の生産が 30 増える");

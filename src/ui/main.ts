@@ -29,6 +29,7 @@ const productionText = requireElement("production");
 const collectors = requireElement("collectors");
 const factories = requireElement("factories");
 const mints = requireElement("mints");
+const refineries = requireElement("refineries");
 const upgrades = requireElement("upgrades");
 const autoBuyer = requireElement("auto-buyer");
 const stats = requireElement("stats");
@@ -122,6 +123,7 @@ const renderStats = (current: View): void => {
   collectors.textContent = current.collectors;
   factories.textContent = current.factories;
   mints.textContent = current.mints;
+  refineries.textContent = current.refineries;
   upgrades.textContent = current.upgrades;
   autoBuyer.textContent = current.autoBuyer;
   nextPurchase.textContent = current.nextPurchase;

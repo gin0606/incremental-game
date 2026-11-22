@@ -88,26 +88,29 @@ test("生産したコインは、手元のコインではなく、これまで�
 });
 
 test.each([
-  { collectors: 5, factories: 1, mints: 0, upgrades: 0, added: "採集機が 3 台" },
-  { collectors: 2, factories: 4, mints: 0, upgrades: 0, added: "工場が 3 台" },
-  { collectors: 2, factories: 1, mints: 2, upgrades: 0, added: "造幣所が 2 台" },
-  { collectors: 2, factories: 1, mints: 0, upgrades: 2, added: "改良が 2 個" },
+  { collectors: 5, factories: 1, mints: 0, refineries: 0, upgrades: 0, added: "採集機が 3 台" },
+  { collectors: 2, factories: 4, mints: 0, refineries: 0, upgrades: 0, added: "工場が 3 台" },
+  { collectors: 2, factories: 1, mints: 2, refineries: 0, upgrades: 0, added: "造幣所が 2 台" },
+  { collectors: 2, factories: 1, mints: 0, refineries: 2, upgrades: 0, added: "精錬所が 2 台" },
+  { collectors: 2, factories: 1, mints: 0, refineries: 0, upgrades: 2, added: "改良が 2 個" },
   {
     collectors: 3,
     factories: 2,
     mints: 1,
+    refineries: 1,
     upgrades: 1,
-    added: "採集機が 1 台、工場が 1 台、造幣所が 1 台、改良が 1 個",
+    added: "採集機が 1 台、工場が 1 台、造幣所が 1 台、精錬所が 1 台、改良が 1 個",
   },
 ] as const)(
-  "自動購入で増えた施設と改良だけを示す（採集機 $collectors 台、工場 $factories 台、造幣所 $mints 台、改良 $upgrades）",
-  ({ collectors, factories, mints, upgrades, added }) => {
+  "自動購入で増えた施設と改良だけを示す（採集機 $collectors 台、工場 $factories 台、造幣所 $mints 台、精錬所 $refineries 台、改良 $upgrades）",
+  ({ collectors, factories, mints, refineries, upgrades, added }) => {
     const after: GameState = {
       ...saved,
       totalEarned: num(120),
       collectors,
       factories,
       mints,
+      refineries,
       upgrades,
     };
 

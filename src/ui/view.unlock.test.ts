@@ -6,6 +6,7 @@ import { gameState } from "../core/game.arbitrary.ts";
 import {
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
+  REFINERY_UNLOCK_EARNED,
   UPGRADE_UNLOCK_EARNED,
   advance,
   initialState,
@@ -25,7 +26,7 @@ const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, 
 /** すべて解放した後の、次の解放の表示。 */
 const allUnlocked = "なし（すべて解放済み）";
 
-test("造幣所が解放されたら解放の条件を示さず、造幣所を並べる。買える額があれば買える", () => {
+test("造幣所が解放されたら次の精錬所の条件を示し、造幣所を並べる。買える額があれば買える", () => {
   const current = view(
     state({
       coins: num(1.2e7),
@@ -37,7 +38,11 @@ test("造幣所が解放されたら解放の条件を示さず、造幣所を�
     }),
   );
 
-  expect(current).toMatchObject({ production: "53", mints: "1", nextUnlock: allUnlocked });
+  expect(current).toMatchObject({
+    production: "53",
+    mints: "1",
+    nextUnlock: "精錬所: これまでに生産したコインが 450000000 に達すると解放（あと 250000000）",
+  });
   expect(current.shop[5]).toStrictEqual({
     action: { type: "buyMint" },
     label: "造幣所を買う（11000000 コイン）",
@@ -122,7 +127,7 @@ test("これまでに生産したコインが工場の解放の条件に達す�
   expect(below.shop[3]?.visible).toBe(false);
 });
 
-test("造幣所の解放までの残りは、端数を切り上げる。条件に許容誤差の範囲で届くと、条件を示さずに造幣所を並べる", () => {
+test("造幣所の解放までの残りは、端数を切り上げる。条件に許容誤差の範囲で届くと、造幣所を並べて次の精錬所の条件を示す", () => {
   const condition = "造幣所: これまでに生産したコインが 150000000 に達すると解放";
   const withinTolerance = view(state({ totalEarned: num(1.5e8 * (1 - 1e-10)) }));
 
@@ -130,8 +135,9 @@ test("造幣所の解放までの残りは、端数を切り上げる。条件�
   expect(view(state({ totalEarned: num(149_999_999.5) })).nextUnlock).toBe(
     `${condition}（あと 1）`,
   );
-  expect(withinTolerance.nextUnlock).toBe(allUnlocked);
+  expect(withinTolerance.nextUnlock).toMatch(/^精錬所: /v);
   expect(withinTolerance.shop[5]?.visible).toBe(true);
+  expect(withinTolerance.shop[6]?.visible).toBe(false);
 });
 
 test("改良: 毎秒の生産が 10 億未満の間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい", () => {
@@ -151,28 +157,30 @@ test("改良: 毎秒の生産が 10 億未満の間、買った後に示す毎�
   );
 });
 
-/** これまでに生産したコイン。工場の解放の条件の前後を細かく、造幣所の解放の条件の先までを粗く覆う。 */
+/** これまでに生産したコイン。工場の解放の条件の前後を細かく、精錬所の解放の条件の先までを粗く覆う。 */
 const earnedAcrossUnlocks = fc.oneof(
   fc.double({ min: 0, max: 200, noNaN: true }),
-  fc.double({ min: 0, max: 3e8, noNaN: true }),
+  fc.double({ min: 0, max: 6e8, noNaN: true }),
 );
 
-/** 工場・改良・造幣所が見えているかと、次の解放の表示が示す要素（無ければその旨）。 */
-const unlockShown = (current: View): readonly [boolean, boolean, boolean, string] => [
+/** 工場・改良・造幣所・精錬所が見えているかと、次の解放の表示が示す要素（無ければその旨）。 */
+const unlockShown = (current: View): readonly [boolean, boolean, boolean, boolean, string] => [
   current.shop[3]?.visible === true,
   current.shop[4]?.visible === true,
   current.shop[5]?.visible === true,
+  current.shop[6]?.visible === true,
   current.nextUnlock.split(":")[0] ?? "",
 ];
 
-test("次の解放の条件は、工場・改良・造幣所の順に、まだ隠れている最初のものだけを示す", () => {
+test("次の解放の条件は、工場・改良・造幣所・精錬所の順に、まだ隠れている最初のものだけを示す", () => {
   fc.assert(
     fc.property(earnedAcrossUnlocks, (earned) => {
       expect([
-        [false, false, false, "工場"],
-        [true, false, false, "改良"],
-        [true, true, false, "造幣所"],
-        [true, true, true, allUnlocked],
+        [false, false, false, false, "工場"],
+        [true, false, false, false, "改良"],
+        [true, true, false, false, "造幣所"],
+        [true, true, true, false, "精錬所"],
+        [true, true, true, true, allUnlocked],
       ]).toContainEqual(unlockShown(view(state({ totalEarned: num(earned) }))));
     }),
   );
@@ -198,7 +206,9 @@ test("解放の条件が 5e7 だった版の保存で造幣所を持っていれ
   const current = view(loaded.data.state);
 
   expect(current.shop[5]).toMatchObject({ visible: true, affordable: true });
-  expect(current.nextUnlock).toBe(allUnlocked);
+  expect(current.nextUnlock).toBe(
+    "精錬所: これまでに生産したコインが 450000000 に達すると解放（あと 370000000）",
+  );
 });
 
 /** 見えている品物の種類を、店に並ぶ順に並べたもの。 */
@@ -213,12 +223,18 @@ const firstRows = (autoBuyer: boolean): readonly Action["type"][] =>
   autoBuyer ? ["buyCollector"] : ["buyCollector", "buyAutoBuyer", "buyCautiousAutoBuyer"];
 
 test.each([false, true])(
-  "これまでに生産したコインが工場・改良・造幣所の解放の条件に順に達すると、行は後ろに足され、それまで並んでいた行の順と位置は変わらない（自動購入を買い終えている: %s）",
+  "これまでに生産したコインが工場・改良・造幣所・精錬所の解放の条件に順に達すると、行は後ろに足され、それまで並んでいた行の順と位置は変わらない（自動購入を買い終えている: %s）",
   (autoBuyer) => {
     // 解放の条件はどれも、これまでに生産したコインの決まった量なので、efficiency@always を含むどの遊び方でもこの順に
     // 解放される。
     const rows = firstRows(autoBuyer);
-    const earned = [ZERO, FACTORY_UNLOCK_EARNED, UPGRADE_UNLOCK_EARNED, MINT_UNLOCK_EARNED];
+    const earned = [
+      ZERO,
+      FACTORY_UNLOCK_EARNED,
+      UPGRADE_UNLOCK_EARNED,
+      MINT_UNLOCK_EARNED,
+      REFINERY_UNLOCK_EARNED,
+    ];
 
     expect(
       earned.map((totalEarned) => shownActions(state({ totalEarned, autoBuyer }))),
@@ -227,32 +243,44 @@ test.each([false, true])(
       [...rows, "buyFactory"],
       [...rows, "buyFactory", "buyUpgrade"],
       [...rows, "buyFactory", "buyUpgrade", "buyMint"],
+      [...rows, "buyFactory", "buyUpgrade", "buyMint", "buyRefinery"],
     ]);
   },
 );
 
 /**
- * これまでに生産したコインが 0〜3e8 の、到達しうる状態。造幣所は解放の後にしか買えないので、造幣所を持つ状態では、
- * これまでに生産したコインが解放の条件（以前の版の 5e7 から。今は 1.5e8）以上ある。
+ * これまでに生産したコインが 0〜6e8 の、到達しうる状態。造幣所と精錬所は解放の後にしか買えないので、造幣所を持つ
+ * 状態では、これまでに生産したコインが解放の条件（以前の版の 5e7 から。今は 1.5e8）以上あり、精錬所を持つ状態では
+ * 解放の条件 4.5e8 以上ある。
  */
 const reachable = fc
   .oneof(
     fc.record({
       earned: earnedAcrossUnlocks,
       mints: fc.constant(0),
+      refineries: fc.constant(0),
       autoBuyer: fc.boolean(),
     }),
     fc.record({
-      earned: fc.double({ min: 5e7, max: 3e8, noNaN: true }),
+      earned: fc.double({ min: 5e7, max: 6e8, noNaN: true }),
       mints: fc.nat({ max: 3 }),
+      refineries: fc.constant(0),
+      autoBuyer: fc.boolean(),
+    }),
+    fc.record({
+      earned: fc.double({ min: 4.5e8, max: 6e8, noNaN: true }),
+      mints: fc.nat({ max: 3 }),
+      refineries: fc.nat({ max: 3 }),
       autoBuyer: fc.boolean(),
     }),
   )
-  .map(({ earned, mints, autoBuyer }) => state({ totalEarned: num(earned), mints, autoBuyer }));
+  .map(({ earned, mints, refineries, autoBuyer }) =>
+    state({ totalEarned: num(earned), mints, refineries, autoBuyer }),
+  );
 
 test("生産が進んで品物が解放されても、自動購入を買わない限り、それまで並んでいた行の順と位置は変わらない", () => {
   fc.assert(
-    fc.property(reachable, fc.double({ min: 0, max: 3e8, noNaN: true }), (current, produced) => {
+    fc.property(reachable, fc.double({ min: 0, max: 6e8, noNaN: true }), (current, produced) => {
       const rows = shownActions(current);
       const later = shownActions(advance(current, produced / toNumber(production(current))));
 

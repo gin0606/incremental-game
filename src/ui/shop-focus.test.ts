@@ -40,8 +40,8 @@ const shopAt = (earned: number): readonly ShopItem[] =>
   view({ ...initialState, totalEarned: num(earned), autoBuyer: true }).shop;
 
 test("自動購入を買い終えると、フォーカスは後ろで最も近い見えている品物（工場）へ、工場の解放の前なら前の採集機へ移す", () => {
-  // 店の並びは採集機・自動購入・控えめな自動購入・工場・改良・造幣所。控えめな自動購入は、自動購入を買い終えると
-  // 隠れる。工場の後ろの改良と造幣所は、工場より後に解放される。
+  // 店の並びは採集機・自動購入・控えめな自動購入・工場・改良・造幣所・精錬所。控えめな自動購入は、自動購入を買い
+  // 終えると隠れる。工場の後ろの改良・造幣所・精錬所は、工場より後に解放される。
   expect(shopFocus(shopAt(1e9), 1)).toBe(3);
   expect(shopFocus(shopAt(1e7), 1)).toBe(3);
   expect(shopFocus(shopAt(1000), 1)).toBe(3);
