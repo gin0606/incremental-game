@@ -1,13 +1,15 @@
 // 画面の要素、localStorage、時計、タイマー、Web Locks をゲームにつなぐ。判断は session.ts・restore.ts・
-// notices.ts・tab-lock.ts・view.ts・shop-focus.ts に置いてユニットテストとミューテーションテストで確かめ、
+// notices.ts・tab-lock.ts・view.ts・shop-focus.ts・shop-rows.ts に置いてユニットテストとミューテーションテストで確かめ、
 // ここには置かない（このファイルはミューテーションテストの対象外で、E2E テストだけが確かめる）。
 import type { Action } from "../core/game.ts";
 import { createNotices } from "./notices.ts";
 import { startSession } from "./session.ts";
 import type { SaveStorage, Session } from "./session.ts";
 import { shopFocus } from "./shop-focus.ts";
+import type { RowDisplay } from "./shop-rows.ts";
+import { rowDisplay } from "./shop-rows.ts";
 import { playInOneTab, webLocks } from "./tab-lock.ts";
-import type { View } from "./view.ts";
+import type { ShopItem, View } from "./view.ts";
 import { view } from "./view.ts";
 
 const TICK_MS = 100;
@@ -78,14 +80,17 @@ const keepPlaying = (session: Session, render: () => void): void => {
   });
 };
 
-/** 店に品物の行を足す。得られるものの説明は、支援技術でもボタンと一緒に読めるようボタンの説明にもする。 */
+/**
+ * 店に品物の行を足す。得られるものの説明は、支援技術でもボタンと一緒に読めるようボタンの説明にもする。`render` は、行を
+ * 品物 `item` の状態と見せ方 `display` で描く。
+ */
 const addOffer = (
   action: Action,
   buy: () => void,
 ): {
   readonly row: HTMLElement;
   readonly button: HTMLButtonElement;
-  readonly effect: HTMLElement;
+  readonly render: (item: ShopItem, display: RowDisplay) => void;
 } => {
   const row = document.createElement("p");
   const button = document.createElement("button");
@@ -96,7 +101,17 @@ const addOffer = (
   button.setAttribute("aria-describedby", effect.id);
   row.append(button, " ", effect);
   shop.append(row);
-  return { row, button, effect };
+  const render = (item: ShopItem, display: RowDisplay): void => {
+    button.textContent = item.label;
+    // disabled だとフォーカスを受けられず、買って足りなくなると外れる。押せば押した時刻に買えるときだけ買う。
+    // ariaDisabled の反映は Firefox 119 からで、ビルドの対象（Firefox 114 から）に無いため setAttribute で書く。
+    button.setAttribute("aria-disabled", String(!item.affordable));
+    effect.textContent = item.effect;
+    // 場所だけを残す行は visibility: hidden にする。Tab の順と支援技術からも外れる。
+    row.hidden = display === "none";
+    row.style.visibility = display === "space" ? "hidden" : "";
+  };
+  return { row, button, render };
 };
 
 /** 値の一覧（店より前の部分）を描く。 */
@@ -127,8 +142,8 @@ const start = (): void => {
     }),
   );
 
-  /** この表示の間に一度でも見えた品物の行。 */
-  const placed = new Set<HTMLElement>();
+  /** ページを開いてから一度でも見せた品物の行。 */
+  const shownRows = new Set<HTMLElement>();
 
   function render(): void {
     const current = view(session.state(), session.pausedFor(Date.now()));
@@ -140,18 +155,10 @@ const start = (): void => {
         if (offer.button === document.activeElement) {
           focused = index;
         }
-        offer.button.textContent = item.label;
-        // disabled だとフォーカスを受けられず、買って足りなくなると外れる。押せば押した時刻に買えるときだけ買う。
-        // ariaDisabled の反映は Firefox 119 からで、ビルドの対象（Firefox 114 から）に無いため setAttribute で書く。
-        offer.button.setAttribute("aria-disabled", String(!item.affordable));
-        offer.effect.textContent = item.effect;
-        // 一度並べた行は、隠しても場所を残し、後ろの行を動かさない（docs/design/shop-focus.md）。visibility: hidden
-        // の行は、Tab の順と支援技術からも外れる。
+        offer.render(item, rowDisplay(item.visible, shownRows.has(offer.row)));
         if (item.visible) {
-          placed.add(offer.row);
+          shownRows.add(offer.row);
         }
-        offer.row.hidden = !item.visible && !placed.has(offer.row);
-        offer.row.style.visibility = item.visible ? "" : "hidden";
       }
     }
     // 隠した品物のボタンがフォーカスを持っていたら、ブラウザが文書の先頭へ外す前に店の中へ移す。
