@@ -3,6 +3,8 @@ import { ZERO, add, atLeast, div, mul, num, sub, toNumber, toleranceFloor } from
 
 import {
   COLLECTOR_PRODUCTION,
+  EXCHANGE_PRODUCTION,
+  EXCHANGE_UNLOCK_EARNED,
   FACTORY_PRODUCTION,
   FACTORY_UNLOCK_EARNED,
   MINT_PRODUCTION,
@@ -11,6 +13,7 @@ import {
   UPGRADE_MULTIPLIER,
   baseProduction,
   collectorCost,
+  exchangeCost,
   factoryCost,
   mintCost,
   mintUnlockEarned,
@@ -28,7 +31,7 @@ import type { Action, GameState } from "./state.ts";
 export const CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS = 600;
 
 /**
- * 自動購入と控えめな自動購入が買うものと、その値段と解放の条件。値段は解放の前でも返す。造幣所・精錬所・改良の値段は
+ * 自動購入と控えめな自動購入が買うものと、その値段と解放の条件。値段は解放の前でも返す。造幣所・精錬所・交易所・改良の値段は
  * 解放に要る累計の生産量（economy.ts の `*_UNLOCK_EARNED`）より安く、解放の前にコインが値段に届きうる。そのため、買う
  * 時刻は、コインが値段（控えめな自動購入では、残すコインとの和）に届く時刻と、累計の生産量が解放の条件に届く時刻の
  * 遅いほうにする（{@link nextAutoBuy}）。累計の生産量もコインと同じ速さで増えるため、どちらの時刻も進め方によらない。
@@ -67,6 +70,12 @@ const automated: readonly {
     cost: refineryCost,
     gain: () => REFINERY_PRODUCTION,
     unlock: () => REFINERY_UNLOCK_EARNED,
+  },
+  {
+    action: { type: "buyExchange" },
+    cost: exchangeCost,
+    gain: () => EXCHANGE_PRODUCTION,
+    unlock: () => EXCHANGE_UNLOCK_EARNED,
   },
   {
     action: { type: "buyUpgrade" },

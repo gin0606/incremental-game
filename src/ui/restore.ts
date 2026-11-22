@@ -45,6 +45,7 @@ export function awayReport(
       { name: "工場", count: after.factories - before.factories, unit: "台" },
       { name: "造幣所", count: after.mints - before.mints, unit: "台" },
       { name: "精錬所", count: after.refineries - before.refineries, unit: "台" },
+      { name: "交易所", count: after.exchanges - before.exchanges, unit: "台" },
       { name: "改良", count: after.upgrades - before.upgrades, unit: "個" },
     ] as const
   )

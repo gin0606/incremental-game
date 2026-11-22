@@ -63,7 +63,8 @@ test("解放の前の品物は、解放の条件と値段の両方に届くま�
 
 /**
  * 自動購入を買い終えた、採集機 200 台・工場 100 台・造幣所 50・改良 20（毎秒 2700 × 1.25^20、約 234187）の状態の待ち時間。
- * ほかの品物はどれも 1e9 より高く、解放の前の精錬所（30000000、解放の条件 4.5e8）が最も早い。
+ * 採集機・工場・造幣所・改良は 1e9 より高く、交易所（40000000）は解放の条件 7.5e8 に届くのが遅い。解放の前の精錬所
+ * （30000000、解放の条件 4.5e8）が最も早い。
  */
 const waitBeforeRefinery = (totalEarned: number, coins: number): string =>
   view(
@@ -83,6 +84,31 @@ test("解放の前の精錬所も、解放の条件と値段の両方に届く�
   expect(waitBeforeRefinery(4e8, 2.9e7)).toBe("今の生産のままで約 3 分 34 秒");
   // 値段まであと 3e7 で、条件まであと 1e6 より遅い。
   expect(waitBeforeRefinery(4.49e8, 0)).toBe("今の生産のままで約 2 分 9 秒");
+});
+
+/**
+ * 自動購入を買い終えた、採集機 200 台・工場 100 台・造幣所 50・精錬所 50・改良 20（毎秒 7700 × 1.25^20、約 667868）の
+ * 状態の待ち時間。ほかの品物はどれも 1e9 より高く、解放の前の交易所（40000000、解放の条件 7.5e8）が最も早い。
+ */
+const waitBeforeExchange = (totalEarned: number, coins: number): string =>
+  view(
+    state({
+      coins: num(coins),
+      totalEarned: num(totalEarned),
+      collectors: 200,
+      factories: 100,
+      mints: 50,
+      refineries: 50,
+      upgrades: 20,
+      autoBuyer: true,
+    }),
+  ).nextPurchase;
+
+test("解放の前の交易所も、解放の条件と値段の両方に届くまでの時間で待ち時間に数える", () => {
+  // 条件まであと 5e7 で、値段まであと 1e6 より遅い。
+  expect(waitBeforeExchange(7e8, 3.9e7)).toBe("今の生産のままで約 1 分 15 秒");
+  // 値段まであと 3e7 で、条件まであと 1e6 より遅い。
+  expect(waitBeforeExchange(7.49e8, 1e7)).toBe("今の生産のままで約 45 秒");
 });
 
 test("まだ買っていない自動購入は、見えている品物として待ち時間に数える", () => {

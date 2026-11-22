@@ -29,7 +29,7 @@ const putSave = (save: string): void => {
   localStorage.setItem("incremental-game:save", save);
 };
 
-test("精錬所が解放される前は店に並べず、解放されると条件に替えてすべて解放したことを示して後ろに並べ、買うと精錬所の数と毎秒の生産が増える", async ({
+test("精錬所が解放される前は店に並べず、解放されると次の交易所の条件を示して後ろに並べ、買うと精錬所の数と毎秒の生産が増える", async ({
   page,
 }) => {
   await page.addInitScript(putSave, beforeRefineryUnlock(false));
@@ -55,7 +55,9 @@ test("精錬所が解放される前は店に並べず、解放されると条�
   await page.clock.runFor(1000);
   await expect(label).toBeVisible();
   await expect(condition).toBeVisible();
-  await expect(condition).toHaveText("なし（すべて解放済み）");
+  await expect(condition).toHaveText(
+    "交易所: これまでに生産したコインが 750000000 に達すると解放（あと 300000000）",
+  );
   await expect(refinery).toBeVisible();
   await expect(refinery).toHaveText("精錬所を買う（30000000 コイン）");
   await expect(refinery).toHaveAccessibleDescription("買うと毎秒の生産が 100 増える");

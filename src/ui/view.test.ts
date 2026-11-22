@@ -27,6 +27,15 @@ const lockedRefinery = {
   affordable: false,
 } as const;
 
+/** 解放の前の、交易所を買う品物（数 0）。 */
+const lockedExchange = {
+  action: { type: "buyExchange" },
+  label: "交易所を買う（40000000 コイン）",
+  effect: "買うと毎秒の生産が 300 増える",
+  visible: false,
+  affordable: false,
+} as const;
+
 /** 解放の前の、改良を買う品物（数 0）。 */
 const lockedUpgrade = (gain: number) =>
   ({
@@ -37,7 +46,8 @@ const lockedUpgrade = (gain: number) =>
     affordable: false,
   }) as const;
 
-const autoBuyerWork = "採集機・工場・造幣所・精錬所・改良を、買える額に達するたびに自動で買う";
+const autoBuyerWork =
+  "採集機・工場・造幣所・精錬所・交易所・改良を、買える額に達するたびに自動で買う";
 
 /** 控えめな自動購入を買う品物。自動購入か控えめな自動購入を買い終えると見えない。 */
 const cautiousRow = (visible: boolean) =>
@@ -45,7 +55,7 @@ const cautiousRow = (visible: boolean) =>
     action: { type: "buyCautiousAutoBuyer" },
     label: "控えめな自動購入を買う（30000 コイン）",
     effect:
-      "採集機・工場・造幣所・精錬所・改良を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
+      "採集機・工場・造幣所・精錬所・交易所・改良を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
     visible,
     affordable: false,
   }) as const;
@@ -62,7 +72,7 @@ test.each([
   },
 );
 
-test("初期状態では採集機と 2 つの自動購入を並べ、工場・改良・造幣所・精錬所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
+test("初期状態では採集機と 2 つの自動購入を並べ、工場・改良・造幣所・精錬所・交易所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",
     totalEarned: "0",
@@ -71,6 +81,7 @@ test("初期状態では採集機と 2 つの自動購入を並べ、工場・�
     factories: "0",
     mints: "0",
     refineries: "0",
+    exchanges: "0",
     upgrades: "0",
     autoBuyer: "なし",
     // 採集機の値段 11.5 に毎秒 1 で届くまで 11.5 秒。切り上げる。
@@ -103,6 +114,7 @@ test("初期状態では採集機と 2 つの自動購入を並べ、工場・�
       lockedUpgrade(0),
       lockedMint,
       lockedRefinery,
+      lockedExchange,
     ],
   });
 });
@@ -125,6 +137,7 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
     factories: "2",
     mints: "0",
     refineries: "0",
+    exchanges: "0",
     upgrades: "0",
     autoBuyer: "稼働中",
     nextPurchase: "今買える",
@@ -157,6 +170,7 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
       lockedUpgrade(5),
       lockedMint,
       lockedRefinery,
+      lockedExchange,
     ],
   });
 });
@@ -166,6 +180,7 @@ const producers = [
   { index: 3, action: { type: "buyFactory" } },
   { index: 5, action: { type: "buyMint" } },
   { index: 6, action: { type: "buyRefinery" } },
+  { index: 7, action: { type: "buyExchange" } },
 ] as const;
 
 /** 買うと増えると示す毎秒の生産と、買った後に示す毎秒の生産と今のものとの差。 */
@@ -212,6 +227,23 @@ test.each(producers)(
     );
   },
 );
+
+test("改良: 毎秒の生産が 10 億未満の間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい", () => {
+  const action = { type: "buyUpgrade" } as const;
+  const rule = "（すべての施設の生産が 1.25 倍になる）";
+  fc.assert(
+    fc.property(gameState, (current) => {
+      fc.pre(toNumber(production(withPurchase(current, action))) < 1e9);
+      const difference =
+        Number(view(withPurchase(current, action)).production) - Number(view(current).production);
+
+      expect([
+        `買うと毎秒の生産が ${difference} 増える${rule}`,
+        `買うと毎秒の生産が ${difference - 1} 増える${rule}`,
+      ]).toContain(view(current).shop[4]?.effect);
+    }),
+  );
+});
 
 test("これまでに生産したコインは、生産で増え、購入で手元のコインが減っても減らない", () => {
   // 採集機 1 台で毎秒 1。手元のコインと同じく、端数は切り捨てる。

@@ -3,13 +3,16 @@ import {
   AUTO_BUYER_COST,
   CAUTIOUS_AUTO_BUYER_COST,
   CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS,
+  EXCHANGE_UNLOCK_EARNED,
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
   REFINERY_UNLOCK_EARNED,
   UPGRADE_MULTIPLIER,
   UPGRADE_UNLOCK_EARNED,
   collectorCost,
+  exchangeCost,
   factoryCost,
+  isExchangeUnlocked,
   isFactoryUnlocked,
   isMintUnlocked,
   isRefineryUnlocked,
@@ -30,7 +33,7 @@ import { ZERO, add, atLeast, div, format, max, num, sub, toNumber } from "../cor
 export interface ShopItem {
   readonly action: Action;
   readonly label: string;
-  /** 買うと得られるもの。採集機・工場・造幣所・精錬所・改良は増える毎秒の生産、自動購入と控えめな自動購入は働き。 */
+  /** 買うと得られるもの。採集機・工場・造幣所・精錬所・交易所・改良は増える毎秒の生産、自動購入と控えめな自動購入は働き。 */
   readonly effect: string;
   /** 解放されていて、まだ買える（一度きりの品物を買い終えていない）。 */
   readonly visible: boolean;
@@ -46,6 +49,7 @@ export interface View {
   readonly factories: string;
   readonly mints: string;
   readonly refineries: string;
+  readonly exchanges: string;
   readonly upgrades: string;
   readonly autoBuyer: string;
   /**
@@ -112,9 +116,10 @@ const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = 
   buyExchange: (state) => productionGain(state, { type: "buyExchange" }),
   buyUpgrade: (state) =>
     `${productionGain(state, { type: "buyUpgrade" })}（すべての施設の生産が ${toNumber(UPGRADE_MULTIPLIER)} 倍になる）`,
-  buyAutoBuyer: () => "採集機・工場・造幣所・精錬所・改良を、買える額に達するたびに自動で買う",
+  buyAutoBuyer: () =>
+    "採集機・工場・造幣所・精錬所・交易所・改良を、買える額に達するたびに自動で買う",
   buyCautiousAutoBuyer: () =>
-    `採集機・工場・造幣所・精錬所・改良を、払った後も今の生産の ${CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS / 60} 分ぶんのコインが残るときに自動で買う`,
+    `採集機・工場・造幣所・精錬所・交易所・改良を、払った後も今の生産の ${CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS / 60} 分ぶんのコインが残るときに自動で買う`,
 };
 
 /** 品物と、その値段。値段は、品物が見えていないとき（解放の前や買い終えた後）も求まる。 */
@@ -183,6 +188,7 @@ const unlocks: readonly {
   { name: "改良", earned: UPGRADE_UNLOCK_EARNED, unlocked: isUpgradeUnlocked },
   { name: "造幣所", earned: MINT_UNLOCK_EARNED, unlocked: isMintUnlocked },
   { name: "精錬所", earned: REFINERY_UNLOCK_EARNED, unlocked: isRefineryUnlocked },
+  { name: "交易所", earned: EXCHANGE_UNLOCK_EARNED, unlocked: isExchangeUnlocked },
 ];
 
 /**
@@ -231,6 +237,7 @@ export function view(state: GameState, pausedSeconds = 0): View {
     offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), upgradeUnlockEarned(state)),
     offer(state, { type: "buyMint" }, "造幣所", mintCost(state), mintUnlockEarned(state)),
     offer(state, { type: "buyRefinery" }, "精錬所", refineryCost(state), REFINERY_UNLOCK_EARNED),
+    offer(state, { type: "buyExchange" }, "交易所", exchangeCost(state), EXCHANGE_UNLOCK_EARNED),
   ];
   return {
     coins: format(state.coins),
@@ -240,6 +247,7 @@ export function view(state: GameState, pausedSeconds = 0): View {
     factories: state.factories.toString(),
     mints: state.mints.toString(),
     refineries: state.refineries.toString(),
+    exchanges: state.exchanges.toString(),
     upgrades: state.upgrades.toString(),
     autoBuyer: autoBuyerStatus(state),
     nextPurchase: nextPurchase(state, offers, pausedSeconds),

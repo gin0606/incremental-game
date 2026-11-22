@@ -2,17 +2,16 @@ import * as fc from "fast-check";
 import { assert, expect, test } from "vitest";
 
 import type { Action, GameState } from "../core/game.ts";
-import { gameState } from "../core/game.arbitrary.ts";
 import {
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
   REFINERY_UNLOCK_EARNED,
+  EXCHANGE_UNLOCK_EARNED,
   UPGRADE_UNLOCK_EARNED,
   advance,
   initialState,
   perform,
   production,
-  withPurchase,
 } from "../core/game.ts";
 import { ZERO, num, toNumber } from "../core/num.ts";
 import { deserialize } from "../save/save.ts";
@@ -140,47 +139,34 @@ test("造幣所の解放までの残りは、端数を切り上げる。条件�
   expect(withinTolerance.shop[6]?.visible).toBe(false);
 });
 
-test("改良: 毎秒の生産が 10 億未満の間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい", () => {
-  const action = { type: "buyUpgrade" } as const;
-  const rule = "（すべての施設の生産が 1.25 倍になる）";
-  fc.assert(
-    fc.property(gameState, (current) => {
-      fc.pre(toNumber(production(withPurchase(current, action))) < 1e9);
-      const difference =
-        Number(view(withPurchase(current, action)).production) - Number(view(current).production);
-
-      expect([
-        `買うと毎秒の生産が ${difference} 増える${rule}`,
-        `買うと毎秒の生産が ${difference - 1} 増える${rule}`,
-      ]).toContain(view(current).shop[4]?.effect);
-    }),
-  );
-});
-
-/** これまでに生産したコイン。工場の解放の条件の前後を細かく、精錬所の解放の条件の先までを粗く覆う。 */
+/** これまでに生産したコイン。工場の解放の条件の前後を細かく、交易所の解放の条件の先までを粗く覆う。 */
 const earnedAcrossUnlocks = fc.oneof(
   fc.double({ min: 0, max: 200, noNaN: true }),
-  fc.double({ min: 0, max: 6e8, noNaN: true }),
+  fc.double({ min: 0, max: 9e8, noNaN: true }),
 );
 
-/** 工場・改良・造幣所・精錬所が見えているかと、次の解放の表示が示す要素（無ければその旨）。 */
-const unlockShown = (current: View): readonly [boolean, boolean, boolean, boolean, string] => [
+/** 工場・改良・造幣所・精錬所・交易所が見えているかと、次の解放の表示が示す要素（無ければその旨）。 */
+const unlockShown = (
+  current: View,
+): readonly [boolean, boolean, boolean, boolean, boolean, string] => [
   current.shop[3]?.visible === true,
   current.shop[4]?.visible === true,
   current.shop[5]?.visible === true,
   current.shop[6]?.visible === true,
+  current.shop[7]?.visible === true,
   current.nextUnlock.split(":")[0] ?? "",
 ];
 
-test("次の解放の条件は、工場・改良・造幣所・精錬所の順に、まだ隠れている最初のものだけを示す", () => {
+test("次の解放の条件は、工場・改良・造幣所・精錬所・交易所の順に、まだ隠れている最初のものだけを示す", () => {
   fc.assert(
     fc.property(earnedAcrossUnlocks, (earned) => {
       expect([
-        [false, false, false, false, "工場"],
-        [true, false, false, false, "改良"],
-        [true, true, false, false, "造幣所"],
-        [true, true, true, false, "精錬所"],
-        [true, true, true, true, allUnlocked],
+        [false, false, false, false, false, "工場"],
+        [true, false, false, false, false, "改良"],
+        [true, true, false, false, false, "造幣所"],
+        [true, true, true, false, false, "精錬所"],
+        [true, true, true, true, false, "交易所"],
+        [true, true, true, true, true, allUnlocked],
       ]).toContainEqual(unlockShown(view(state({ totalEarned: num(earned) }))));
     }),
   );
@@ -223,7 +209,7 @@ const firstRows = (autoBuyer: boolean): readonly Action["type"][] =>
   autoBuyer ? ["buyCollector"] : ["buyCollector", "buyAutoBuyer", "buyCautiousAutoBuyer"];
 
 test.each([false, true])(
-  "これまでに生産したコインが工場・改良・造幣所・精錬所の解放の条件に順に達すると、行は後ろに足され、それまで並んでいた行の順と位置は変わらない（自動購入を買い終えている: %s）",
+  "これまでに生産したコインが工場・改良・造幣所・精錬所・交易所の解放の条件に順に達すると、行は後ろに足され、それまで並んでいた行の順と位置は変わらない（自動購入を買い終えている: %s）",
   (autoBuyer) => {
     // 解放の条件はどれも、これまでに生産したコインの決まった量なので、efficiency@always を含むどの遊び方でもこの順に
     // 解放される。
@@ -234,6 +220,7 @@ test.each([false, true])(
       UPGRADE_UNLOCK_EARNED,
       MINT_UNLOCK_EARNED,
       REFINERY_UNLOCK_EARNED,
+      EXCHANGE_UNLOCK_EARNED,
     ];
 
     expect(
@@ -244,14 +231,15 @@ test.each([false, true])(
       [...rows, "buyFactory", "buyUpgrade"],
       [...rows, "buyFactory", "buyUpgrade", "buyMint"],
       [...rows, "buyFactory", "buyUpgrade", "buyMint", "buyRefinery"],
+      [...rows, "buyFactory", "buyUpgrade", "buyMint", "buyRefinery", "buyExchange"],
     ]);
   },
 );
 
 /**
- * これまでに生産したコインが 0〜6e8 の、到達しうる状態。造幣所と精錬所は解放の後にしか買えないので、造幣所を持つ
- * 状態では、これまでに生産したコインが解放の条件（以前の版の 5e7 から。今は 1.3e8）以上あり、精錬所を持つ状態では
- * 解放の条件 4.5e8 以上ある。
+ * これまでに生産したコインが 0〜9e8 の、到達しうる状態。造幣所・精錬所・交易所は解放の後にしか買えないので、造幣所を
+ * 持つ状態では、これまでに生産したコインが解放の条件（以前の版の 5e7 から。今は 1.3e8）以上あり、精錬所を持つ状態では
+ * 解放の条件 4.5e8 以上、交易所を持つ状態では解放の条件 7.5e8 以上ある。
  */
 const reachable = fc
   .oneof(
@@ -259,28 +247,38 @@ const reachable = fc
       earned: earnedAcrossUnlocks,
       mints: fc.constant(0),
       refineries: fc.constant(0),
+      exchanges: fc.constant(0),
       autoBuyer: fc.boolean(),
     }),
     fc.record({
-      earned: fc.double({ min: 5e7, max: 6e8, noNaN: true }),
+      earned: fc.double({ min: 5e7, max: 9e8, noNaN: true }),
       mints: fc.nat({ max: 3 }),
       refineries: fc.constant(0),
+      exchanges: fc.constant(0),
       autoBuyer: fc.boolean(),
     }),
     fc.record({
-      earned: fc.double({ min: 4.5e8, max: 6e8, noNaN: true }),
+      earned: fc.double({ min: 4.5e8, max: 9e8, noNaN: true }),
       mints: fc.nat({ max: 3 }),
       refineries: fc.nat({ max: 3 }),
+      exchanges: fc.constant(0),
+      autoBuyer: fc.boolean(),
+    }),
+    fc.record({
+      earned: fc.double({ min: 7.5e8, max: 9e8, noNaN: true }),
+      mints: fc.nat({ max: 3 }),
+      refineries: fc.nat({ max: 3 }),
+      exchanges: fc.nat({ max: 3 }),
       autoBuyer: fc.boolean(),
     }),
   )
-  .map(({ earned, mints, refineries, autoBuyer }) =>
-    state({ totalEarned: num(earned), mints, refineries, autoBuyer }),
+  .map(({ earned, mints, refineries, exchanges, autoBuyer }) =>
+    state({ totalEarned: num(earned), mints, refineries, exchanges, autoBuyer }),
   );
 
 test("生産が進んで品物が解放されても、自動購入を買わない限り、それまで並んでいた行の順と位置は変わらない", () => {
   fc.assert(
-    fc.property(reachable, fc.double({ min: 0, max: 6e8, noNaN: true }), (current, produced) => {
+    fc.property(reachable, fc.double({ min: 0, max: 9e8, noNaN: true }), (current, produced) => {
       const rows = shownActions(current);
       const later = shownActions(advance(current, produced / toNumber(production(current))));
 

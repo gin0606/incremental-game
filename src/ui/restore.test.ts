@@ -88,23 +88,34 @@ test("生産したコインは、手元のコインではなく、これまで�
   );
 });
 
+const unchanged = {
+  collectors: 2,
+  factories: 1,
+  mints: 0,
+  refineries: 0,
+  exchanges: 0,
+  upgrades: 0,
+};
+
 test.each([
-  { collectors: 5, factories: 1, mints: 0, refineries: 0, upgrades: 0, added: "採集機が 3 台" },
-  { collectors: 2, factories: 4, mints: 0, refineries: 0, upgrades: 0, added: "工場が 3 台" },
-  { collectors: 2, factories: 1, mints: 2, refineries: 0, upgrades: 0, added: "造幣所が 2 台" },
-  { collectors: 2, factories: 1, mints: 0, refineries: 2, upgrades: 0, added: "精錬所が 2 台" },
-  { collectors: 2, factories: 1, mints: 0, refineries: 0, upgrades: 2, added: "改良が 2 個" },
+  { ...unchanged, collectors: 5, added: "採集機が 3 台" },
+  { ...unchanged, factories: 4, added: "工場が 3 台" },
+  { ...unchanged, mints: 2, added: "造幣所が 2 台" },
+  { ...unchanged, refineries: 2, added: "精錬所が 2 台" },
+  { ...unchanged, exchanges: 2, added: "交易所が 2 台" },
+  { ...unchanged, upgrades: 2, added: "改良が 2 個" },
   {
     collectors: 3,
     factories: 2,
     mints: 1,
     refineries: 1,
+    exchanges: 1,
     upgrades: 1,
-    added: "採集機が 1 台、工場が 1 台、造幣所が 1 台、精錬所が 1 台、改良が 1 個",
+    added: "採集機が 1 台、工場が 1 台、造幣所が 1 台、精錬所が 1 台、交易所が 1 台、改良が 1 個",
   },
 ] as const)(
-  "自動購入で増えた施設と改良だけを示す（採集機 $collectors 台、工場 $factories 台、造幣所 $mints 台、精錬所 $refineries 台、改良 $upgrades）",
-  ({ collectors, factories, mints, refineries, upgrades, added }) => {
+  "自動購入で増えた施設と改良だけを示す（採集機 $collectors 台、工場 $factories 台、造幣所 $mints 台、精錬所 $refineries 台、交易所 $exchanges 台、改良 $upgrades）",
+  ({ collectors, factories, mints, refineries, exchanges, upgrades, added }) => {
     const after: GameState = {
       ...saved,
       totalEarned: num(120),
@@ -112,6 +123,7 @@ test.each([
       factories,
       mints,
       refineries,
+      exchanges,
       upgrades,
     };
 
@@ -122,17 +134,18 @@ test.each([
 );
 
 test("増えた数は、離れる前の数との差で示す", () => {
-  const before: GameState = { ...saved, mints: 2, refineries: 4, upgrades: 3 };
+  const before: GameState = { ...saved, mints: 2, refineries: 4, exchanges: 1, upgrades: 3 };
   const after: GameState = {
     ...before,
     totalEarned: num(120),
     mints: 3,
     refineries: 6,
+    exchanges: 4,
     upgrades: 15,
   };
 
   expect(awayReport(before, after, 3600)).toBe(
-    "離れていた 1 時間 0 分のあいだに、コインを 100 生産した。自動購入で造幣所が 1 台、精錬所が 2 台、改良が 12 個増えた。",
+    "離れていた 1 時間 0 分のあいだに、コインを 100 生産した。自動購入で造幣所が 1 台、精錬所が 2 台、交易所が 3 台、改良が 12 個増えた。",
   );
 });
 
