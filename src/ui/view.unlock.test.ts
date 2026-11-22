@@ -122,7 +122,7 @@ test("次の解放の条件は、工場・改良・造幣所の順に、まだ�
     fc.property(
       fc.oneof(
         fc.double({ min: 0, max: 200, noNaN: true }),
-        fc.double({ min: 0, max: 1e8, noNaN: true }),
+        fc.double({ min: 0, max: 3e8, noNaN: true }),
       ),
       (earned) => {
         expect([
