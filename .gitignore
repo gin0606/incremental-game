@@ -11,9 +11,6 @@ node_modules/
 # Claude Code が作る worktree
 .claude/worktrees/
 
-# 無人運転のドライバ（監督役の Claude Code セッションを繰り返し起動するスクリプト）のログ
-.driver/
-
 # 一時ファイル
 .tmp/
 
