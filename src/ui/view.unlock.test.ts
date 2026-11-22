@@ -198,8 +198,10 @@ const firstRows = (autoBuyer: boolean): readonly Action["type"][] =>
   autoBuyer ? ["buyCollector"] : ["buyCollector", "buyAutoBuyer"];
 
 test.each([false, true])(
-  "efficiency@always などどのボットでも同じ解放の順（工場・改良・造幣所）で品物が 1 つずつ解放されると、行は後ろに足され、それまで並んでいた行の順と位置は変わらない（自動購入を買い終えている: %s）",
+  "これまでに生産したコインが工場・改良・造幣所の解放の条件に順に達すると、行は後ろに足され、それまで並んでいた行の順と位置は変わらない（自動購入を買い終えている: %s）",
   (autoBuyer) => {
+    // 解放の条件はどれも、これまでに生産したコインの決まった量なので、efficiency@always を含むどの遊び方でもこの順に
+    // 解放される。
     const rows = firstRows(autoBuyer);
     const earned = [ZERO, FACTORY_UNLOCK_EARNED, UPGRADE_UNLOCK_EARNED, MINT_UNLOCK_EARNED];
 
@@ -215,8 +217,8 @@ test.each([false, true])(
 );
 
 /**
- * これまでに生産したコインが 0〜3e8 の、到達しうる状態。造幣所は解放の後にしか買えず、解放の条件（今の 1.5e8 も以前の
- * 版の 5e7 も）は改良の条件より大きいので、造幣所を持つ状態では改良も解放されている。
+ * これまでに生産したコインが 0〜3e8 の、到達しうる状態。造幣所は解放の後にしか買えないので、造幣所を持つ状態では、
+ * これまでに生産したコインが解放の条件（以前の版の 5e7 から。今は 1.5e8）以上ある。
  */
 const reachable = fc
   .oneof(
@@ -226,7 +228,7 @@ const reachable = fc
       autoBuyer: fc.boolean(),
     }),
     fc.record({
-      earned: fc.double({ min: toNumber(UPGRADE_UNLOCK_EARNED), max: 3e8, noNaN: true }),
+      earned: fc.double({ min: 5e7, max: 3e8, noNaN: true }),
       mints: fc.nat({ max: 3 }),
       autoBuyer: fc.boolean(),
     }),
