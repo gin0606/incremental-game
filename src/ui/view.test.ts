@@ -5,7 +5,7 @@ import type { GameState } from "../core/game.ts";
 import { gameState } from "../core/game.arbitrary.ts";
 import { advance, initialState, perform, production, withPurchase } from "../core/game.ts";
 import { mul, num, toNumber } from "../core/num.ts";
-import { view } from "./view.ts";
+import { awayPanel, view } from "./view.ts";
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
@@ -192,4 +192,12 @@ test("これまでに生産したコインは、手元のコインと同じく 1
   expect(view(state({ totalEarned: num(999_999_999.9) })).totalEarned).toBe("999999999");
   expect(view(state({ totalEarned: num(1.2345e9) })).totalEarned).toBe("1.23e9");
   expect(view(state({ totalEarned: mul(num(1e300), num(1e300)) })).totalEarned).toBe("1.00e600");
+});
+
+test("離れていた間に進んだことがあれば知らせの欄に出し、無ければ隠す", () => {
+  expect(awayPanel("1 時間 離れていた間に 10 コイン生産した")).toStrictEqual({
+    hidden: false,
+    text: "1 時間 離れていた間に 10 コイン生産した",
+  });
+  expect(awayPanel()).toStrictEqual({ hidden: true, text: "" });
 });

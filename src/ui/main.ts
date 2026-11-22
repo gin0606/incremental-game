@@ -5,12 +5,12 @@ import type { Action } from "../core/game.ts";
 import { createNotices } from "./notices.ts";
 import { startSession } from "./session.ts";
 import type { SaveStorage, Session } from "./session.ts";
-import { focusMove } from "./shop-focus.ts";
-import type { RowDisplay } from "./shop-rows.ts";
-import { rowDisplay } from "./shop-rows.ts";
+import { focusedIndex, moveFocus, pressedByKeyboard } from "./shop-focus.ts";
+import type { RowLook } from "./shop-rows.ts";
+import { rowLooks, shownAfter } from "./shop-rows.ts";
 import { playInOneTab, webLocks } from "./tab-lock.ts";
-import type { ShopItem, View } from "./view.ts";
-import { view } from "./view.ts";
+import type { View } from "./view.ts";
+import { awayPanel, view } from "./view.ts";
 
 const TICK_MS = 100;
 const AUTOSAVE_MS = 1000;
@@ -55,8 +55,9 @@ const storage: SaveStorage = {
 
 /** 離れていた間に進んだこと（無ければ `undefined` で、隠したままにする）を、プレイヤーが閉じるまで出しておく。 */
 const showAway = (report: string | undefined): void => {
-  away.hidden = report === undefined;
-  awayReport.textContent = report ?? "";
+  const panel = awayPanel(report);
+  away.hidden = panel.hidden;
+  awayReport.textContent = panel.text;
   awayClose.addEventListener("click", () => {
     away.hidden = true;
     // フォーカスを、知らせの後に続く値の一覧（その見出しで名前を付けたもの）へ移す。「閉じる」が持っていた
@@ -82,39 +83,35 @@ const keepPlaying = (session: Session, render: () => void): void => {
 
 /**
  * 店に品物の行を足す。得られるものの説明は、支援技術でもボタンと一緒に読めるようボタンの説明にもする。`buy` には、
- * ボタンをキーボードで押したか（click の `detail` が 0）を渡す。`render` は、行を
- * 品物 `item` の状態と見せ方 `display` で描く。
+ * ボタンをキーボードで押したかを渡す。`render` は、行を `look` で描く。
  */
 const addOffer = (
   action: Action,
   buy: (byKeyboard: boolean) => void,
 ): {
-  readonly row: HTMLElement;
   readonly button: HTMLButtonElement;
-  readonly render: (item: ShopItem, display: RowDisplay) => void;
+  readonly render: (look: RowLook) => void;
 } => {
   const row = document.createElement("p");
   const button = document.createElement("button");
   button.type = "button";
   button.addEventListener("click", (event: Readonly<Pick<MouseEvent, "detail">>) => {
-    buy(event.detail === 0);
+    buy(pressedByKeyboard(event.detail));
   });
   const effect = document.createElement("span");
   effect.id = `effect-${action.type}`;
   button.setAttribute("aria-describedby", effect.id);
   row.append(button, " ", effect);
   shop.append(row);
-  const render = (item: ShopItem, display: RowDisplay): void => {
-    button.textContent = item.label;
-    // disabled だとフォーカスを受けられず、買って足りなくなると外れる。押せば押した時刻に買えるときだけ買う。
+  const render = (look: RowLook): void => {
+    button.textContent = look.label;
     // ariaDisabled の反映は Firefox 119 からで、ビルドの対象（Firefox 114 から）に無いため setAttribute で書く。
-    button.setAttribute("aria-disabled", String(!item.affordable));
-    effect.textContent = item.effect;
-    // 場所だけを残す行は visibility: hidden にする。Tab の順と支援技術からも外れる。
-    row.hidden = display === "none";
-    row.style.visibility = display === "space" ? "hidden" : "";
+    button.setAttribute("aria-disabled", look.ariaDisabled);
+    effect.textContent = look.effect;
+    row.hidden = look.hidden;
+    row.style.visibility = look.visibility;
   };
-  return { row, button, render };
+  return { button, render };
 };
 
 /** 値の一覧（店より前の部分）を描く。 */
@@ -138,42 +135,40 @@ const start = (): void => {
   session.save(Date.now());
   showAway(session.away);
 
-  const offers = view(session.state()).shop.map((item) =>
-    addOffer(item.action, (byKeyboard) => {
+  /** 品物のボタンと、行を描く関数（店の並び）。 */
+  const buttons: HTMLButtonElement[] = [];
+  const renderRows: ((look: RowLook) => void)[] = [];
+  for (const item of view(session.state()).shop) {
+    const offer = addOffer(item.action, (byKeyboard) => {
       session.perform(item.action, Date.now());
       render(byKeyboard);
-    }),
-  );
-
-  /** ページを開いてから一度でも見せた品物の行。 */
-  const shownRows = new Set<HTMLElement>();
-
-  /** 画面を描き直す。`byKeyboard` は、描き直すきっかけの購入をキーボードで押したか。 */
-  function render(byKeyboard = false): void {
-    const current = view(session.state(), session.pausedFor(Date.now()));
-    renderStats(current);
-    let focused = -1;
-    for (const [index, item] of current.shop.entries()) {
-      const offer = offers[index];
-      if (offer !== undefined) {
-        if (offer.button === document.activeElement) {
-          focused = index;
-        }
-        offer.render(item, rowDisplay(item.visible, shownRows.has(offer.row)));
-        if (item.visible) {
-          shownRows.add(offer.row);
-        }
-      }
-    }
-    // 隠した品物のボタンがフォーカスを持っていたら、ブラウザが文書の先頭へ外す前に店の中へ移す。
-    const move = focusMove(current.shop, focused, byKeyboard);
-    if (move !== undefined) {
-      offers[move.index]?.button.focus({ preventScroll: move.preventScroll });
-    }
+    });
+    buttons.push(offer.button);
+    renderRows.push(offer.render);
   }
 
-  render();
-  keepPlaying(session, render);
+  /** ページを開いてから各品物の行を一度でも見せたか。 */
+  let shown: readonly boolean[] = [];
+
+  /** 画面を描き直す。`byKeyboard` は、描き直すきっかけの購入をキーボードで押したか。 */
+  function render(byKeyboard: boolean): void {
+    const current = view(session.state(), session.pausedFor(Date.now()));
+    renderStats(current);
+    const focused = focusedIndex(buttons, document.activeElement);
+    for (const [index, look] of rowLooks(current.shop, shown).entries()) {
+      renderRows[index]?.(look);
+    }
+    shown = shownAfter(current.shop, shown);
+    // 隠した品物のボタンがフォーカスを持っていたら、ブラウザが文書の先頭へ外す前に店の中へ移す。
+    moveFocus(current.shop, focused, byKeyboard, (index, options) => {
+      buttons[index]?.focus(options);
+    });
+  }
+
+  render(false);
+  keepPlaying(session, () => {
+    render(false);
+  });
 };
 
 // ロックは遊んでいる間ずっと持つため、この await はページを閉じるまで終わらない。

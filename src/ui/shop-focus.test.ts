@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 
 import { initialState } from "../core/game.ts";
 import { num } from "../core/num.ts";
-import { focusMove, shopFocus } from "./shop-focus.ts";
+import { focusMove, focusedIndex, moveFocus, pressedByKeyboard, shopFocus } from "./shop-focus.ts";
 import type { ShopItem } from "./view.ts";
 import { view } from "./view.ts";
 
@@ -61,4 +61,37 @@ test("フォーカスを移すとき、キーボードで押した後は巻き�
 test("フォーカスを移さないときは、移す先も巻き取りも返さない", () => {
   expect(focusMove(shopOf(true, true), 1, true)).toBeUndefined();
   expect(focusMove(shopOf(true, true), -1, false)).toBeUndefined();
+});
+
+test("フォーカスを持つ要素が品物のボタンならその位置を、ほかの要素なら -1 を返す", () => {
+  const buttons = [{}, {}, {}];
+  expect(focusedIndex(buttons, buttons[1])).toBe(1);
+  expect(focusedIndex(buttons, {})).toBe(-1);
+  expect(focusedIndex(buttons, null)).toBe(-1);
+});
+
+test("click の押した回数が 0 のときだけ、キーボードで押したとする", () => {
+  expect(pressedByKeyboard(0)).toBe(true);
+  expect(pressedByKeyboard(1)).toBe(false);
+  expect(pressedByKeyboard(2)).toBe(false);
+});
+
+/** {@link moveFocus} が `focus` に渡した位置と巻き取りの指定。 */
+const movesOf = (
+  shop: readonly ShopItem[],
+  focused: number,
+  byKeyboard: boolean,
+): readonly (readonly [number, boolean])[] => {
+  const moves: (readonly [number, boolean])[] = [];
+  moveFocus(shop, focused, byKeyboard, (index, options) => {
+    moves.push([index, options.preventScroll]);
+  });
+  return moves;
+};
+
+test("移す先があるときだけ、その位置と巻き取りの指定でフォーカスを移させる", () => {
+  expect(movesOf(shopOf(true, false, true), 1, true)).toStrictEqual([[2, false]]);
+  expect(movesOf(shopOf(true, false, true), 1, false)).toStrictEqual([[2, true]]);
+  expect(movesOf(shopOf(true, true), 1, true)).toStrictEqual([]);
+  expect(movesOf(shopOf(true), -1, false)).toStrictEqual([]);
 });

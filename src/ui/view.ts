@@ -218,3 +218,14 @@ export function view(state: GameState, pausedSeconds = 0): View {
     shop: offers.map(({ item }) => item),
   };
 }
+
+/** 離れていた間に進んだことの知らせの欄に描く内容。 */
+export interface AwayPanel {
+  readonly hidden: boolean;
+  readonly text: string;
+}
+
+/** 離れていた間に進んだこと `report` の知らせの欄。無ければ（`undefined`）隠す。 */
+export function awayPanel(report?: string): AwayPanel {
+  return report === undefined ? { hidden: true, text: "" } : { hidden: false, text: report };
+}

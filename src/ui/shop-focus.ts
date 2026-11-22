@@ -40,3 +40,34 @@ export function focusMove(
   const index = shopFocus(shop, focused);
   return index === undefined ? undefined : { index, preventScroll: !byKeyboard };
 }
+
+/**
+ * 描き直す前にフォーカスを持っていた品物の位置。`buttons` は品物のボタンを店の並びで並べたもの、`active` はフォーカスを
+ * 持つ要素（`document.activeElement`）。店の品物のボタンでなければ -1 で、{@link shopFocus} の `focused` に渡せる。
+ *
+ * 引数を `unknown` にするのは、lint の prefer-readonly-parameter-types が DOM の要素の型の引数を許さないため。型では
+ * 品物のボタンの並びかを確かめられないので、店の並びのボタンを渡す。
+ */
+export function focusedIndex(buttons: readonly unknown[], active: unknown): number {
+  return buttons.indexOf(active);
+}
+
+/** 品物のボタンをキーボードで押したか。click の `detail`（押した回数）が 0 なら、キーボードなどで押している。 */
+export function pressedByKeyboard(detail: number): boolean {
+  return detail === 0;
+}
+
+/**
+ * {@link focusMove} が移す先を返すときだけ、`focus` にその位置と巻き取りの指定を渡してフォーカスを移させる。
+ */
+export function moveFocus(
+  shop: readonly ShopItem[],
+  focused: number,
+  byKeyboard: boolean,
+  focus: (index: number, options: { readonly preventScroll: boolean }) => void,
+): void {
+  const move = focusMove(shop, focused, byKeyboard);
+  if (move !== undefined) {
+    focus(move.index, { preventScroll: move.preventScroll });
+  }
+}
