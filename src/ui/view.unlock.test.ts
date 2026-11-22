@@ -198,7 +198,7 @@ const firstRows = (autoBuyer: boolean): readonly Action["type"][] =>
   autoBuyer ? ["buyCollector"] : ["buyCollector", "buyAutoBuyer"];
 
 test.each([false, true])(
-  "efficiency@always の解放の順（工場・改良・造幣所）で品物が 1 つずつ解放されると、行は後ろに足され、それまで並んでいた行の順と位置は変わらない（自動購入を買い終えている: %s）",
+  "efficiency@always などどのボットでも同じ解放の順（工場・改良・造幣所）で品物が 1 つずつ解放されると、行は後ろに足され、それまで並んでいた行の順と位置は変わらない（自動購入を買い終えている: %s）",
   (autoBuyer) => {
     const rows = firstRows(autoBuyer);
     const earned = [ZERO, FACTORY_UNLOCK_EARNED, UPGRADE_UNLOCK_EARNED, MINT_UNLOCK_EARNED];

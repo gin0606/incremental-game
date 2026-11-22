@@ -48,9 +48,9 @@ test("工場が解放される前は解放の条件と残りを示し、解放�
 });
 
 /**
- * 開く時刻 `at(60_000)` に保存した保存データ（保存形式の版 3）。改良の値段 400000 を持ち、改良と造幣所はまだ無い。
+ * 開く時刻 `at(60_000)` に保存した保存データ（保存形式の版 3）。改良の値段 400000 を持ち、改良と造幣所は持っていない。
  */
-const beforeUpgradeUnlock = (state: {
+const withoutUpgradesOrMints = (state: {
   readonly totalEarned: number;
   readonly collectors: number;
   readonly factories: number;
@@ -80,7 +80,12 @@ test("改良が解放される前は店に並べず、解放されると次の�
   // 改良の解放の条件まであと 30 で、採集機 10 台と工場 2 つ（毎秒 30）、自動購入なし。
   await page.addInitScript(
     putSave,
-    beforeUpgradeUnlock({ totalEarned: 5_999_970, collectors: 10, factories: 2, autoBuyer: false }),
+    withoutUpgradesOrMints({
+      totalEarned: 5_999_970,
+      collectors: 10,
+      factories: 2,
+      autoBuyer: false,
+    }),
   );
   await page.clock.install({ time: at(0) });
   await page.clock.pauseAt(at(60_000));
@@ -119,7 +124,7 @@ test("解放の前の改良も、解放されて値段に届くまでの時間�
   // 改良の解放の条件まであと 10000。採集機 100 台と工場 60 台（毎秒 700）の値段は 800 万を超え、自動購入は買い終えている。
   await page.addInitScript(
     putSave,
-    beforeUpgradeUnlock({
+    withoutUpgradesOrMints({
       totalEarned: 5_990_000,
       collectors: 100,
       factories: 60,
@@ -212,7 +217,7 @@ test("品物が解放されると店の行は後ろに足され、それまで�
   // 採集機・自動購入・工場・改良が並ぶ。
   await page.addInitScript(
     putSave,
-    beforeUpgradeUnlock({
+    withoutUpgradesOrMints({
       totalEarned: 149_999_970,
       collectors: 10,
       factories: 2,
