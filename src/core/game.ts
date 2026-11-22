@@ -1,32 +1,13 @@
-import type { Num } from "./num.ts";
-import { ZERO, add, atLeast, div, max, mul, num, sub, toNumber, toleranceFloor } from "./num.ts";
+import { add, mul, num } from "./num.ts";
 
-import {
-  COLLECTOR_PRODUCTION,
-  FACTORY_PRODUCTION,
-  FACTORY_UNLOCK_EARNED,
-  MINT_PRODUCTION,
-  REFINERY_PRODUCTION,
-  REFINERY_UNLOCK_EARNED,
-  UPGRADE_MULTIPLIER,
-  baseProduction,
-  collectorCost,
-  factoryCost,
-  isFactoryUnlocked,
-  isMintUnlocked,
-  isRefineryUnlocked,
-  isUpgradeUnlocked,
-  mintCost,
-  mintUnlockEarned,
-  production,
-  refineryCost,
-  upgradeCost,
-  upgradeUnlockEarned,
-} from "./economy.ts";
-import type { Action, GameState } from "./state.ts";
+import { autoBuy, nextAutoBuy } from "./auto-buy.ts";
+import { production } from "./economy.ts";
+import { pay } from "./purchase.ts";
+import type { GameState } from "./state.ts";
 
 // 判定の仕組み（シミュレーター、指標のテスト）を確かめるための仮の最小ゲームの規則。値段・解放の条件・生産は
-// economy.ts、状態と行動の型は state.ts にある。
+// economy.ts、行動ごとの値段と支払いは purchase.ts、自動購入が買うものと時刻は auto-buy.ts、状態と行動の型は
+// state.ts にある。ここは時間の経過を受け持ち、ほかのファイルの規則のうち画面などが使うものを公開する。
 //
 // - 資源はコインの 1 つ。採集機・工場・造幣所・精錬所がコインを毎秒生む。
 // - 改良は、1 つごとにすべての施設の生産を UPGRADE_MULTIPLIER 倍にする。値段は施設と同じく数に対して指数的に伸びる。
@@ -64,80 +45,14 @@ export {
   upgradeCost,
   upgradeUnlockEarned,
 } from "./economy.ts";
-
-export const AUTO_BUYER_COST: Num = num(3e5);
-export const CAUTIOUS_AUTO_BUYER_COST: Num = num(3e4);
-/** 控えめな自動購入が、払った後も手元に残すコインの量を、今の毎秒の生産の何秒分かで表したもの。 */
-export const CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS = 600;
-
-interface Purchase {
-  /** 今の状態で買えるときの値段。解放されていない、買い終えたなどで買えなければ `undefined`。 */
-  readonly price: (state: GameState) => Num | undefined;
-  /** 支払いの前の状態に、買ったものを足す。 */
-  readonly receive: (state: GameState) => GameState;
-}
-
-const purchases: Readonly<Record<Action["type"], Purchase>> = {
-  buyCollector: {
-    price: collectorCost,
-    receive: (state) => ({ ...state, collectors: state.collectors + 1 }),
-  },
-  buyFactory: {
-    price: (state) => (isFactoryUnlocked(state) ? factoryCost(state) : undefined),
-    receive: (state) => ({ ...state, factories: state.factories + 1 }),
-  },
-  buyMint: {
-    price: (state) => (isMintUnlocked(state) ? mintCost(state) : undefined),
-    receive: (state) => ({ ...state, mints: state.mints + 1 }),
-  },
-  buyRefinery: {
-    price: (state) => (isRefineryUnlocked(state) ? refineryCost(state) : undefined),
-    receive: (state) => ({ ...state, refineries: state.refineries + 1 }),
-  },
-  buyUpgrade: {
-    price: (state) => (isUpgradeUnlocked(state) ? upgradeCost(state) : undefined),
-    receive: (state) => ({ ...state, upgrades: state.upgrades + 1 }),
-  },
-  buyAutoBuyer: {
-    price: (state) => (state.autoBuyer ? undefined : AUTO_BUYER_COST),
-    receive: (state) => ({ ...state, autoBuyer: true }),
-  },
-  // 自動購入を持てば働きが自動購入に含まれるため、買い終えたものとして扱う。
-  buyCautiousAutoBuyer: {
-    price: (state) =>
-      state.autoBuyer || state.cautiousAutoBuyer ? undefined : CAUTIOUS_AUTO_BUYER_COST,
-    receive: (state) => ({ ...state, cautiousAutoBuyer: true }),
-  },
-};
-
-/**
- * `action` で買うときの値段。解放されていない、買い終えたなどで買えなければ `undefined`。額が足りるかは問わない。
- */
-export function priceOf(state: GameState, action: Action): Num | undefined {
-  return purchases[action.type].price(state);
-}
-
-/** `action` で買うものを、値段を払わずに足した状態。買ったときに生産量がどう変わるかを見積もるのに使う。 */
-export function withPurchase(state: GameState, action: Action): GameState {
-  return purchases[action.type].receive(state);
-}
-
-/** 値段を払って買う。誤差で値段をわずかに下回った分は 0 に切り上げる。額が足りるかは呼び出し側が確かめる。 */
-function pay(state: GameState, action: Action, amount: Num): GameState {
-  return { ...withPurchase(state, action), coins: max(ZERO, sub(state.coins, amount)) };
-}
-
-/**
- * `action` を実行した後の状態を返す。解放されていない、買える額に達していないなどで実行できなければ
- * `undefined` を返す。額は許容誤差付きで比べる（{@link atLeast}）。
- */
-export function perform(state: GameState, action: Action): GameState | undefined {
-  const amount = priceOf(state, action);
-  if (amount === undefined || !atLeast(state.coins, amount)) {
-    return undefined;
-  }
-  return pay(state, action, amount);
-}
+export {
+  AUTO_BUYER_COST,
+  CAUTIOUS_AUTO_BUYER_COST,
+  perform,
+  priceOf,
+  withPurchase,
+} from "./purchase.ts";
+export { CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS } from "./auto-buy.ts";
 
 function produce(state: GameState, seconds: number): GameState {
   const produced = mul(production(state), num(seconds));
@@ -146,128 +61,6 @@ function produce(state: GameState, seconds: number): GameState {
     coins: add(state.coins, produced),
     totalEarned: add(state.totalEarned, produced),
   };
-}
-
-/**
- * 自動購入と控えめな自動購入が買うものと、その値段と解放の条件。値段は解放の前でも返す。造幣所・精錬所・改良の値段は
- * 解放に要る累計の生産量（economy.ts の `*_UNLOCK_EARNED`）より安く、解放の前にコインが値段に届きうる。そのため、買う
- * 時刻は、コインが値段（控えめな自動購入では、残すコインとの和）に届く時刻と、累計の生産量が解放の条件に届く時刻の
- * 遅いほうにする（{@link nextAutoBuy}）。累計の生産量もコインと同じ速さで増えるため、どちらの時刻も進め方によらない。
- */
-const automated: readonly {
-  readonly action: Action;
-  readonly cost: (state: GameState) => Num;
-  /**
-   * 1 つ買ったときの、改良の倍率を掛ける前の生産量の増分。どの増分にも同じ倍率が掛かるため、値段あたりの増分の大小は
-   * 倍率を掛けても変わらない。
-   */
-  readonly gain: (state: GameState) => Num;
-  /** 解放に要る累計の生産量。 */
-  readonly unlock: (state: GameState) => Num;
-}[] = [
-  {
-    action: { type: "buyCollector" },
-    cost: collectorCost,
-    gain: () => COLLECTOR_PRODUCTION,
-    unlock: () => ZERO,
-  },
-  {
-    action: { type: "buyFactory" },
-    cost: factoryCost,
-    gain: () => FACTORY_PRODUCTION,
-    unlock: () => FACTORY_UNLOCK_EARNED,
-  },
-  {
-    action: { type: "buyMint" },
-    cost: mintCost,
-    gain: () => MINT_PRODUCTION,
-    unlock: mintUnlockEarned,
-  },
-  {
-    action: { type: "buyRefinery" },
-    cost: refineryCost,
-    gain: () => REFINERY_PRODUCTION,
-    unlock: () => REFINERY_UNLOCK_EARNED,
-  },
-  {
-    action: { type: "buyUpgrade" },
-    cost: upgradeCost,
-    gain: (state) => mul(baseProduction(state), sub(UPGRADE_MULTIPLIER, num(1))),
-    unlock: upgradeUnlockEarned,
-  },
-];
-
-/**
- * 自動で買うときに、払った後も手元に残すコイン。自動購入を持てば 0、控えめな自動購入だけを持てば今の毎秒の生産の
- * {@link CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS} 秒分。どちらも持たなければ `undefined`（自動では買わない）。
- */
-function autoBuyReserve(state: GameState): Num | undefined {
-  if (state.autoBuyer) {
-    return ZERO;
-  }
-  return state.cautiousAutoBuyer
-    ? mul(production(state), num(CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS))
-    : undefined;
-}
-
-/**
- * 自動購入が次に買った後の状態。コインが値段と {@link autoBuyReserve} の和に達したもののうち、値段あたりの生産量の
- * 増分が最も大きいものを買う。同じ値（許容誤差の範囲）なら先のもの。買えるものが無ければ `undefined`。
- */
-function autoBuyOnce(state: GameState): GameState | undefined {
-  // 残すコインは買うたびに増える生産に合わせて、買う前の状態から求め直す。
-  const reserve = autoBuyReserve(state);
-  if (reserve === undefined) {
-    return undefined;
-  }
-  // 手元のコインが多いと何千回も買うため、買った後の生産量を求めず、増分を値段で割るだけで比べる。
-  let best: { readonly action: Action; readonly price: Num; readonly value: Num } | undefined;
-  for (const { action, gain } of automated) {
-    const price = priceOf(state, action);
-    if (price !== undefined && atLeast(state.coins, add(price, reserve))) {
-      const value = div(gain(state), price);
-      if (best === undefined || !atLeast(best.value, value)) {
-        best = { action, price, value };
-      }
-    }
-  }
-  return best === undefined ? undefined : pay(state, best.action, best.price);
-}
-
-/** 自動購入か控えめな自動購入を持っていれば、その働きで買えるだけ買う。 */
-function autoBuy(state: GameState): GameState {
-  let current = state;
-  for (let next = autoBuyOnce(current); next !== undefined; next = autoBuyOnce(current)) {
-    current = next;
-  }
-  return current;
-}
-
-/**
- * 次に自動購入が起きるまでの秒数と、そのとき買うもの。起きなければ `undefined`。コインが値段と
- * {@link autoBuyReserve} の和に、{@link perform} と同じく許容誤差の範囲で届いた時刻を返す（残すコインは生産の速さで
- * 決まり、次の購入まで変わらない）。和そのものに届く時刻にすると、刻んで進めたときだけ区切りの時点で早めに買えて
- * しまう。解放の前のものは、累計の生産量が解放の条件に許容誤差の範囲で届く時刻まで待つ。
- */
-function nextAutoBuy(
-  state: GameState,
-): { readonly seconds: number; readonly buy: (typeof automated)[number] } | undefined {
-  const rate = production(state);
-  const reserve = autoBuyReserve(state);
-  if (reserve === undefined || toNumber(rate) === 0) {
-    return undefined;
-  }
-  let next: { readonly seconds: number; readonly buy: (typeof automated)[number] } | undefined;
-  for (const buy of automated) {
-    const seconds = Math.max(
-      toNumber(div(sub(toleranceFloor(add(buy.cost(state), reserve)), state.coins), rate)),
-      toNumber(div(sub(toleranceFloor(buy.unlock(state)), state.totalEarned), rate)),
-    );
-    if (next === undefined || seconds < next.seconds) {
-      next = { seconds, buy };
-    }
-  }
-  return next;
 }
 
 /**

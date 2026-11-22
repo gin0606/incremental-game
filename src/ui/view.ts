@@ -101,7 +101,7 @@ const productionGain = (state: GameState, action: Action): string =>
   `買うと毎秒の生産が ${format(sub(production(withPurchase(state, action)), production(state)))} 増える`;
 
 /**
- * 品物ごとの、買うと得られるものの表示。自動購入と控えめな自動購入の働きは、`src/core/game.ts` の自動購入の規則
+ * 品物ごとの、買うと得られるものの表示。自動購入と控えめな自動購入の働きは、`src/core/auto-buy.ts` の自動購入の規則
  * （何を、いつ買うか）を言葉にしたもので、規則を変えるときは合わせて直す。
  */
 const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = {

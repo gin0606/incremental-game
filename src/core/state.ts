@@ -1,7 +1,8 @@
 import type { Num } from "./num.ts";
 import { ZERO } from "./num.ts";
 
-// ゲームの状態と行動の型、始めの状態。値段・生産・解放の規則は economy.ts、購入と時間の経過の規則は game.ts にある。
+// ゲームの状態と行動の型、始めの状態。値段・生産・解放の規則は economy.ts、購入の規則は purchase.ts と auto-buy.ts、
+// 時間の経過の規則は game.ts にある。
 
 export interface GameState {
   readonly coins: Num;
