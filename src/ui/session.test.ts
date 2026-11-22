@@ -19,6 +19,7 @@ const saved: GameState = {
   factories: 0,
   mints: 0,
   refineries: 0,
+  exchanges: 0,
   upgrades: 0,
   autoBuyer: false,
   cautiousAutoBuyer: false,

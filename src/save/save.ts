@@ -10,8 +10,9 @@ import { atLeast, fromParts, toParts } from "../core/num.ts";
  * - 3: 2 に改良の数（`upgrades`）を足した。1 と 2 の保存は改良 0 として読む。
  * - 4: 3 に控えめな自動購入を持つか（`cautiousAutoBuyer`）を足した。1〜3 の保存は持たないとして読む。
  * - 5: 4 に精錬所の数（`refineries`）を足した。1〜4 の保存は精錬所 0 として読む。
+ * - 6: 5 に交易所の数（`exchanges`）を足した。1〜5 の保存は交易所 0 として読む。
  */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 /** 保存する内容。オフラインの経過時間を求めるため、保存した時刻（Unix 時刻のミリ秒）を持つ。 */
 export interface SaveData {
@@ -23,29 +24,30 @@ export type LoadResult =
   | { readonly ok: true; readonly data: SaveData }
   | { readonly ok: false; readonly error: string };
 
-interface SavedStateV5 {
+interface SavedStateV6 {
   readonly coins: NumParts;
   readonly totalEarned: NumParts;
   readonly collectors: number;
   readonly factories: number;
   readonly mints: number;
   readonly refineries: number;
+  readonly exchanges: number;
   readonly upgrades: number;
   readonly autoBuyer: boolean;
   readonly cautiousAutoBuyer: boolean;
 }
 
-interface SaveFileV5 {
-  readonly version: 5;
+interface SaveFileV6 {
+  readonly version: 6;
   readonly savedAt: number;
-  readonly state: SavedStateV5;
+  readonly state: SavedStateV6;
 }
 
-type Version = 1 | 2 | 3 | 4 | 5;
+type Version = 1 | 2 | 3 | 4 | 5 | 6;
 
 export function serialize(data: SaveData): string {
   const { state, savedAt } = data;
-  const file: SaveFileV5 = {
+  const file: SaveFileV6 = {
     version: SAVE_VERSION,
     savedAt,
     state: {
@@ -55,6 +57,7 @@ export function serialize(data: SaveData): string {
       factories: state.factories,
       mints: state.mints,
       refineries: state.refineries,
+      exchanges: state.exchanges,
       upgrades: state.upgrades,
       autoBuyer: state.autoBuyer,
       cautiousAutoBuyer: state.cautiousAutoBuyer,
@@ -85,7 +88,7 @@ const readAmount = (value: unknown): Num | undefined => {
 const readAddedCount = (
   value: Readonly<Record<string, unknown>>,
   version: Version,
-  key: "mints" | "refineries" | "upgrades",
+  key: "exchanges" | "mints" | "refineries" | "upgrades",
   since: Version,
 ): number | string => {
   if (version < since) {
@@ -93,6 +96,30 @@ const readAddedCount = (
   }
   const count = value[key];
   return isCount(count) ? count : `${key} が 0 以上の整数でない`;
+};
+
+/** 版 1 より後に足した数の項目。それぞれの版より前の保存は 0 として読む。 */
+const readAddedCounts = (
+  value: Readonly<Record<string, unknown>>,
+  version: Version,
+): Pick<GameState, "mints" | "refineries" | "exchanges" | "upgrades"> | string => {
+  const mints = readAddedCount(value, version, "mints", 2);
+  if (typeof mints === "string") {
+    return mints;
+  }
+  const refineries = readAddedCount(value, version, "refineries", 5);
+  if (typeof refineries === "string") {
+    return refineries;
+  }
+  const exchanges = readAddedCount(value, version, "exchanges", 6);
+  if (typeof exchanges === "string") {
+    return exchanges;
+  }
+  const upgrades = readAddedCount(value, version, "upgrades", 3);
+  if (typeof upgrades === "string") {
+    return upgrades;
+  }
+  return { mints, refineries, exchanges, upgrades };
 };
 
 const readState = (value: unknown, version: Version): GameState | string => {
@@ -114,17 +141,9 @@ const readState = (value: unknown, version: Version): GameState | string => {
   if (!isCount(factories)) {
     return "factories が 0 以上の整数でない";
   }
-  const mints = readAddedCount(value, version, "mints", 2);
-  if (typeof mints === "string") {
-    return mints;
-  }
-  const refineries = readAddedCount(value, version, "refineries", 5);
-  if (typeof refineries === "string") {
-    return refineries;
-  }
-  const upgrades = readAddedCount(value, version, "upgrades", 3);
-  if (typeof upgrades === "string") {
-    return upgrades;
+  const added = readAddedCounts(value, version);
+  if (typeof added === "string") {
+    return added;
   }
   if (typeof autoBuyer !== "boolean") {
     return "autoBuyer が真偽値でない";
@@ -138,9 +157,7 @@ const readState = (value: unknown, version: Version): GameState | string => {
     totalEarned,
     collectors,
     factories,
-    mints,
-    refineries,
-    upgrades,
+    ...added,
     autoBuyer,
     cautiousAutoBuyer,
   };
@@ -185,6 +202,7 @@ export function deserialize(text: string): LoadResult {
     version !== 2 &&
     version !== 3 &&
     version !== 4 &&
+    version !== 5 &&
     version !== SAVE_VERSION
   ) {
     return { ok: false, error: `未知の版: ${describeVersion(version)}` };

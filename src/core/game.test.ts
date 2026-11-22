@@ -13,7 +13,6 @@ import {
   factoryCost,
   initialState,
   isFactoryUnlocked,
-  isMintUnlocked,
   mintCost,
   perform,
   priceOf,
@@ -53,6 +52,7 @@ test("初期状態はコイン 0、採集機 1 台で始まる", () => {
     factories: 0,
     mints: 0,
     refineries: 0,
+    exchanges: 0,
     upgrades: 0,
     autoBuyer: false,
     cautiousAutoBuyer: false,
@@ -142,6 +142,7 @@ test("採集機を買うと台数が増え、値段の分だけコインが減�
     factories: 0,
     mints: 0,
     refineries: 0,
+    exchanges: 0,
     upgrades: 0,
     autoBuyer: false,
   });
@@ -180,34 +181,11 @@ test("工場は累計の生産量が 100 に達すると解放され、買える
     factories: 1,
     mints: 0,
     refineries: 0,
+    exchanges: 0,
     upgrades: 0,
     autoBuyer: false,
   });
   expect(after.coins).toBeApprox(num(10));
-});
-
-test("造幣所は累計の生産量が 1.3e8 に達するまで解放されず、買えない", () => {
-  const locked = state({ coins: num(2e7), totalEarned: num(1.299e8) });
-
-  expect(isMintUnlocked(locked)).toBe(false);
-  expect(perform(locked, { type: "buyMint" })).toBeUndefined();
-});
-
-test("造幣所は累計の生産量が 1.3e8 に達すると解放され、買える", () => {
-  const unlocked = state({ coins: num(1.1e7), totalEarned: MINT_UNLOCK_EARNED });
-
-  expect(isMintUnlocked(unlocked)).toBe(true);
-  const after = performed(unlocked, { type: "buyMint" });
-
-  expect(counts(after)).toStrictEqual({
-    collectors: 1,
-    factories: 0,
-    mints: 1,
-    refineries: 0,
-    upgrades: 0,
-    autoBuyer: false,
-  });
-  expect(after.coins).toBeApprox(num(1e6));
 });
 
 test("自動購入は一度だけ買える", () => {
@@ -220,6 +198,7 @@ test("自動購入は一度だけ買える", () => {
     factories: 0,
     mints: 0,
     refineries: 0,
+    exchanges: 0,
     upgrades: 0,
     autoBuyer: true,
   });
@@ -240,6 +219,7 @@ test("自動購入が無ければ、時間の経過でコインと累計の生�
     factories: 1,
     mints: 0,
     refineries: 0,
+    exchanges: 0,
     upgrades: 0,
     autoBuyer: false,
   });

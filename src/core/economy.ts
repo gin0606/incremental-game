@@ -17,6 +17,9 @@ export const MINT_PRODUCTION: Num = num(30);
 const REFINERY_BASE_COST = num(3e7);
 const REFINERY_COST_GROWTH = num(1.08);
 export const REFINERY_PRODUCTION: Num = num(100);
+const EXCHANGE_BASE_COST = num(4e7);
+const EXCHANGE_COST_GROWTH = num(1.06);
+export const EXCHANGE_PRODUCTION: Num = num(300);
 const UPGRADE_BASE_COST = num(8e5);
 const UPGRADE_COST_GROWTH = num(1.55);
 export const UPGRADE_MULTIPLIER: Num = num(1.25);
@@ -25,6 +28,8 @@ export const FACTORY_UNLOCK_EARNED: Num = num(100);
 export const UPGRADE_UNLOCK_EARNED: Num = num(1.2e7);
 export const MINT_UNLOCK_EARNED: Num = num(1.3e8);
 export const REFINERY_UNLOCK_EARNED: Num = num(4.5e8);
+// 交易所を買う規則と自動購入がそれを買う規則がそろうまでは、届かない値にして解放しない。
+export const EXCHANGE_UNLOCK_EARNED: Num = num(1e300);
 
 export function collectorCost(state: GameState): Num {
   return mul(COLLECTOR_BASE_COST, pow(COLLECTOR_COST_GROWTH, state.collectors));
@@ -40,6 +45,10 @@ export function mintCost(state: GameState): Num {
 
 export function refineryCost(state: GameState): Num {
   return mul(REFINERY_BASE_COST, pow(REFINERY_COST_GROWTH, state.refineries));
+}
+
+export function exchangeCost(state: GameState): Num {
+  return mul(EXCHANGE_BASE_COST, pow(EXCHANGE_COST_GROWTH, state.exchanges));
 }
 
 export function upgradeCost(state: GameState): Num {
@@ -66,6 +75,10 @@ export function isRefineryUnlocked(state: GameState): boolean {
   return atLeast(state.totalEarned, REFINERY_UNLOCK_EARNED);
 }
 
+export function isExchangeUnlocked(state: GameState): boolean {
+  return atLeast(state.totalEarned, EXCHANGE_UNLOCK_EARNED);
+}
+
 /** {@link mintUnlockEarned} の改良の版。解放の条件が 6e6 だった版の保存のため。 */
 export const upgradeUnlockEarned = (state: GameState): Num =>
   state.upgrades > 0 ? ZERO : UPGRADE_UNLOCK_EARNED;
@@ -81,7 +94,10 @@ export function baseProduction(state: GameState): Num {
       mul(COLLECTOR_PRODUCTION, num(state.collectors)),
       mul(FACTORY_PRODUCTION, num(state.factories)),
     ),
-    add(mul(MINT_PRODUCTION, num(state.mints)), mul(REFINERY_PRODUCTION, num(state.refineries))),
+    add(
+      add(mul(MINT_PRODUCTION, num(state.mints)), mul(REFINERY_PRODUCTION, num(state.refineries))),
+      mul(EXCHANGE_PRODUCTION, num(state.exchanges)),
+    ),
   );
 }
 

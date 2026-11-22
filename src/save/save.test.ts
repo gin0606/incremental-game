@@ -43,6 +43,7 @@ const validFile = {
     factories: 1,
     mints: 3,
     refineries: 6,
+    exchanges: 7,
     upgrades: 4,
     autoBuyer: true,
     cautiousAutoBuyer: true,
@@ -68,6 +69,7 @@ const loaded: GameState = {
   factories: 1,
   mints: 3,
   refineries: 6,
+  exchanges: 7,
   upgrades: 4,
   autoBuyer: true,
   cautiousAutoBuyer: true,
@@ -98,7 +100,7 @@ test.each([
     text: JSON.stringify({ ...validFile, version: undefined }),
     error: "未知の版: undefined",
   },
-  { name: "未来の版", text: JSON.stringify({ ...validFile, version: 6 }), error: "未知の版: 6" },
+  { name: "未来の版", text: JSON.stringify({ ...validFile, version: 7 }), error: "未知の版: 7" },
   { name: "版 0", text: JSON.stringify({ ...validFile, version: 0 }), error: "未知の版: 0" },
   {
     name: "版が文字列",
@@ -251,6 +253,21 @@ test.each([
     name: "refineries が整数でない",
     text: withState({ refineries: 0.5 }),
     error: "refineries が 0 以上の整数でない",
+  },
+  {
+    name: "exchanges が無い",
+    text: withState({ exchanges: undefined }),
+    error: "exchanges が 0 以上の整数でない",
+  },
+  {
+    name: "exchanges が負",
+    text: withState({ exchanges: -1 }),
+    error: "exchanges が 0 以上の整数でない",
+  },
+  {
+    name: "exchanges が整数でない",
+    text: withState({ exchanges: 0.5 }),
+    error: "exchanges が 0 以上の整数でない",
   },
   {
     name: "upgrades が無い",
