@@ -22,7 +22,8 @@ export type Action =
   | { readonly type: "buyFactory" }
   | { readonly type: "buyMint" }
   | { readonly type: "buyUpgrade" }
-  | { readonly type: "buyAutoBuyer" };
+  | { readonly type: "buyAutoBuyer" }
+  | { readonly type: "buyCautiousAutoBuyer" };
 
 export const initialState: GameState = {
   coins: ZERO,

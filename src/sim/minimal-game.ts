@@ -32,6 +32,13 @@ const byAction: {
 } = {
   buyCollector: { id: "collector", action: { type: "buyCollector" }, unlocked: always },
   buyAutoBuyer: { id: "autoBuyer", action: { type: "buyAutoBuyer" }, unlocked: always },
+  // 自動購入より後に並べる。ボットは買える額の、生産量で効果を測れない候補を並びの順に買うため、両方を買える額なら
+  // 自動購入を先に買い、働きが自動購入に含まれる控えめな自動購入を買わずに済ませる。
+  buyCautiousAutoBuyer: {
+    id: "cautiousAutoBuyer",
+    action: { type: "buyCautiousAutoBuyer" },
+    unlocked: always,
+  },
   buyFactory: { id: "factory", action: { type: "buyFactory" }, unlocked: isFactoryUnlocked },
   buyUpgrade: { id: "upgrade", action: { type: "buyUpgrade" }, unlocked: isUpgradeUnlocked },
   buyMint: { id: "mint", action: { type: "buyMint" }, unlocked: isMintUnlocked },

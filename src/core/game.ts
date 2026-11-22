@@ -57,6 +57,7 @@ export {
 } from "./economy.ts";
 
 export const AUTO_BUYER_COST: Num = num(3e5);
+export const CAUTIOUS_AUTO_BUYER_COST: Num = num(1e4);
 /** 控えめな自動購入が買うのに要るコインの、値段に対する倍率。 */
 export const CAUTIOUS_AUTO_BUYER_MARGIN: Num = num(2);
 
@@ -87,6 +88,12 @@ const purchases: Readonly<Record<Action["type"], Purchase>> = {
   buyAutoBuyer: {
     price: (state) => (state.autoBuyer ? undefined : AUTO_BUYER_COST),
     receive: (state) => ({ ...state, autoBuyer: true }),
+  },
+  // 自動購入を持てば働きが自動購入に含まれるため、買い終えたものとして扱う。
+  buyCautiousAutoBuyer: {
+    price: (state) =>
+      state.autoBuyer || state.cautiousAutoBuyer ? undefined : CAUTIOUS_AUTO_BUYER_COST,
+    receive: (state) => ({ ...state, cautiousAutoBuyer: true }),
   },
 };
 
