@@ -6,16 +6,20 @@ import {
   FACTORY_PRODUCTION,
   FACTORY_UNLOCK_EARNED,
   MINT_PRODUCTION,
+  REFINERY_PRODUCTION,
+  REFINERY_UNLOCK_EARNED,
   UPGRADE_MULTIPLIER,
   baseProduction,
   collectorCost,
   factoryCost,
   isFactoryUnlocked,
   isMintUnlocked,
+  isRefineryUnlocked,
   isUpgradeUnlocked,
   mintCost,
   mintUnlockEarned,
   production,
+  refineryCost,
   upgradeCost,
   upgradeUnlockEarned,
 } from "./economy.ts";
@@ -26,9 +30,9 @@ import type { Action, GameState } from "./state.ts";
 //
 // - 資源はコインの 1 つ。採集機・工場・造幣所・精錬所がコインを毎秒生む。
 // - 改良は、1 つごとにすべての施設の生産を UPGRADE_MULTIPLIER 倍にする。値段は施設と同じく数に対して指数的に伸びる。
-// - 工場は、累計で稼いだコインが FACTORY_UNLOCK_EARNED に、改良は UPGRADE_UNLOCK_EARNED に、造幣所は
-//   MINT_UNLOCK_EARNED に、精錬所は REFINERY_UNLOCK_EARNED に達すると解放される。造幣所と改良は、持っていれば解放されている（mintUnlockEarned・upgradeUnlockEarned）。
-// - 自動購入を買うと、採集機・工場・造幣所・改良を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。
+// - 工場・改良・造幣所・精錬所は、累計で稼いだコインがそれぞれの解放の条件（economy.ts の `*_UNLOCK_EARNED`）に
+//   達すると解放される。造幣所と改良は、持っていれば解放されている（mintUnlockEarned・upgradeUnlockEarned）。
+// - 自動購入を買うと、採集機・工場・造幣所・精錬所・改良を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。
 //   買える額に達したもののうち、値段あたりの生産量の増分が大きいものから買う。
 // - 控えめな自動購入は、自動購入より安く、同じものを、払った後も今の生産の CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS 秒分の
 //   コインが手元に残るときだけ買う。自動化を 2 段に分け、先に手に入る段は、値段に届けば買うプレイヤーの手元には
@@ -86,6 +90,10 @@ const purchases: Readonly<Record<Action["type"], Purchase>> = {
     price: (state) => (isMintUnlocked(state) ? mintCost(state) : undefined),
     receive: (state) => ({ ...state, mints: state.mints + 1 }),
   },
+  buyRefinery: {
+    price: (state) => (isRefineryUnlocked(state) ? refineryCost(state) : undefined),
+    receive: (state) => ({ ...state, refineries: state.refineries + 1 }),
+  },
   buyUpgrade: {
     price: (state) => (isUpgradeUnlocked(state) ? upgradeCost(state) : undefined),
     receive: (state) => ({ ...state, upgrades: state.upgrades + 1 }),
@@ -141,11 +149,10 @@ function produce(state: GameState, seconds: number): GameState {
 }
 
 /**
- * 自動購入と控えめな自動購入が買うものと、その値段と解放の条件。値段は解放の前でも返す。造幣所と改良の値段は解放に
- * 要る累計の生産量（economy.ts の `MINT_UNLOCK_EARNED`・`UPGRADE_UNLOCK_EARNED`）より安く、解放の前にコインが値段に
- * 届きうる。そのため、買う時刻は、コインが値段（控えめな自動購入では、残すコインとの和）に届く時刻と、累計の生産量が
- * 解放の条件に届く時刻の遅いほうにする（{@link nextAutoBuy}）。
- * 累計の生産量もコインと同じ速さで増えるため、どちらの時刻も進め方によらない。
+ * 自動購入と控えめな自動購入が買うものと、その値段と解放の条件。値段は解放の前でも返す。造幣所・精錬所・改良の値段は
+ * 解放に要る累計の生産量（economy.ts の `*_UNLOCK_EARNED`）より安く、解放の前にコインが値段に届きうる。そのため、買う
+ * 時刻は、コインが値段（控えめな自動購入では、残すコインとの和）に届く時刻と、累計の生産量が解放の条件に届く時刻の
+ * 遅いほうにする（{@link nextAutoBuy}）。累計の生産量もコインと同じ速さで増えるため、どちらの時刻も進め方によらない。
  */
 const automated: readonly {
   readonly action: Action;
@@ -175,6 +182,12 @@ const automated: readonly {
     cost: mintCost,
     gain: () => MINT_PRODUCTION,
     unlock: mintUnlockEarned,
+  },
+  {
+    action: { type: "buyRefinery" },
+    cost: refineryCost,
+    gain: () => REFINERY_PRODUCTION,
+    unlock: () => REFINERY_UNLOCK_EARNED,
   },
   {
     action: { type: "buyUpgrade" },

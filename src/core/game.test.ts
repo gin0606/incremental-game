@@ -23,7 +23,7 @@ import {
 } from "./game.ts";
 import { add, atLeast, mul, num } from "./num.ts";
 
-// 1 件の時間切れを広げる。自動購入が採集機・工場・造幣所・改良を買うため、一度に進める結果と刻んで進める結果を比べる性質テストは
+// 1 件の時間切れを広げる。自動購入が採集機・工場・造幣所・精錬所・改良を買うため、一度に進める結果と刻んで進める結果を比べる性質テストは
 // 手元で約 2 秒かかり（2026-11 に測定）、ほかの処理で機械が混み合うと Vitest の既定の 5 秒を超えた。時間切れは遅く
 // なった実装を検出するためのものではない。
 vi.setConfig({ testTimeout: 120_000 });
@@ -40,13 +40,10 @@ const performed = (before: GameState, action: Action): GameState => {
 };
 
 /** 数を除いた部分（台数など）。 */
-const counts = ({ collectors, factories, mints, upgrades, autoBuyer }: GameState): object => ({
-  collectors,
-  factories,
-  mints,
-  upgrades,
-  autoBuyer,
-});
+const counts = (game: GameState): object => {
+  const { coins: _coins, totalEarned: _earned, cautiousAutoBuyer: _cautious, ...rest } = game;
+  return rest;
+};
 
 test("初期状態はコイン 0、採集機 1 台で始まる", () => {
   expect(initialState).toStrictEqual({
@@ -144,6 +141,7 @@ test("採集機を買うと台数が増え、値段の分だけコインが減�
     collectors: 2,
     factories: 0,
     mints: 0,
+    refineries: 0,
     upgrades: 0,
     autoBuyer: false,
   });
@@ -181,6 +179,7 @@ test("工場は累計の生産量が 100 に達すると解放され、買える
     collectors: 1,
     factories: 1,
     mints: 0,
+    refineries: 0,
     upgrades: 0,
     autoBuyer: false,
   });
@@ -204,6 +203,7 @@ test("造幣所は累計の生産量が 1.5e8 に達すると解放され、買�
     collectors: 1,
     factories: 0,
     mints: 1,
+    refineries: 0,
     upgrades: 0,
     autoBuyer: false,
   });
@@ -219,6 +219,7 @@ test("自動購入は一度だけ買える", () => {
     collectors: 1,
     factories: 0,
     mints: 0,
+    refineries: 0,
     upgrades: 0,
     autoBuyer: true,
   });
@@ -238,6 +239,7 @@ test("自動購入が無ければ、時間の経過でコインと累計の生�
     collectors: 2,
     factories: 1,
     mints: 0,
+    refineries: 0,
     upgrades: 0,
     autoBuyer: false,
   });

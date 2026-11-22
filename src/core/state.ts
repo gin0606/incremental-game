@@ -22,6 +22,7 @@ export type Action =
   | { readonly type: "buyCollector" }
   | { readonly type: "buyFactory" }
   | { readonly type: "buyMint" }
+  | { readonly type: "buyRefinery" }
   | { readonly type: "buyUpgrade" }
   | { readonly type: "buyAutoBuyer" }
   | { readonly type: "buyCautiousAutoBuyer" };

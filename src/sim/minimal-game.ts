@@ -4,6 +4,7 @@ import {
   initialState,
   isFactoryUnlocked,
   isMintUnlocked,
+  isRefineryUnlocked,
   isUpgradeUnlocked,
   perform,
   priceOf,
@@ -42,6 +43,7 @@ const byAction: {
   buyFactory: { id: "factory", action: { type: "buyFactory" }, unlocked: isFactoryUnlocked },
   buyUpgrade: { id: "upgrade", action: { type: "buyUpgrade" }, unlocked: isUpgradeUnlocked },
   buyMint: { id: "mint", action: { type: "buyMint" }, unlocked: isMintUnlocked },
+  buyRefinery: { id: "refinery", action: { type: "buyRefinery" }, unlocked: isRefineryUnlocked },
 };
 
 const items: readonly Item[] = Object.values(byAction);
