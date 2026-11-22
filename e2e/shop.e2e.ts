@@ -90,6 +90,8 @@ test("キーボードでフォーカスを置いた自動購入をマウスで�
   await expect(page.locator("#collectors")).toHaveText("1");
   const autoBuyer = page.getByRole("button", { name: /^自動購入を買う/v });
   const factory = page.getByRole("button", { name: /^工場を買う/v });
+  // 文字の大きさによらず店が画面に収まらないよう、画面を低くする。
+  await page.setViewportSize({ width: 1280, height: 400 });
   // 自動購入のボタンを画面の下端に置き、その後ろの工場のボタンを画面の外にする。フォーカスを置いたボタンには、マウスで
   // 押してもフォーカスの印が残る。
   await autoBuyer.evaluate((button) => {
@@ -99,6 +101,7 @@ test("キーボードでフォーカスを置いた自動購入をマウスで�
   const scrolled = await page.evaluate(() => window.scrollY);
   expect(scrolled).toBeGreaterThan(0);
   await expect(factory).not.toBeInViewport();
+  await expect(autoBuyer.and(page.locator(":focus-visible"))).toHaveCount(1);
   const pressed = await autoBuyer.boundingBox();
   const x = (pressed?.x ?? 0) + (pressed?.width ?? 0) / 2;
   const y = (pressed?.y ?? 0) + (pressed?.height ?? 0) / 2;
@@ -110,6 +113,7 @@ test("キーボードでフォーカスを置いた自動購入をマウスで�
   // 買い終えた自動購入の行は場所を残し、フォーカスを工場へ移してもページを巻き取らないので、押した位置にはどのボタンも
   // 無い。
   expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+  await expect(factory).toBeFocused();
   const onButton = await page.evaluate(
     ({ pointX, pointY }) => document.elementFromPoint(pointX, pointY)?.closest("button") !== null,
     { pointX: x, pointY: y },
@@ -129,6 +133,8 @@ test("キーボードで自動購入を買うと、フォーカスを店の中�
   const factory = page.getByRole("button", { name: /^工場を買う/v });
   const autoBuyer = page.getByRole("button", { name: /^自動購入を買う/v });
 
+  // 文字の大きさによらず店が画面に収まらないよう、画面を低くする。
+  await page.setViewportSize({ width: 1280, height: 400 });
   // 自動購入のボタンを画面の下端に置き、その後ろの工場のボタンを画面の外にする。
   await autoBuyer.evaluate((button) => {
     button.scrollIntoView({ block: "end" });
