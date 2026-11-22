@@ -80,6 +80,37 @@ test("自動購入を買うと、そのボタンと説明を隠す", async ({ pa
   await expect(work).toBeHidden();
 });
 
+test("マウスで自動購入を買っても、後ろの行は動かず、続けて同じ位置を押しても別の品物のボタンに当たらない", async ({
+  page,
+}) => {
+  await page.addInitScript(putSave, savedWithCoins(3e5));
+  await page.clock.install({ time: at(0) });
+  await page.clock.pauseAt(at(60_000));
+  await page.goto("/");
+  await expect(page.locator("#collectors")).toHaveText("1");
+  const autoBuyer = page.getByRole("button", { name: /^自動購入を買う/v });
+  const factory = page.getByRole("button", { name: /^工場を買う/v });
+  // 店は画面の下の外にあるので、マウスで押せる位置まで巻き取ってから位置を測る。
+  await factory.scrollIntoViewIfNeeded();
+  const pressed = await autoBuyer.boundingBox();
+  const factoryBefore = await factory.boundingBox();
+  expect(factoryBefore).not.toBeNull();
+  const x = (pressed?.x ?? 0) + (pressed?.width ?? 0) / 2;
+  const y = (pressed?.y ?? 0) + (pressed?.height ?? 0) / 2;
+
+  await page.mouse.click(x, y);
+  await expect(page.locator("#auto-buyer")).toHaveText("稼働中");
+  await expect(autoBuyer).toBeHidden();
+  await rendered(page);
+  // 買い終えた自動購入の行は場所を残すので、工場の行は上がらず、押した位置にはどのボタンも無い。
+  expect(await factory.boundingBox()).toStrictEqual(factoryBefore);
+  const onButton = await page.evaluate(
+    ({ pointX, pointY }) => document.elementFromPoint(pointX, pointY)?.closest("button") !== null,
+    { pointX: x, pointY: y },
+  );
+  expect(onButton).toBe(false);
+});
+
 test("キーボードで自動購入を買うと、フォーカスを店の中の後ろにある品物のボタンへ移し、続けて店の中を移れる", async ({
   page,
 }) => {

@@ -127,6 +127,9 @@ const start = (): void => {
     }),
   );
 
+  /** この表示の間に一度でも見えた品物の行。 */
+  const placed = new Set<HTMLElement>();
+
   function render(): void {
     const current = view(session.state(), session.pausedFor(Date.now()));
     renderStats(current);
@@ -142,7 +145,13 @@ const start = (): void => {
         // ariaDisabled の反映は Firefox 119 からで、ビルドの対象（Firefox 114 から）に無いため setAttribute で書く。
         offer.button.setAttribute("aria-disabled", String(!item.affordable));
         offer.effect.textContent = item.effect;
-        offer.row.hidden = !item.visible;
+        // 一度並べた行は、隠しても場所を残し、後ろの行を動かさない（docs/design/shop-focus.md）。visibility: hidden
+        // の行は、Tab の順と支援技術からも外れる。
+        if (item.visible) {
+          placed.add(offer.row);
+        }
+        offer.row.hidden = !item.visible && !placed.has(offer.row);
+        offer.row.style.visibility = item.visible ? "" : "hidden";
       }
     }
     // 隠した品物のボタンがフォーカスを持っていたら、ブラウザが文書の先頭へ外す前に店の中へ移す。
