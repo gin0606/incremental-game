@@ -12,7 +12,7 @@
   "idle": {
     "efficiency": 0.995,
     "reach": [
-      { "by": 3600, "tolerance": 3600 },
+      { "by": 3600, "tolerance": 14400 },
       { "by": 14400, "tolerance": 86400 }
     ]
   }
