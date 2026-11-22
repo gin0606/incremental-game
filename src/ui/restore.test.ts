@@ -12,6 +12,7 @@ const saved: GameState = {
   collectors: 2,
   factories: 1,
   mints: 0,
+  upgrades: 0,
   autoBuyer: false,
 };
 const savedAt = 1_000_000;

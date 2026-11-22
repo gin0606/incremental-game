@@ -3,8 +3,8 @@ import { assert, expect, test } from "vitest";
 
 import type { GameState } from "../core/game.ts";
 import { gameState } from "../core/game.arbitrary.ts";
-import { advance, initialState, perform, withPurchase } from "../core/game.ts";
-import { mul, num } from "../core/num.ts";
+import { advance, initialState, perform, production, withPurchase } from "../core/game.ts";
+import { mul, num, toNumber } from "../core/num.ts";
 import { formatDuration, view } from "./view.ts";
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
@@ -105,21 +105,52 @@ test("工場が解放されたら造幣所の解放の条件を示し、工場�
   });
 });
 
-test.each([
+const producers = [
   { index: 0, action: { type: "buyCollector" } },
   { index: 1, action: { type: "buyFactory" } },
   { index: 2, action: { type: "buyMint" } },
-] as const)(
-  "$action.type: 毎秒の生産が 10 億未満の間、買うと増えると示す毎秒の生産は、買った後に示す毎秒の生産と今のものとの差に等しい",
+] as const;
+
+/** 買うと増えると示す毎秒の生産と、買った後に示す毎秒の生産と今のものとの差。 */
+const shownGain = (
+  current: GameState,
+  index: number,
+  action: (typeof producers)[number]["action"],
+): { readonly shown: string | undefined; readonly difference: number } => ({
+  shown: view(current).shop[index]?.effect,
+  difference:
+    Number(view(withPurchase(current, action)).production) - Number(view(current).production),
+});
+
+test.each(producers)(
+  "$action.type: 改良が無く、毎秒の生産が 10 億未満の間、買うと増えると示す毎秒の生産は、買った後に示す毎秒の生産と今のものとの差に等しい",
   ({ index, action }) => {
     fc.assert(
-      fc.property(gameState, (current) => {
-        const before = Number(view(current).production);
-        const after = Number(view(withPurchase(current, action)).production);
+      fc.property(
+        gameState.map((generated): GameState => ({ ...generated, upgrades: 0 })),
+        (current) => {
+          const { shown, difference } = shownGain(current, index, action);
 
-        expect(view(current).shop[index]?.effect).toBe(
-          `買うと毎秒の生産が ${after - before} 増える`,
-        );
+          expect(shown).toBe(`買うと毎秒の生産が ${difference} 増える`);
+        },
+      ),
+    );
+  },
+);
+
+test.each(producers)(
+  "$action.type: 改良で毎秒の生産に端数があると、毎秒の生産が 10 億未満の間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい",
+  ({ index, action }) => {
+    // 増分も毎秒の生産も端数を切り捨てて示すため、差は切り捨てた増分か、端数の和が 1 を超えた分だけ大きくなる。
+    fc.assert(
+      fc.property(gameState, (current) => {
+        fc.pre(toNumber(production(withPurchase(current, action))) < 1e9);
+        const { shown, difference } = shownGain(current, index, action);
+
+        expect([
+          `買うと毎秒の生産が ${difference} 増える`,
+          `買うと毎秒の生産が ${difference - 1} 増える`,
+        ]).toContain(shown);
       }),
     );
   },

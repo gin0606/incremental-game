@@ -42,6 +42,7 @@ const validFile = {
     collectors: 2,
     factories: 1,
     mints: 3,
+    upgrades: 4,
     autoBuyer: true,
   },
 };
@@ -57,40 +58,50 @@ test("保存して読み込むと元の状態と保存時刻に戻る", () => {
   );
 });
 
+/** {@link validFile} を読み込んだ状態。 */
+const loaded: GameState = {
+  coins: num(5),
+  totalEarned: num(10),
+  collectors: 2,
+  factories: 1,
+  mints: 3,
+  upgrades: 4,
+  autoBuyer: true,
+};
+
 test("正しい形式の保存データを読み込める", () => {
   expect(deserialize(JSON.stringify(validFile))).toStrictEqual({
     ok: true,
-    data: {
-      savedAt: 1000,
-      state: {
-        coins: num(5),
-        totalEarned: num(10),
-        collectors: 2,
-        factories: 1,
-        mints: 3,
-        autoBuyer: true,
-      },
-    },
+    data: { savedAt: 1000, state: loaded },
   });
 });
 
-test("造幣所の無い版 1 の保存データは、造幣所 0 として読み込める", () => {
-  const { mints: _mints, ...stateV1 } = validFile.state;
+test("造幣所と改良の無い版 1 の保存データは、造幣所 0・改良 0 として読み込める", () => {
+  const { mints: _mints, upgrades: _upgrades, ...stateV1 } = validFile.state;
 
   expect(deserialize(JSON.stringify({ ...validFile, version: 1, state: stateV1 }))).toStrictEqual({
     ok: true,
-    data: {
-      savedAt: 1000,
-      state: {
-        coins: num(5),
-        totalEarned: num(10),
-        collectors: 2,
-        factories: 1,
-        mints: 0,
-        autoBuyer: true,
-      },
-    },
+    data: { savedAt: 1000, state: { ...loaded, mints: 0, upgrades: 0 } },
   });
+});
+
+test("改良の無い版 2 の保存データは、改良 0 として読み込める", () => {
+  const { upgrades: _upgrades, ...stateV2 } = validFile.state;
+
+  expect(deserialize(JSON.stringify({ ...validFile, version: 2, state: stateV2 }))).toStrictEqual({
+    ok: true,
+    data: { savedAt: 1000, state: { ...loaded, upgrades: 0 } },
+  });
+});
+
+test("版 2 の保存データでも、造幣所の数が不正なら読み込みに失敗する", () => {
+  const text = JSON.stringify({
+    ...validFile,
+    version: 2,
+    state: { ...validFile.state, mints: -1 },
+  });
+
+  expect(deserialize(text)).toStrictEqual({ ok: false, error: "mints が 0 以上の整数でない" });
 });
 
 test.each([8.64e15, -8.64e15])("Date の範囲の端の保存時刻 %s を読み込める", (savedAt) => {
@@ -111,7 +122,7 @@ test.each([
     text: JSON.stringify({ ...validFile, version: undefined }),
     error: "未知の版: undefined",
   },
-  { name: "未来の版", text: JSON.stringify({ ...validFile, version: 3 }), error: "未知の版: 3" },
+  { name: "未来の版", text: JSON.stringify({ ...validFile, version: 4 }), error: "未知の版: 4" },
   { name: "版 0", text: JSON.stringify({ ...validFile, version: 0 }), error: "未知の版: 0" },
   {
     name: "版が文字列",
@@ -249,6 +260,21 @@ test.each([
     name: "mints が整数でない",
     text: withState({ mints: 0.5 }),
     error: "mints が 0 以上の整数でない",
+  },
+  {
+    name: "upgrades が無い",
+    text: withState({ upgrades: undefined }),
+    error: "upgrades が 0 以上の整数でない",
+  },
+  {
+    name: "upgrades が負",
+    text: withState({ upgrades: -1 }),
+    error: "upgrades が 0 以上の整数でない",
+  },
+  {
+    name: "upgrades が整数でない",
+    text: withState({ upgrades: 0.5 }),
+    error: "upgrades が 0 以上の整数でない",
   },
   { name: "autoBuyer が数", text: withState({ autoBuyer: 1 }), error: "autoBuyer が真偽値でない" },
 ] as const)("壊れたデータは読み込みに失敗する: $name", ({ text, error }) => {

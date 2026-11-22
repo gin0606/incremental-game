@@ -18,6 +18,7 @@ const saved: GameState = {
   collectors: 2,
   factories: 0,
   mints: 0,
+  upgrades: 0,
   autoBuyer: false,
 };
 

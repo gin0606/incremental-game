@@ -17,6 +17,7 @@ import {
  * 判定の仕組み（シミュレーター、指標のテスト）を確かめるための仮の最小ゲーム。
  *
  * - 資源はコインの 1 つ。採集機・工場・造幣所がコインを毎秒生む。
+ * - 改良は、1 つごとにすべての施設の生産を {@link UPGRADE_MULTIPLIER} 倍にする。
  * - 工場は、累計で稼いだコインが {@link FACTORY_UNLOCK_EARNED} に、造幣所は {@link MINT_UNLOCK_EARNED} に達すると
  *   解放される。
  * - 自動購入を買うと、採集機・工場・造幣所を買える額に達するたびに自動で買う（放置できる間隔を伸ばす要素）。買える額に
@@ -31,6 +32,8 @@ export interface GameState {
   readonly collectors: number;
   readonly factories: number;
   readonly mints: number;
+  /** 改良の数。 */
+  readonly upgrades: number;
   readonly autoBuyer: boolean;
 }
 
@@ -49,6 +52,7 @@ const FACTORY_PRODUCTION = num(10);
 const MINT_BASE_COST = num(5e6);
 const MINT_COST_GROWTH = num(1.1);
 const MINT_PRODUCTION = num(30);
+const UPGRADE_MULTIPLIER = num(1.25);
 
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
 export const MINT_UNLOCK_EARNED: Num = num(5e7);
@@ -60,6 +64,7 @@ export const initialState: GameState = {
   collectors: 1,
   factories: 0,
   mints: 0,
+  upgrades: 0,
   autoBuyer: false,
 };
 
@@ -83,8 +88,8 @@ export function isMintUnlocked(state: GameState): boolean {
   return atLeast(state.totalEarned, MINT_UNLOCK_EARNED);
 }
 
-/** 毎秒のコインの生産量。 */
-export function production(state: GameState): Num {
+/** 改良の倍率を掛ける前の、施設の毎秒の生産量の和。 */
+function baseProduction(state: GameState): Num {
   return add(
     add(
       mul(COLLECTOR_PRODUCTION, num(state.collectors)),
@@ -92,6 +97,11 @@ export function production(state: GameState): Num {
     ),
     mul(MINT_PRODUCTION, num(state.mints)),
   );
+}
+
+/** 毎秒のコインの生産量。 */
+export function production(state: GameState): Num {
+  return mul(baseProduction(state), pow(UPGRADE_MULTIPLIER, state.upgrades));
 }
 
 interface Purchase {
