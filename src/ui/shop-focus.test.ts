@@ -39,10 +39,10 @@ test("見えている品物が無いときと、店の品物がフォーカス�
 const shopAt = (earned: number): readonly ShopItem[] =>
   view({ ...initialState, totalEarned: num(earned), autoBuyer: true }).shop;
 
-test("自動購入を買い終えると、フォーカスは前で最も近い見えている品物（改良、工場、採集機の順）へ移す", () => {
-  // 店の並びは採集機・工場・造幣所・改良・自動購入。改良は造幣所より先に解放される。
-  expect(shopFocus(shopAt(1e9), 4)).toBe(3);
-  expect(shopFocus(shopAt(1e7), 4)).toBe(3);
-  expect(shopFocus(shopAt(1000), 4)).toBe(1);
-  expect(shopFocus(shopAt(0), 4)).toBe(0);
+test("自動購入を買い終えると、フォーカスは後ろで最も近い見えている品物（工場）へ、工場の解放の前なら前の採集機へ移す", () => {
+  // 店の並びは採集機・自動購入・工場・改良・造幣所。工場の後ろの改良と造幣所は、工場より後に解放される。
+  expect(shopFocus(shopAt(1e9), 1)).toBe(2);
+  expect(shopFocus(shopAt(1e7), 1)).toBe(2);
+  expect(shopFocus(shopAt(1000), 1)).toBe(2);
+  expect(shopFocus(shopAt(0), 1)).toBe(0);
 });

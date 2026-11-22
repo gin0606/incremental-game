@@ -80,7 +80,7 @@ test("自動購入を買うと、そのボタンと説明を隠す", async ({ pa
   await expect(work).toBeHidden();
 });
 
-test("キーボードで自動購入を買うと、フォーカスを店の中の前にある品物のボタンへ移し、続けて店の中を移れる", async ({
+test("キーボードで自動購入を買うと、フォーカスを店の中の後ろにある品物のボタンへ移し、続けて店の中を移れる", async ({
   page,
 }) => {
   await page.addInitScript(putSave, savedWithCoins(3e5));
@@ -96,8 +96,7 @@ test("キーボードで自動購入を買うと、フォーカスを店の中�
   await page.keyboard.press("Enter");
   await expect(page.locator("#auto-buyer")).toHaveText("稼働中");
   await expect(autoBuyer).toBeHidden();
-  // 自動購入は店の最後の品物なので、前にある見えている品物のうち最も近い工場へ移す（造幣所と改良は解放の前で隠れて
-  // いる）。
+  // 自動購入の後ろにある見えている品物のうち最も近い工場へ移す（改良と造幣所は解放の前で隠れている）。
   // コインを使い切って買えなくても、フォーカスは受けられる。
   await rendered(page);
   await expect(factory).toBeFocused();

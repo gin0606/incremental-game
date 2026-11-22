@@ -30,7 +30,7 @@ const lockedUpgrade = (gain: number) =>
 
 const autoBuyerWork = "採集機・工場・造幣所・改良を、買える額に達するたびに自動で買う";
 
-test("初期状態では採集機と自動購入を並べ、工場・造幣所・改良は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
+test("初期状態では採集機と自動購入を並べ、工場・改良・造幣所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",
     totalEarned: "0",
@@ -52,22 +52,22 @@ test("初期状態では採集機と自動購入を並べ、工場・造幣所�
         affordable: false,
       },
       {
-        action: { type: "buyFactory" },
-        label: "工場を買う（150 コイン）",
-        effect: "買うと毎秒の生産が 10 増える",
-        visible: false,
-        affordable: false,
-      },
-      lockedMint,
-      // 採集機 1 台の毎秒 1 の 0.25 倍を切り捨てる。
-      lockedUpgrade(0),
-      {
         action: { type: "buyAutoBuyer" },
         label: "自動購入を買う（300000 コイン）",
         effect: autoBuyerWork,
         visible: true,
         affordable: false,
       },
+      {
+        action: { type: "buyFactory" },
+        label: "工場を買う（150 コイン）",
+        effect: "買うと毎秒の生産が 10 増える",
+        visible: false,
+        affordable: false,
+      },
+      // 採集機 1 台の毎秒 1 の 0.25 倍を切り捨てる。
+      lockedUpgrade(0),
+      lockedMint,
     ],
   });
 });
@@ -103,30 +103,30 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
         affordable: true,
       },
       {
-        action: { type: "buyFactory" },
-        label: "工場を買う（216 コイン）",
-        effect: "買うと毎秒の生産が 10 増える",
-        visible: true,
-        affordable: false,
-      },
-      lockedMint,
-      // 毎秒 23 の 0.25 倍の 5.75 を切り捨てる。
-      lockedUpgrade(5),
-      {
         action: { type: "buyAutoBuyer" },
         label: "自動購入を買う（300000 コイン）",
         effect: autoBuyerWork,
         visible: false,
         affordable: false,
       },
+      {
+        action: { type: "buyFactory" },
+        label: "工場を買う（216 コイン）",
+        effect: "買うと毎秒の生産が 10 増える",
+        visible: true,
+        affordable: false,
+      },
+      // 毎秒 23 の 0.25 倍の 5.75 を切り捨てる。
+      lockedUpgrade(5),
+      lockedMint,
     ],
   });
 });
 
 const producers = [
   { index: 0, action: { type: "buyCollector" } },
-  { index: 1, action: { type: "buyFactory" } },
-  { index: 2, action: { type: "buyMint" } },
+  { index: 2, action: { type: "buyFactory" } },
+  { index: 4, action: { type: "buyMint" } },
 ] as const;
 
 /** 買うと増えると示す毎秒の生産と、買った後に示す毎秒の生産と今のものとの差。 */

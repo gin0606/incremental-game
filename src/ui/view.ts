@@ -188,11 +188,10 @@ function nextUnlock(state: GameState): string | undefined {
 
 /** 状態 `state` の表示。`pausedSeconds` は、時計が戻って止めている生産を再開するまでの秒数。 */
 export function view(state: GameState, pausedSeconds = 0): View {
+  // 店は品物を見え始める順（最初から見える採集機と自動購入、続いて解放される順）に並べ、解放された品物の行を後ろに
+  // 足して、既に並んでいる行を動かさない（docs/design/shop-focus.md）。
   const offers = [
     offer(state, { type: "buyCollector" }, "採集機", collectorCost(state), ZERO),
-    offer(state, { type: "buyFactory" }, "工場", factoryCost(state), FACTORY_UNLOCK_EARNED),
-    offer(state, { type: "buyMint" }, "造幣所", mintCost(state), mintUnlockEarned(state)),
-    offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), UPGRADE_UNLOCK_EARNED),
     offer(
       state,
       { type: "buyAutoBuyer" },
@@ -200,6 +199,9 @@ export function view(state: GameState, pausedSeconds = 0): View {
       AUTO_BUYER_COST,
       state.autoBuyer ? undefined : ZERO,
     ),
+    offer(state, { type: "buyFactory" }, "工場", factoryCost(state), FACTORY_UNLOCK_EARNED),
+    offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), UPGRADE_UNLOCK_EARNED),
+    offer(state, { type: "buyMint" }, "造幣所", mintCost(state), mintUnlockEarned(state)),
   ];
   return {
     coins: format(state.coins),

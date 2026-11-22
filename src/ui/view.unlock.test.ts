@@ -4,6 +4,7 @@ import { assert, expect, test } from "vitest";
 import type { Action, GameState } from "../core/game.ts";
 import { gameState } from "../core/game.arbitrary.ts";
 import {
+  FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
   UPGRADE_UNLOCK_EARNED,
   advance,
@@ -12,7 +13,7 @@ import {
   production,
   withPurchase,
 } from "../core/game.ts";
-import { num, toNumber } from "../core/num.ts";
+import { ZERO, num, toNumber } from "../core/num.ts";
 import { deserialize } from "../save/save.ts";
 import type { View } from "./view.ts";
 import { view } from "./view.ts";
@@ -34,7 +35,7 @@ test("造幣所が解放されたら解放の条件を示さず、造幣所を�
   );
 
   expect(current).toMatchObject({ production: "53", mints: "1", nextUnlock: undefined });
-  expect(current.shop[2]).toStrictEqual({
+  expect(current.shop[4]).toStrictEqual({
     action: { type: "buyMint" },
     label: "造幣所を買う（11000000 コイン）",
     effect: "買うと毎秒の生産が 30 増える",
@@ -100,10 +101,10 @@ test("これまでに生産したコインが工場の解放の条件に達す�
   const upgrade = "改良: これまでに生産したコインが 6000000 に達すると解放";
 
   expect(reached.nextUnlock).toBe(`${upgrade}（あと 5999900）`);
-  expect(reached.shop[1]?.visible).toBe(true);
+  expect(reached.shop[2]?.visible).toBe(true);
   expect(withinTolerance.nextUnlock).toBe(`${upgrade}（あと 5999900）`);
-  expect(withinTolerance.shop[1]?.visible).toBe(true);
-  expect(below.shop[1]?.visible).toBe(false);
+  expect(withinTolerance.shop[2]?.visible).toBe(true);
+  expect(below.shop[2]?.visible).toBe(false);
 });
 
 test("造幣所の解放までの残りは、端数を切り上げる。条件に許容誤差の範囲で届くと、条件を示さずに造幣所を並べる", () => {
@@ -115,7 +116,7 @@ test("造幣所の解放までの残りは、端数を切り上げる。条件�
     `${condition}（あと 1）`,
   );
   expect(withinTolerance.nextUnlock).toBeUndefined();
-  expect(withinTolerance.shop[2]?.visible).toBe(true);
+  expect(withinTolerance.shop[4]?.visible).toBe(true);
 });
 
 test("改良: 毎秒の生産が 10 億未満の間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい", () => {
@@ -137,9 +138,9 @@ test("改良: 毎秒の生産が 10 億未満の間、買った後に示す毎�
 
 /** 工場・改良・造幣所が見えているかと、次の解放の表示が示す要素（無ければ「なし」）。 */
 const unlockShown = (current: View): readonly [boolean, boolean, boolean, string] => [
-  current.shop[1]?.visible === true,
-  current.shop[3]?.visible === true,
   current.shop[2]?.visible === true,
+  current.shop[3]?.visible === true,
+  current.shop[4]?.visible === true,
   current.nextUnlock?.split(":")[0] ?? "なし",
 ];
 
@@ -181,7 +182,7 @@ test("解放の条件が 5e7 だった版の保存で造幣所を持っていれ
   assert(loaded.ok);
   const current = view(loaded.data.state);
 
-  expect(current.shop[2]).toMatchObject({ visible: true, affordable: true });
+  expect(current.shop[4]).toMatchObject({ visible: true, affordable: true });
   expect(current.nextUnlock).toBeUndefined();
 });
 
@@ -189,21 +190,56 @@ test("解放の条件が 5e7 だった版の保存で造幣所を持っていれ
 const shownActions = (current: GameState): readonly Action["type"][] =>
   view(current).shop.flatMap(({ action, visible }) => (visible ? [action.type] : []));
 
-// SUSPECTED_BUG: 造幣所が解放されると、それまで並んでいた改良と自動購入の行が 1 行ずつ後ろへずれる。改良は造幣所より
-// 先に解放されるのに、店は造幣所を改良より前に並べるため。解放で行が増えても、既に並んでいる行の順と位置は変わらない
-// （新しい行が後ろに足される）のが正しいと考える。改良を続けて押していたプレイヤーの次の押下が、造幣所に当たりうる。
-test("（不具合の疑い）造幣所が解放されると、それまで並んでいた改良と自動購入の行が後ろへずれる", () => {
-  expect(shownActions(state({ totalEarned: num(1e8) }))).toStrictEqual([
-    "buyCollector",
-    "buyFactory",
-    "buyUpgrade",
-    "buyAutoBuyer",
-  ]);
-  expect(shownActions(state({ totalEarned: MINT_UNLOCK_EARNED }))).toStrictEqual([
-    "buyCollector",
-    "buyFactory",
-    "buyMint",
-    "buyUpgrade",
-    "buyAutoBuyer",
-  ]);
+/** 店の最初の行。自動購入は、買い終えるまで採集機の次に並ぶ。 */
+const firstRows = (autoBuyer: boolean): readonly Action["type"][] =>
+  autoBuyer ? ["buyCollector"] : ["buyCollector", "buyAutoBuyer"];
+
+test.each([false, true])(
+  "efficiency@always の解放の順（工場・改良・造幣所）で品物が 1 つずつ解放されると、行は後ろに足され、それまで並んでいた行の順と位置は変わらない（自動購入を買い終えている: %s）",
+  (autoBuyer) => {
+    const rows = firstRows(autoBuyer);
+    const earned = [ZERO, FACTORY_UNLOCK_EARNED, UPGRADE_UNLOCK_EARNED, MINT_UNLOCK_EARNED];
+
+    expect(
+      earned.map((totalEarned) => shownActions(state({ totalEarned, autoBuyer }))),
+    ).toStrictEqual([
+      rows,
+      [...rows, "buyFactory"],
+      [...rows, "buyFactory", "buyUpgrade"],
+      [...rows, "buyFactory", "buyUpgrade", "buyMint"],
+    ]);
+  },
+);
+
+/**
+ * これまでに生産したコインが 0〜3e8 の、到達しうる状態。造幣所は解放の後にしか買えず、解放の条件（今の 1.5e8 も以前の
+ * 版の 5e7 も）は改良の条件より大きいので、造幣所を持つ状態では改良も解放されている。
+ */
+const reachable = fc
+  .oneof(
+    fc.record({
+      earned: fc.oneof(
+        fc.double({ min: 0, max: 200, noNaN: true }),
+        fc.double({ min: 0, max: 3e8, noNaN: true }),
+      ),
+      mints: fc.constant(0),
+      autoBuyer: fc.boolean(),
+    }),
+    fc.record({
+      earned: fc.double({ min: toNumber(UPGRADE_UNLOCK_EARNED), max: 3e8, noNaN: true }),
+      mints: fc.nat({ max: 3 }),
+      autoBuyer: fc.boolean(),
+    }),
+  )
+  .map(({ earned, mints, autoBuyer }) => state({ totalEarned: num(earned), mints, autoBuyer }));
+
+test("生産が進んで品物が解放されても、自動購入を買わない限り、それまで並んでいた行の順と位置は変わらない", () => {
+  fc.assert(
+    fc.property(reachable, fc.double({ min: 0, max: 3e8, noNaN: true }), (current, produced) => {
+      const rows = shownActions(current);
+      const later = shownActions(advance(current, produced / toNumber(production(current))));
+
+      expect(later.slice(0, rows.length)).toStrictEqual(rows);
+    }),
+  );
 });
