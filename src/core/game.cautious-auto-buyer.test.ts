@@ -1,10 +1,21 @@
 import { expect, test } from "vitest";
 
 import type { GameState } from "./game.ts";
-import { CAUTIOUS_AUTO_BUYER_MARGIN, advance, collectorCost, initialState } from "./game.ts";
+import {
+  AUTO_BUYER_COST,
+  CAUTIOUS_AUTO_BUYER_COST,
+  CAUTIOUS_AUTO_BUYER_MARGIN,
+  advance,
+  collectorCost,
+  initialState,
+  perform,
+  priceOf,
+  withPurchase,
+} from "./game.ts";
 import { mul, num, toNumber, toleranceFloor } from "./num.ts";
 
-// 控えめな自動購入を持つ状態を進めたときの購入。自動購入（全額で買う段）の購入は game.auto-buyer.test.ts。
+// 控えめな自動購入の値段と、それを持つ状態を進めたときの購入。自動購入（値段に届けば買う段）の購入は
+// game.auto-buyer.test.ts。
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
@@ -14,6 +25,41 @@ const counts = ({ collectors, factories, mints, upgrades }: GameState): object =
   factories,
   mints,
   upgrades,
+});
+
+const buyCautious = { type: "buyCautiousAutoBuyer" } as const;
+
+test("控えめな自動購入は 10000 コインで、買い終えた後と、自動購入を持った後は買えない", () => {
+  expect(priceOf(initialState, buyCautious)).toBeApprox(CAUTIOUS_AUTO_BUYER_COST);
+  expect(CAUTIOUS_AUTO_BUYER_COST).toBeApprox(num(1e4));
+  expect(priceOf(state({ cautiousAutoBuyer: true }), buyCautious)).toBeUndefined();
+  expect(priceOf(state({ autoBuyer: true }), buyCautious)).toBeUndefined();
+});
+
+test("控えめな自動購入を買うと、値段を払って控えめな自動購入だけを足す。額が足りなければ買えない", () => {
+  const before = state({ coins: num(1e4), totalEarned: num(1e5), collectors: 3 });
+
+  expect(withPurchase(before, buyCautious)).toStrictEqual({ ...before, cautiousAutoBuyer: true });
+  expect(perform(before, buyCautious)).toStrictEqual({
+    ...before,
+    coins: num(0),
+    cautiousAutoBuyer: true,
+  });
+  expect(perform({ ...before, coins: num(9999) }, buyCautious)).toBeUndefined();
+});
+
+test("控えめな自動購入を持っていても、自動購入は同じ値段で買える", () => {
+  const before = state({
+    coins: AUTO_BUYER_COST,
+    totalEarned: AUTO_BUYER_COST,
+    cautiousAutoBuyer: true,
+  });
+
+  expect(perform(before, { type: "buyAutoBuyer" })).toStrictEqual({
+    ...before,
+    coins: num(0),
+    autoBuyer: true,
+  });
 });
 
 test("控えめな自動購入が買うのに要るコインは、値段の 2 倍", () => {

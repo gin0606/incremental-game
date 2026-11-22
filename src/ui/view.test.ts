@@ -30,6 +30,16 @@ const lockedUpgrade = (gain: number) =>
 
 const autoBuyerWork = "採集機・工場・造幣所・改良を、買える額に達するたびに自動で買う";
 
+/** 控えめな自動購入を買う品物。自動購入か控えめな自動購入を買い終えると見えない。 */
+const cautiousRow = (visible: boolean) =>
+  ({
+    action: { type: "buyCautiousAutoBuyer" },
+    label: "控えめな自動購入を買う（10000 コイン）",
+    effect: "採集機・工場・造幣所・改良を、コインが値段の 2 倍に達するたびに自動で買う",
+    visible,
+    affordable: false,
+  }) as const;
+
 test.each([
   { autoBuyer: false, cautiousAutoBuyer: false, expected: "なし" },
   { autoBuyer: false, cautiousAutoBuyer: true, expected: "控えめに稼働中" },
@@ -42,7 +52,7 @@ test.each([
   },
 );
 
-test("初期状態では採集機と自動購入を並べ、工場・改良・造幣所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
+test("初期状態では採集機と 2 つの自動購入を並べ、工場・改良・造幣所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",
     totalEarned: "0",
@@ -70,6 +80,7 @@ test("初期状態では採集機と自動購入を並べ、工場・改良・�
         visible: true,
         affordable: false,
       },
+      cautiousRow(true),
       {
         action: { type: "buyFactory" },
         label: "工場を買う（150 コイン）",
@@ -84,18 +95,17 @@ test("初期状態では採集機と自動購入を並べ、工場・改良・�
   });
 });
 
-test("工場が解放されたら改良の解放の条件を示し、工場は買える額があれば買える。自動購入を買い終えたら隠す", () => {
-  const current = view(
-    state({
-      coins: num(200.7),
-      totalEarned: num(1000),
-      collectors: 3,
-      factories: 2,
-      autoBuyer: true,
-    }),
-  );
+/** 工場が解放され、自動購入を買い終えた状態。 */
+const factoryUnlocked = state({
+  coins: num(200.7),
+  totalEarned: num(1000),
+  collectors: 3,
+  factories: 2,
+  autoBuyer: true,
+});
 
-  expect(current).toStrictEqual({
+test("工場が解放されたら改良の解放の条件を示し、工場は買える額があれば買える。自動購入を買い終えたら隠す", () => {
+  expect(view(factoryUnlocked)).toStrictEqual({
     coins: "200",
     totalEarned: "1000",
     production: "23",
@@ -121,6 +131,8 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
         visible: false,
         affordable: false,
       },
+      // 自動購入を買い終えると、働きが含まれる控えめな自動購入も買えない。
+      cautiousRow(false),
       {
         action: { type: "buyFactory" },
         label: "工場を買う（216 コイン）",
@@ -137,8 +149,8 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
 
 const producers = [
   { index: 0, action: { type: "buyCollector" } },
-  { index: 2, action: { type: "buyFactory" } },
-  { index: 4, action: { type: "buyMint" } },
+  { index: 3, action: { type: "buyFactory" } },
+  { index: 5, action: { type: "buyMint" } },
 ] as const;
 
 /** 買うと増えると示す毎秒の生産と、買った後に示す毎秒の生産と今のものとの差。 */

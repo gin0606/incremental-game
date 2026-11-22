@@ -40,11 +40,21 @@ const shopAt = (earned: number): readonly ShopItem[] =>
   view({ ...initialState, totalEarned: num(earned), autoBuyer: true }).shop;
 
 test("自動購入を買い終えると、フォーカスは後ろで最も近い見えている品物（工場）へ、工場の解放の前なら前の採集機へ移す", () => {
-  // 店の並びは採集機・自動購入・工場・改良・造幣所。工場の後ろの改良と造幣所は、工場より後に解放される。
-  expect(shopFocus(shopAt(1e9), 1)).toBe(2);
-  expect(shopFocus(shopAt(1e7), 1)).toBe(2);
-  expect(shopFocus(shopAt(1000), 1)).toBe(2);
+  // 店の並びは採集機・自動購入・控えめな自動購入・工場・改良・造幣所。控えめな自動購入は、自動購入を買い終えると
+  // 隠れる。工場の後ろの改良と造幣所は、工場より後に解放される。
+  expect(shopFocus(shopAt(1e9), 1)).toBe(3);
+  expect(shopFocus(shopAt(1e7), 1)).toBe(3);
+  expect(shopFocus(shopAt(1000), 1)).toBe(3);
   expect(shopFocus(shopAt(0), 1)).toBe(0);
+});
+
+/** 控えめな自動購入を買い終え、これまでに生産したコインが `earned` の状態の店。 */
+const shopWithCautious = (earned: number): readonly ShopItem[] =>
+  view({ ...initialState, totalEarned: num(earned), cautiousAutoBuyer: true }).shop;
+
+test("控えめな自動購入を買い終えると、フォーカスは後ろの工場へ、工場の解放の前なら前の自動購入へ移す", () => {
+  expect(shopFocus(shopWithCautious(1000), 2)).toBe(3);
+  expect(shopFocus(shopWithCautious(0), 2)).toBe(1);
 });
 
 test("フォーカスを移すとき、キーボードで押した後は巻き取り、マウスなどで押した後は巻き取らない", () => {

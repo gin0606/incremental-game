@@ -62,10 +62,21 @@ test("解放の前の品物は、解放の条件と値段の両方に届くま�
 });
 
 test("まだ買っていない自動購入は、見えている品物として待ち時間に数える", () => {
-  // 自動購入（300000）は、採集機（約 2.9e6）と工場（約 1.4e6）より安い。毎秒 590。
-  const current = view(state({ totalEarned: num(1e6), collectors: 90, factories: 50 }));
+  // 自動購入（300000）は、採集機（約 2.9e6）と工場（約 1.4e6）より安い。控えめな自動購入は買い終えている。毎秒 590。
+  const current = view(
+    state({ totalEarned: num(1e6), collectors: 90, factories: 50, cautiousAutoBuyer: true }),
+  );
 
   expect(current.nextPurchase).toBe("今の生産のままで約 8 分 29 秒");
+});
+
+test("まだ買っていない控えめな自動購入は、見えている品物として待ち時間に数え、買い終えたら数えない", () => {
+  // 控えめな自動購入（10000）は、採集機（約 2.9e6）・工場（約 1.4e6）・自動購入（300000）より安い。毎秒 590。
+  const before = state({ totalEarned: num(1e6), collectors: 90, factories: 50 });
+
+  expect(view(before).nextPurchase).toBe("今の生産のままで約 17 秒");
+  // 自動購入を買い終えると、控えめな自動購入も買えない。最も安いのは工場の約 1.37e6 で、毎秒 590 で約 2314 秒。
+  expect(view({ ...before, autoBuyer: true }).nextPurchase).toBe("今の生産のままで約 38 分 34 秒");
 });
 
 test("造幣所を持っていれば、解放の条件に届いていなくても、値段に届くまでの時間で数える", () => {

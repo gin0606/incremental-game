@@ -38,7 +38,7 @@ test("造幣所が解放されたら解放の条件を示さず、造幣所を�
   );
 
   expect(current).toMatchObject({ production: "53", mints: "1", nextUnlock: allUnlocked });
-  expect(current.shop[4]).toStrictEqual({
+  expect(current.shop[5]).toStrictEqual({
     action: { type: "buyMint" },
     label: "造幣所を買う（11000000 コイン）",
     effect: "買うと毎秒の生産が 30 増える",
@@ -65,7 +65,7 @@ test("改良が解放されたら改良の解放の条件を示さず、改良�
     upgrades: "1",
     nextUnlock: "造幣所: これまでに生産したコインが 150000000 に達すると解放（あと 138000000）",
   });
-  expect(current.shop[3]).toStrictEqual({
+  expect(current.shop[4]).toStrictEqual({
     action: { type: "buyUpgrade" },
     label: "改良を買う（1240000 コイン）",
     effect: "買うと毎秒の生産が 7 増える（すべての施設の生産が 1.25 倍になる）",
@@ -83,7 +83,7 @@ test("改良を持っていれば、解放の条件に届いていなくても�
   expect(current.nextUnlock).toBe(
     "造幣所: これまでに生産したコインが 150000000 に達すると解放（あと 142000000）",
   );
-  expect(current.shop[3]).toMatchObject({ visible: true, affordable: true });
+  expect(current.shop[4]).toMatchObject({ visible: true, affordable: true });
 });
 
 test("解放までの残りは、生産で減り、購入では変わらない。端数は切り上げる", () => {
@@ -116,10 +116,10 @@ test("これまでに生産したコインが工場の解放の条件に達す�
   const upgrade = "改良: これまでに生産したコインが 12000000 に達すると解放";
 
   expect(reached.nextUnlock).toBe(`${upgrade}（あと 11999900）`);
-  expect(reached.shop[2]?.visible).toBe(true);
+  expect(reached.shop[3]?.visible).toBe(true);
   expect(withinTolerance.nextUnlock).toBe(`${upgrade}（あと 11999900）`);
-  expect(withinTolerance.shop[2]?.visible).toBe(true);
-  expect(below.shop[2]?.visible).toBe(false);
+  expect(withinTolerance.shop[3]?.visible).toBe(true);
+  expect(below.shop[3]?.visible).toBe(false);
 });
 
 test("造幣所の解放までの残りは、端数を切り上げる。条件に許容誤差の範囲で届くと、条件を示さずに造幣所を並べる", () => {
@@ -131,7 +131,7 @@ test("造幣所の解放までの残りは、端数を切り上げる。条件�
     `${condition}（あと 1）`,
   );
   expect(withinTolerance.nextUnlock).toBe(allUnlocked);
-  expect(withinTolerance.shop[4]?.visible).toBe(true);
+  expect(withinTolerance.shop[5]?.visible).toBe(true);
 });
 
 test("改良: 毎秒の生産が 10 億未満の間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい", () => {
@@ -146,7 +146,7 @@ test("改良: 毎秒の生産が 10 億未満の間、買った後に示す毎�
       expect([
         `買うと毎秒の生産が ${difference} 増える${rule}`,
         `買うと毎秒の生産が ${difference - 1} 増える${rule}`,
-      ]).toContain(view(current).shop[3]?.effect);
+      ]).toContain(view(current).shop[4]?.effect);
     }),
   );
 });
@@ -159,9 +159,9 @@ const earnedAcrossUnlocks = fc.oneof(
 
 /** 工場・改良・造幣所が見えているかと、次の解放の表示が示す要素（無ければその旨）。 */
 const unlockShown = (current: View): readonly [boolean, boolean, boolean, string] => [
-  current.shop[2]?.visible === true,
   current.shop[3]?.visible === true,
   current.shop[4]?.visible === true,
+  current.shop[5]?.visible === true,
   current.nextUnlock.split(":")[0] ?? "",
 ];
 
@@ -197,7 +197,7 @@ test("解放の条件が 5e7 だった版の保存で造幣所を持っていれ
   assert(loaded.ok);
   const current = view(loaded.data.state);
 
-  expect(current.shop[4]).toMatchObject({ visible: true, affordable: true });
+  expect(current.shop[5]).toMatchObject({ visible: true, affordable: true });
   expect(current.nextUnlock).toBe(allUnlocked);
 });
 
@@ -205,9 +205,12 @@ test("解放の条件が 5e7 だった版の保存で造幣所を持っていれ
 const shownActions = (current: GameState): readonly Action["type"][] =>
   view(current).shop.flatMap(({ action, visible }) => (visible ? [action.type] : []));
 
-/** 店の最初の行。自動購入は、買い終えるまで採集機の次に並ぶ。 */
+/**
+ * 店の最初の行。自動購入と控えめな自動購入は、買い終えるまで採集機の次に並ぶ。控えめな自動購入は、自動購入を買い
+ * 終えると隠れる。
+ */
 const firstRows = (autoBuyer: boolean): readonly Action["type"][] =>
-  autoBuyer ? ["buyCollector"] : ["buyCollector", "buyAutoBuyer"];
+  autoBuyer ? ["buyCollector"] : ["buyCollector", "buyAutoBuyer", "buyCautiousAutoBuyer"];
 
 test.each([false, true])(
   "これまでに生産したコインが工場・改良・造幣所の解放の条件に順に達すると、行は後ろに足され、それまで並んでいた行の順と位置は変わらない（自動購入を買い終えている: %s）",

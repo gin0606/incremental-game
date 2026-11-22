@@ -80,6 +80,40 @@ test("自動購入を買うと、そのボタンと説明を隠す", async ({ pa
   await expect(work).toBeHidden();
 });
 
+test("控えめな自動購入を買うと、そのボタンと説明を隠し、コインが値段の 2 倍に達したときに品物を自動で買う", async ({
+  page,
+}) => {
+  // 控えめな自動購入の値段 10000 ちょうどのコインを持つ保存データ。採集機 1 台で毎秒 1。
+  await page.addInitScript(putSave, savedWithCoins(1e4));
+  await page.clock.install({ time: at(0) });
+  await page.clock.pauseAt(at(60_000));
+  await page.goto("/");
+
+  const cautious = page.getByRole("button", { name: /^控えめな自動購入を買う（10000 コイン）/v });
+  const work = page.getByText(
+    "採集機・工場・造幣所・改良を、コインが値段の 2 倍に達するたびに自動で買う",
+  );
+  await expect(page.locator("#auto-buyer")).toHaveText("なし");
+  await expect(cautious).toHaveAccessibleDescription(
+    "採集機・工場・造幣所・改良を、コインが値段の 2 倍に達するたびに自動で買う",
+  );
+  await cautious.click();
+  await expect(page.locator("#auto-buyer")).toHaveText("控えめに稼働中");
+  await expect(page.locator("#coins")).toHaveText("0");
+  await expect(cautious).toBeHidden();
+  await expect(work).toHaveCount(1);
+  await expect(work).toBeHidden();
+  // 自動購入（300000）はまだ買える品物として並ぶ。
+  await expect(page.getByRole("button", { name: /^自動購入を買う/v })).toBeVisible();
+
+  // 2 台目の採集機の値段 11.5 に届いても買わず、その 2 倍の 23 に届くと買う。工場（150）の 2 倍には届かない。
+  await page.clock.runFor(12_000);
+  await expect(page.locator("#collectors")).toHaveText("1");
+  await page.clock.runFor(12_000);
+  await expect(page.locator("#collectors")).toHaveText("2");
+  await expect(page.locator("#production")).toHaveText("2");
+});
+
 test("キーボードでフォーカスを置いた自動購入をマウスで買っても、ページも後ろの行も動かず、続けて同じ位置を押しても別の品物のボタンに当たらない", async ({
   page,
 }) => {

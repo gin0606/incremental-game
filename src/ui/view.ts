@@ -1,6 +1,7 @@
 import type { Action, GameState } from "../core/game.ts";
 import {
   AUTO_BUYER_COST,
+  CAUTIOUS_AUTO_BUYER_COST,
   CAUTIOUS_AUTO_BUYER_MARGIN,
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
@@ -26,7 +27,7 @@ import { ZERO, add, atLeast, div, format, max, num, sub, toNumber } from "../cor
 export interface ShopItem {
   readonly action: Action;
   readonly label: string;
-  /** 買うと得られるもの。採集機・工場・造幣所・改良は増える毎秒の生産、自動購入は働き。 */
+  /** 買うと得られるもの。採集機・工場・造幣所・改良は増える毎秒の生産、自動購入と控えめな自動購入は働き。 */
   readonly effect: string;
   /** 解放されていて、まだ買える（一度きりの品物を買い終えていない）。 */
   readonly visible: boolean;
@@ -96,8 +97,8 @@ const productionGain = (state: GameState, action: Action): string =>
   `買うと毎秒の生産が ${format(sub(production(withPurchase(state, action)), production(state)))} 増える`;
 
 /**
- * 品物ごとの、買うと得られるものの表示。自動購入の働きは、`src/core/game.ts` の自動購入の規則（何を、いつ買うか）を
- * 言葉にしたもので、規則を変えるときは合わせて直す。
+ * 品物ごとの、買うと得られるものの表示。自動購入と控えめな自動購入の働きは、`src/core/game.ts` の自動購入の規則
+ * （何を、いつ買うか）を言葉にしたもので、規則を変えるときは合わせて直す。
  */
 const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = {
   buyCollector: (state) => productionGain(state, { type: "buyCollector" }),
@@ -201,7 +202,7 @@ const autoBuyerStatus = (state: GameState): string => {
 
 /** 状態 `state` の表示。`pausedSeconds` は、時計が戻って止めている生産を再開するまでの秒数。 */
 export function view(state: GameState, pausedSeconds = 0): View {
-  // 店は品物を見え始める順（最初から見える採集機と自動購入、続いて解放される順）に並べ、解放された品物の行を後ろに
+  // 店は品物を見え始める順（最初から見える採集機と 2 つの自動購入、続いて解放される順）に並べ、解放された品物の行を後ろに
   // 足して、既に並んでいる行を動かさない（docs/design/shop-focus.md）。
   const offers = [
     offer(state, { type: "buyCollector" }, "採集機", collectorCost(state), ZERO),
@@ -211,6 +212,13 @@ export function view(state: GameState, pausedSeconds = 0): View {
       "自動購入",
       AUTO_BUYER_COST,
       state.autoBuyer ? undefined : ZERO,
+    ),
+    offer(
+      state,
+      { type: "buyCautiousAutoBuyer" },
+      "控えめな自動購入",
+      CAUTIOUS_AUTO_BUYER_COST,
+      state.autoBuyer || state.cautiousAutoBuyer ? undefined : ZERO,
     ),
     offer(state, { type: "buyFactory" }, "工場", factoryCost(state), FACTORY_UNLOCK_EARNED),
     offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), upgradeUnlockEarned(state)),
