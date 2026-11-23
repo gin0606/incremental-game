@@ -35,6 +35,7 @@ const exchanges = requireElement("exchanges");
 const upgrades = requireElement("upgrades");
 const collectorUpgrades = requireElement("collector-upgrades");
 const factoryLinks = requireElement("factory-links");
+const toolSupplies = requireElement("tool-supplies");
 const autoBuyer = requireElement("auto-buyer");
 const stats = requireElement("stats");
 const nextPurchase = requireElement("next-purchase");
@@ -130,6 +131,7 @@ const renderStats = (current: View): void => {
   refineries.textContent = current.refineries;
   exchanges.textContent = current.exchanges;
   upgrades.textContent = current.upgrades;
+  toolSupplies.textContent = current.toolSupplies;
   collectorUpgrades.textContent = current.collectorUpgrades;
   factoryLinks.textContent = current.factoryLinks;
   autoBuyer.textContent = current.autoBuyer;

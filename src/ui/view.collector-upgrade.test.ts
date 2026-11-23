@@ -18,7 +18,7 @@ import { view } from "./view.ts";
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
 /** 店で採集機の改修が並ぶ位置。 */
-const ROW = 5;
+const ROW = 6;
 
 const rule = "（採集機の生産が 2 倍になる）";
 
@@ -97,14 +97,16 @@ test("採集機の改修: 改良と工具の支給が無く、毎秒の生産が
 
 test("造幣所を持っていれば、採集機の改修の解放の条件に届いていなくても、採集機の改修を値段に届くまでの時間で数える", () => {
   // 造幣所の条件が 5e7 だった版の保存。造幣所 1 台を持ち、累計 6e7 は採集機の改修の条件 7.5e7 に届かない（条件までは
-  // 約 34 分 7 秒）。ほかの品物は採集機の改修（5e6）より高い（造幣所は 1.1e7）。5e6 を毎秒 1230 × 1.25^8 ≈ 7331 で割り、秒を切り上げる。
+  // 約 34 分 7 秒）。ほかの品物は採集機の改修（5e6）より高い（造幣所は 1.1e7、工具の支給は 2.2e7）。工具の支給 1 つで
+  // 採集機 160 台が毎秒 200 を生み、5e6 を毎秒 1230 × 1.25^8 ≈ 7331 で割り、秒を切り上げる。
   const current = view(
     state({
       totalEarned: num(6e7),
-      collectors: 200,
+      collectors: 160,
       factories: 100,
       mints: 1,
       upgrades: 8,
+      toolSupplies: 1,
       autoBuyer: true,
     }),
   );

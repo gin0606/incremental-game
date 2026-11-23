@@ -110,6 +110,7 @@ test.each([
   { ...unchanged, refineries: 2, added: "精錬所が 2 台" },
   { ...unchanged, exchanges: 2, added: "交易所が 2 台" },
   { ...unchanged, upgrades: 2, added: "改良が 2 個" },
+  { ...unchanged, toolSupplies: 2, added: "工具の支給が 2 個" },
   { ...unchanged, collectorUpgrades: 2, added: "採集機の改修が 2 個" },
   { ...unchanged, factoryLinks: 2, added: "工場の連携が 2 個" },
   {
@@ -119,13 +120,14 @@ test.each([
     refineries: 1,
     exchanges: 1,
     upgrades: 1,
+    toolSupplies: 1,
     collectorUpgrades: 1,
     factoryLinks: 1,
     added:
-      "採集機が 1 台、工場が 1 台、造幣所が 1 台、精錬所が 1 台、交易所が 1 台、改良が 1 個、採集機の改修が 1 個、工場の連携が 1 個",
+      "採集機が 1 台、工場が 1 台、造幣所が 1 台、精錬所が 1 台、交易所が 1 台、改良が 1 個、工具の支給が 1 個、採集機の改修が 1 個、工場の連携が 1 個",
   },
 ] as const)(
-  "自動購入で増えた施設と改良と採集機の改修と工場の連携だけを示す（採集機 $collectors 台、工場 $factories 台、造幣所 $mints 台、精錬所 $refineries 台、交易所 $exchanges 台、改良 $upgrades、採集機の改修 $collectorUpgrades、工場の連携 $factoryLinks）",
+  "自動購入で増えた施設と改良と工具の支給と採集機の改修と工場の連携だけを示す（採集機 $collectors 台、工場 $factories 台、造幣所 $mints 台、精錬所 $refineries 台、交易所 $exchanges 台、改良 $upgrades、工具の支給 $toolSupplies、採集機の改修 $collectorUpgrades、工場の連携 $factoryLinks）",
   ({
     collectors,
     factories,
@@ -133,6 +135,7 @@ test.each([
     refineries,
     exchanges,
     upgrades,
+    toolSupplies,
     collectorUpgrades,
     factoryLinks,
     added,
@@ -146,6 +149,7 @@ test.each([
       refineries,
       exchanges,
       upgrades,
+      toolSupplies,
       collectorUpgrades,
       factoryLinks,
     };
@@ -163,6 +167,7 @@ test("増えた数は、離れる前の数との差で示す", () => {
     refineries: 4,
     exchanges: 1,
     upgrades: 3,
+    toolSupplies: 1,
     collectorUpgrades: 1,
     factoryLinks: 2,
   };
@@ -173,12 +178,13 @@ test("増えた数は、離れる前の数との差で示す", () => {
     refineries: 6,
     exchanges: 4,
     upgrades: 15,
+    toolSupplies: 2,
     collectorUpgrades: 3,
     factoryLinks: 3,
   };
 
   expect(awayReport(before, after, 3600)).toBe(
-    "離れていた 1 時間 0 分のあいだに、コインを 100 生産した。自動購入で造幣所が 1 台、精錬所が 2 台、交易所が 3 台、改良が 12 個、採集機の改修が 2 個、工場の連携が 1 個増えた。",
+    "離れていた 1 時間 0 分のあいだに、コインを 100 生産した。自動購入で造幣所が 1 台、精錬所が 2 台、交易所が 3 台、改良が 12 個、工具の支給が 1 個、採集機の改修が 2 個、工場の連携が 1 個増えた。",
   );
 });
 

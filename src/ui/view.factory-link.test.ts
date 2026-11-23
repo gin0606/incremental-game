@@ -12,7 +12,7 @@ import { view } from "./view.ts";
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
 /** 店で工場の連携が並ぶ位置（最後の行）。 */
-const ROW = 9;
+const ROW = 10;
 
 const rule = "（工場の生産が、持っている工場 1 台につき、連携の無いときの 1% ずつ増える）";
 

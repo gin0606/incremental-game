@@ -89,8 +89,8 @@ test("自動購入があれば、工場の値段に達する時刻に工場を�
   expect(after.coins).toBeApprox(num(0.5 * 30), 1e-6);
 });
 
-// 採集機 200 台（次は約 1.4e13）、工場 100 台（約 1.2e10）、改良 8 つ（約 2.7e7）、採集機の改修 1 つ（採集機が毎秒 2。
-// 次は 4e7）で、毎秒 1400 × 1.25^8。造幣所（1e7）のほかは、テストの間に値段に届かない。
+// 採集機 160 台（採集機の改修 1 つと工具の支給 1 つで 1 台が毎秒 2.5）、工場 100 台、改良 8 つで、毎秒 1400 × 1.25^8。
+// 造幣所（1e7）のほかは、テストの間に値段に届かない（ほかで最も安いのは工具の支給の 2.2e7）。
 const MULTIPLIER = 1.25 ** 8;
 const MINT_TRIAL_RATE = 1400 * MULTIPLIER;
 /** 造幣所を 1 つ買った後の毎秒の生産。 */
@@ -100,10 +100,11 @@ const mintTrial = (coins: number, short: number): GameState =>
   state({
     coins: num(coins),
     totalEarned: num(toNumber(MINT_UNLOCK_EARNED) - short),
-    collectors: 200,
+    collectors: 160,
     factories: 100,
     upgrades: 8,
     collectorUpgrades: 1,
+    toolSupplies: 1,
     autoBuyer: true,
   });
 
@@ -115,14 +116,13 @@ test("自動購入は、造幣所の値段に届いても、累計の生産量�
   expect(advance(start, 1790).mints).toBe(0);
   const after = advance(start, 1810);
   expect(counts(after)).toStrictEqual({
-    collectors: 200,
+    collectors: 160,
     factories: 100,
     mints: 1,
     upgrades: 8,
     autoBuyer: true,
   });
-  // 解放の時刻のコイン 1.5e7 から 1e7 を払い、2 つ目（1.1e7）には届かない。残りの時間は造幣所を足した生産量で
-  // 生産する。
+  // 解放の時刻のコイン 1.5e7 から 1e7 を払い（2 つ目の 1.1e7 には届かない）、残りは造幣所を足した生産量で生産する。
   expect(after.coins).toBeApprox(
     num(1.5e7 - 1e7 + (1810 - unlockedAt) * MINT_TRIAL_RATE_AFTER),
     1e-6,
@@ -141,10 +141,9 @@ test("自動購入は、解放された造幣所を、値段に届く時刻に�
 });
 
 test("自動購入は、造幣所とそれより安い工場を買える額でも、値段あたりの増分が大きければ造幣所を買う", () => {
-  // 造幣所は 1e7 で増分 30（値段あたり 3e-6）、工場 61 台目は 150 × 1.2^60 ≈ 8.45e6 で増分 10（約 1.18e-6）、
-  // 採集機 98 台目は 10 × 1.15^97 ≈ 7.7e6 で増分 2（採集機の改修 1 つ）。1.05e7 コインでは、どれを買っても残りで次を
-  // 買えない。増分はどれも改良 8 つの倍率を掛けた値になるが、大小は変わらない。改良（次は約 2.7e7）と採集機の改修
-  // （次は 4e7）は買えない。
+  // 造幣所は 1e7 で増分 30（値段あたり 3e-6）、工場 61 台目は約 8.45e6 で増分 10 + 97 × 2 × 0.0025 ≈ 10.5（約 1.24e-6）、
+  // 採集機 98 台目は約 7.7e6 で増分 2 × 1.15 = 2.3。1.05e7 コインでは、どれを買っても残りで次を買えない。改良 8 つの倍率は
+  // 大小を変えない。改良（約 2.7e7）・採集機の改修（4e7）・工具の支給（2.2e7）は買えない。
   const after = advance(
     state({
       coins: num(1.05e7),
@@ -153,6 +152,7 @@ test("自動購入は、造幣所とそれより安い工場を買える額で�
       factories: 60,
       upgrades: 8,
       collectorUpgrades: 1,
+      toolSupplies: 1,
       autoBuyer: true,
     }),
     0,

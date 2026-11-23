@@ -8,8 +8,8 @@ import { rendered } from "./rendered.ts";
 
 /**
  * 交易所の解放の条件まであと 30 で、交易所の値段 40000000 を持つ、採集機 10 台と工場 2 つ（毎秒 30）の保存データ
- * （保存形式の版 5。交易所の数を持たない）を、開く時刻 `at(60_000)` に保存したもの。工場・改良・採集機の改修・造幣所・
- * 精錬所は解放済みで、交易所の後の工場の連携は解放の前。
+ * （保存形式の版 5。交易所の数を持たない）を、開く時刻 `at(60_000)` に保存したもの。工場・改良・工具の支給・
+ * 採集機の改修・造幣所・精錬所は解放済みで、交易所の後の工場の連携は解放の前。
  */
 const beforeExchangeUnlock = JSON.stringify({
   version: 5,
@@ -75,13 +75,13 @@ test("交易所が解放される前は店に並べず、解放されると次�
 test("自動購入を持っていれば、交易所が解放された時刻に、値段に届いている交易所を自動で買う", async ({
   page,
 }) => {
-  // 採集機 200 台・工場 100 台・造幣所 50・精錬所 50・改良 20・採集機の改修 3 つで毎秒 9100 × 1.25^20（約 789299）。
-  // ほかの品物は、解放の前の工場の連携（36000000、解放の条件 1.05e9）のほかはどれも 1e9 より高く、手元の 40000000
-  // では交易所しか買えない。解放の条件まであと 100000 で、約 0.13 秒で届く。
+  // 採集機 200 台・工場 100 台・造幣所 50・精錬所 50・改良 20・採集機の改修 3 つ・工具の支給 2 つ（採集機 1 台が毎秒
+  // 8 × 1.5）で毎秒 9900 × 1.25^20（約 858688）。ほかの品物は、解放の前の工場の連携（36000000、解放の条件 1.05e9）の
+  // ほかはどれも 2e8 より高く、手元の 40000000 では交易所しか買えない。解放の条件まであと 100000 で、約 0.12 秒で届く。
   await page.addInitScript(
     putSave,
     JSON.stringify({
-      version: 7,
+      version: 9,
       savedAt: at(60_000).getTime(),
       state: {
         coins: { sign: 1, layer: 0, mag: 40_000_000 },
@@ -92,7 +92,9 @@ test("自動購入を持っていれば、交易所が解放された時刻に�
         refineries: 50,
         exchanges: 0,
         upgrades: 20,
+        toolSupplies: 2,
         collectorUpgrades: 3,
+        factoryLinks: 0,
         autoBuyer: true,
         cautiousAutoBuyer: false,
       },
@@ -101,11 +103,11 @@ test("自動購入を持っていれば、交易所が解放された時刻に�
   await page.clock.install({ time: at(0) });
   await page.clock.pauseAt(at(60_000));
   await page.goto("/");
-  await expect(page.locator("#production")).toHaveText("789299");
+  await expect(page.locator("#production")).toHaveText("858688");
   await expect(page.locator("#exchanges")).toHaveText("0");
 
-  // 2 つ目（42400000）には、この後 52 秒ほど届かない。
+  // 2 つ目（42400000）には、この後 48 秒ほど届かない。
   await page.clock.runFor(1000);
   await expect(page.locator("#exchanges")).toHaveText("1");
-  await expect(page.locator("#production")).toHaveText("815320");
+  await expect(page.locator("#production")).toHaveText("884708");
 });

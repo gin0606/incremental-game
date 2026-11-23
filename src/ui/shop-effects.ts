@@ -35,7 +35,7 @@ export const effects: Readonly<Record<Action["type"], (state: GameState) => stri
   buyToolSupply: (state) =>
     `${productionGain(state, { type: "buyToolSupply" })}（採集機の生産が、持っている工場 1 台につき、支給の無いときの ${toNumber(TOOL_SUPPLY_RATE) * 100}% ずつ増える）`,
   buyAutoBuyer: () =>
-    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、買える額に達するたびに自動で買う",
+    "採集機・工場・造幣所・精錬所・交易所・改良・工具の支給・採集機の改修・工場の連携を、買える額に達するたびに自動で買う",
   buyCautiousAutoBuyer: () =>
-    `採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、払った後も今の生産の ${CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS / 60} 分ぶんのコインが残るときに自動で買う`,
+    `採集機・工場・造幣所・精錬所・交易所・改良・工具の支給・採集機の改修・工場の連携を、払った後も今の生産の ${CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS / 60} 分ぶんのコインが残るときに自動で買う`,
 };

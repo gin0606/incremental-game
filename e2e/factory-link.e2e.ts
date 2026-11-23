@@ -7,8 +7,8 @@ import { rendered } from "./rendered.ts";
 
 /**
  * 工場の連携の解放の条件まであと 110 で、その値段 36000000 を持つ、採集機 10 台と工場 10 台（毎秒 110）の保存データ
- * （保存形式の版 7。工場の連携の数を持たない）を、開く時刻 `at(60_000)` に保存したもの。工場・改良・採集機の改修・
- * 造幣所・精錬所・交易所は解放済み。
+ * （保存形式の版 7。工場の連携の数を持たない）を、開く時刻 `at(60_000)` に保存したもの。工場・改良・工具の支給・
+ * 採集機の改修・造幣所・精錬所・交易所は解放済み。
  */
 const beforeFactoryLinkUnlock = JSON.stringify({
   version: 7,
@@ -77,13 +77,13 @@ test("工場の連携が解放される前は店に並べず、解放される�
 test("自動購入を持っていれば、工場の連携が解放された時刻に、値段に届いている工場の連携を自動で買う", async ({
   page,
 }) => {
-  // 採集機 200 台・工場 80 台・造幣所 30・精錬所 30・交易所 20・改良 12・採集機の改修 3 つで毎秒 12300 × 1.25^12（約
-  // 178988）。ほかの品物はどれも 1.2e8 より高く、手元の 36000000 では工場の連携しか買えない。解放の条件まであと 100000
-  // で、約 0.56 秒で届く。
+  // 採集機 200 台・工場 80 台・造幣所 30・精錬所 30・交易所 20・改良 12・採集機の改修 3 つ・工具の支給 2 つ（採集機
+  // 1 台が毎秒 8 × 1.4）で毎秒 12940 × 1.25^12（約 188301）。ほかの品物はどれも 1.2e8 より高く、手元の 36000000 では
+  // 工場の連携しか買えない。解放の条件まであと 100000 で、約 0.53 秒で届く。
   await page.addInitScript(
     putSave,
     JSON.stringify({
-      version: 8,
+      version: 9,
       savedAt: at(60_000).getTime(),
       state: {
         coins: { sign: 1, layer: 0, mag: 36_000_000 },
@@ -94,6 +94,7 @@ test("自動購入を持っていれば、工場の連携が解放された時�
         refineries: 30,
         exchanges: 20,
         upgrades: 12,
+        toolSupplies: 2,
         collectorUpgrades: 3,
         factoryLinks: 0,
         autoBuyer: true,
@@ -104,11 +105,11 @@ test("自動購入を持っていれば、工場の連携が解放された時�
   await page.clock.install({ time: at(0) });
   await page.clock.pauseAt(at(60_000));
   await page.goto("/");
-  await expect(page.locator("#production")).toHaveText("178988");
+  await expect(page.locator("#production")).toHaveText("188301");
   await expect(page.locator("#factory-links")).toHaveText("0");
 
-  // 工場 80 台がそれぞれ 10 × 0.01 × 80 = 8 ずつ増え、毎秒 12940 × 1.25^12 になる。2 つ目（288000000）には届かない。
+  // 工場 80 台がそれぞれ 10 × 0.01 × 80 = 8 ずつ増え、毎秒 13580 × 1.25^12 になる。2 つ目（288000000）には届かない。
   await page.clock.runFor(1000);
   await expect(page.locator("#factory-links")).toHaveText("1");
-  await expect(page.locator("#production")).toHaveText("188301");
+  await expect(page.locator("#production")).toHaveText("197615");
 });

@@ -64,12 +64,13 @@ test("交易所は解放の前は値段が無く買えず、解放の後は値�
 });
 
 // 採集機 200 台（次は約 1.4e13）、工場 100 台（約 1.2e10）、造幣所 50（約 1.2e9）、精錬所 50（約 1.4e9）、改良 20
-// （約 5.1e9）、採集機の改修 3 つ（採集機 1 台が毎秒 8 を生む。次は 2.56e9）、工場の連携 1 つ（工場 1 台が毎秒 20 を生む。次は
-// 2.88e8）で、毎秒 10100 × 1.25^20。交易所（4e7）のほかは、テストの間に値段に届かない。
+// （約 5.1e9）、採集機の改修 3 つ（次は 2.56e9）と工具の支給 2 つ（次は 2.2e8。採集機 1 台が毎秒 8 × 1.5 = 12 を生む）、
+// 工場の連携 1 つ（工場 1 台が毎秒 20 を生む。次は 2.88e8）で、毎秒 10900 × 1.25^20。交易所（4e7）のほかは、テストの間に
+// 値段に届かない。
 const MULTIPLIER = 1.25 ** 20;
-const RATE = 10_100 * MULTIPLIER;
+const RATE = 10_900 * MULTIPLIER;
 /** 交易所を 1 つ買った後の毎秒の生産。 */
-const RATE_AFTER = 10_400 * MULTIPLIER;
+const RATE_AFTER = 11_200 * MULTIPLIER;
 const trial = (totalEarned: number, automation: Partial<GameState>): GameState =>
   state({
     totalEarned: num(totalEarned),
@@ -80,11 +81,12 @@ const trial = (totalEarned: number, automation: Partial<GameState>): GameState =
     upgrades: 20,
     collectorUpgrades: 3,
     factoryLinks: 1,
+    toolSupplies: 2,
     ...automation,
   });
 
 test("自動購入は、交易所の値段に届いても、累計の生産量が解放の条件に届くまで買わず、届いた時刻に買う", () => {
-  // コインは 4e7 / 毎秒の生産 ≈ 46 秒で値段に届くが、累計の生産量は 5e7 / 毎秒の生産 ≈ 57 秒で 7.5e8 に届く。
+  // コインは 4e7 / 毎秒の生産 ≈ 42 秒で値段に届くが、累計の生産量は 5e7 / 毎秒の生産 ≈ 53 秒で 7.5e8 に届く。
   const start = trial(7e8, { autoBuyer: true });
   const unlockedAt = 5e7 / RATE;
 
@@ -97,7 +99,7 @@ test("自動購入は、交易所の値段に届いても、累計の生産量�
 
 test("交易所の解放の前後で区切っても、一度に進めたときと同じ時刻に交易所を買う", () => {
   const start = trial(7e8, { autoBuyer: true });
-  // 解放の時刻（約 57 秒）に 1 つ目を、約 36 秒後に 2 つ目（4.24e7）を買う。
+  // 解放の時刻（約 53 秒）に 1 つ目を、約 33 秒後に 2 つ目（4.24e7）を買う。3 つ目（約 4.49e7）は 130 秒の後に届く。
   const once = advance(start, 130);
   const split = advance(advance(start, 50), 80);
 
@@ -107,7 +109,7 @@ test("交易所の解放の前後で区切っても、一度に進めたとき�
 });
 
 test("控えめな自動購入は、払った後も 600 秒分のコインが残るときに交易所を買う", () => {
-  // 値段 4e7 と、毎秒の生産の 600 秒分の和に約 646 秒で届く。
+  // 値段 4e7 と、毎秒の生産の 600 秒分の和に約 642 秒で届く。
   const start = trial(7.5e8, { cautiousAutoBuyer: true });
   const reachedAt = (4e7 + 600 * RATE) / RATE;
 
@@ -119,7 +121,8 @@ test("控えめな自動購入は、払った後も 600 秒分のコインが残
 
 test("自動購入は、交易所とそれより安い精錬所を買える額でも、値段あたりの増分が大きければ交易所を買う", () => {
   // 交易所は 4e7 で増分 300（値段あたり 7.5e-6）、精錬所は 3e7 で増分 100（約 3.33e-6）。4.5e7 コインで交易所を買うと、
-  // 残りの 5e6 では精錬所に届かない。採集機・工場・造幣所・改良・採集機の改修は 1e9 より高い。
+  // 残りの 5e6 では精錬所に届かない。採集機・工場・造幣所・改良・採集機の改修は 1e9 より、工具の支給は 2.2e8 で、
+  // どれも高い。
   const after = advance(trial(7.5e8, { coins: num(4.5e7), refineries: 0, autoBuyer: true }), 0);
 
   expect(after.exchanges).toBe(1);

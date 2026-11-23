@@ -42,8 +42,7 @@ export const MINT_UNLOCK_EARNED: Num = num(2e8);
 export const REFINERY_UNLOCK_EARNED: Num = num(4.5e8);
 export const EXCHANGE_UNLOCK_EARNED: Num = num(7.5e8);
 export const FACTORY_LINK_UNLOCK_EARNED: Num = num(1.05e9);
-// 工具の支給を買う規則と自動購入がそれを買う規則がそろうまでは、届かない値にして解放しない。
-export const TOOL_SUPPLY_UNLOCK_EARNED: Num = num(1e300);
+export const TOOL_SUPPLY_UNLOCK_EARNED: Num = num(3.5e7);
 
 export function collectorCost(state: GameState): Num {
   return mul(COLLECTOR_BASE_COST, pow(COLLECTOR_COST_GROWTH, state.collectors));

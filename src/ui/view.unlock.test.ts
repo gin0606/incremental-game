@@ -9,6 +9,7 @@ import {
   REFINERY_UNLOCK_EARNED,
   EXCHANGE_UNLOCK_EARNED,
   FACTORY_LINK_UNLOCK_EARNED,
+  TOOL_SUPPLY_UNLOCK_EARNED,
   UPGRADE_UNLOCK_EARNED,
   advance,
   initialState,
@@ -44,7 +45,7 @@ test("造幣所が解放されたら次の精錬所の条件を示し、造幣�
     mints: "1",
     nextUnlock: "精錬所: これまでに生産したコインが 450000000 に達すると解放（あと 250000000）",
   });
-  expect(current.shop[6]).toStrictEqual({
+  expect(current.shop[7]).toStrictEqual({
     action: { type: "buyMint" },
     label: "造幣所を買う（11000000 コイン）",
     effect: "買うと毎秒の生産が 30 増える",
@@ -53,7 +54,7 @@ test("造幣所が解放されたら次の精錬所の条件を示し、造幣�
   });
 });
 
-test("改良が解放されたら次の採集機の改修の条件を示し、改良を並べる。買うと得られるものと、買った数を示す", () => {
+test("改良が解放されたら次の工具の支給の条件を示し、改良を並べる。買うと得られるものと、買った数を示す", () => {
   const current = view(
     state({
       coins: num(1.3e6),
@@ -69,7 +70,7 @@ test("改良が解放されたら次の採集機の改修の条件を示し、�
   expect(current).toMatchObject({
     production: "30",
     upgrades: "1",
-    nextUnlock: "採集機の改修: これまでに生産したコインが 75000000 に達すると解放（あと 63000000）",
+    nextUnlock: "工具の支給: これまでに生産したコインが 35000000 に達すると解放（あと 23000000）",
   });
   expect(current.shop[4]).toStrictEqual({
     action: { type: "buyUpgrade" },
@@ -80,14 +81,14 @@ test("改良が解放されたら次の採集機の改修の条件を示し、�
   });
 });
 
-test("改良を持っていれば、解放の条件に届いていなくても改良を並べ、次の採集機の改修の条件を示す", () => {
+test("改良を持っていれば、解放の条件に届いていなくても改良を並べ、次の工具の支給の条件を示す", () => {
   // 解放の条件が 6e6 だった版の保存は、今の条件 1.2e7 に届かずに改良を持っていることがある。
   const current = view(
     state({ coins: num(1.3e6), totalEarned: num(8e6), collectors: 4, factories: 2, upgrades: 1 }),
   );
 
   expect(current.nextUnlock).toBe(
-    "採集機の改修: これまでに生産したコインが 75000000 に達すると解放（あと 67000000）",
+    "工具の支給: これまでに生産したコインが 35000000 に達すると解放（あと 27000000）",
   );
   expect(current.shop[4]).toMatchObject({ visible: true, affordable: true });
 });
@@ -137,8 +138,8 @@ test("造幣所の解放までの残りは、端数を切り上げる。条件�
     `${condition}（あと 1）`,
   );
   expect(withinTolerance.nextUnlock).toMatch(/^精錬所: /v);
-  expect(withinTolerance.shop[6]?.visible).toBe(true);
-  expect(withinTolerance.shop[7]?.visible).toBe(false);
+  expect(withinTolerance.shop[7]?.visible).toBe(true);
+  expect(withinTolerance.shop[8]?.visible).toBe(false);
 });
 
 /** これまでに生産したコイン。工場の解放の条件の前後を細かく、工場の連携の解放の条件の先までを粗く覆う。 */
@@ -153,25 +154,27 @@ const unlockShown = (current: View): readonly (boolean | string)[] => [
   current.nextUnlock.split(":")[0] ?? "",
 ];
 
-test("次の解放の条件は、工場・改良・採集機の改修・造幣所・精錬所・交易所・工場の連携の順に、まだ隠れている最初のものだけを示す", () => {
+test("次の解放の条件は、工場・改良・工具の支給・採集機の改修・造幣所・精錬所・交易所・工場の連携の順に、まだ隠れている最初のものだけを示す", () => {
   fc.assert(
     fc.property(earnedAcrossUnlocks, (earned) => {
       expect([
-        [false, false, false, false, false, false, false, "工場"],
-        [true, false, false, false, false, false, false, "改良"],
-        [true, true, false, false, false, false, false, "採集機の改修"],
-        [true, true, true, false, false, false, false, "造幣所"],
-        [true, true, true, true, false, false, false, "精錬所"],
-        [true, true, true, true, true, false, false, "交易所"],
-        [true, true, true, true, true, true, false, "工場の連携"],
-        [true, true, true, true, true, true, true, allUnlocked],
+        [false, false, false, false, false, false, false, false, "工場"],
+        [true, false, false, false, false, false, false, false, "改良"],
+        [true, true, false, false, false, false, false, false, "工具の支給"],
+        [true, true, true, false, false, false, false, false, "採集機の改修"],
+        [true, true, true, true, false, false, false, false, "造幣所"],
+        [true, true, true, true, true, false, false, false, "精錬所"],
+        [true, true, true, true, true, true, false, false, "交易所"],
+        [true, true, true, true, true, true, true, false, "工場の連携"],
+        [true, true, true, true, true, true, true, true, allUnlocked],
       ]).toContainEqual(unlockShown(view(state({ totalEarned: num(earned) }))));
     }),
   );
 });
 
-test("解放の条件が 5e7 だった版の保存で造幣所を持っていれば、今の条件に届いていなくても、造幣所と、その前に解放される採集機の改修を並べる", () => {
-  // 保存形式の版 2 の保存。累計 6e7 は造幣所の今の解放の条件にも、採集機の改修の解放の条件 7.5e7 にも届かない。
+test("解放の条件が 5e7 だった版の保存で造幣所を持っていれば、今の条件に届いていなくても、造幣所と、その前に解放される工具の支給と採集機の改修を並べる", () => {
+  // 保存形式の版 2 の保存。累計 6e7 は造幣所の今の解放の条件にも、採集機の改修の解放の条件 7.5e7 にも届かないが、
+  // 工具の支給の解放の条件 3.5e7 には届く。
   const loaded = deserialize(
     JSON.stringify({
       version: 2,
@@ -191,6 +194,7 @@ test("解放の条件が 5e7 だった版の保存で造幣所を持っていれ
 
   expect(current.shop[5]).toMatchObject({ visible: true, affordable: true });
   expect(current.shop[6]).toMatchObject({ visible: true, affordable: true });
+  expect(current.shop[7]).toMatchObject({ visible: true, affordable: true });
   expect(current.nextUnlock).toBe(
     "精錬所: これまでに生産したコインが 450000000 に達すると解放（あと 390000000）",
   );
@@ -208,7 +212,7 @@ const firstRows = (autoBuyer: boolean): readonly Action["type"][] =>
   autoBuyer ? ["buyCollector"] : ["buyCollector", "buyAutoBuyer", "buyCautiousAutoBuyer"];
 
 test.each([false, true])(
-  "これまでに生産したコインが工場・改良・採集機の改修・造幣所・精錬所・交易所・工場の連携の解放の条件に順に達すると、行は後ろに足され、それまで並んでいた行の順と位置は変わらない（自動購入を買い終えている: %s）",
+  "これまでに生産したコインが工場・改良・工具の支給・採集機の改修・造幣所・精錬所・交易所・工場の連携の解放の条件に順に達すると、行は後ろに足され、それまで並んでいた行の順と位置は変わらない（自動購入を買い終えている: %s）",
   (autoBuyer) => {
     // 解放の条件はどれも、これまでに生産したコインの決まった量なので、efficiency@always を含むどの遊び方でもこの順に
     // 解放される。
@@ -216,6 +220,7 @@ test.each([false, true])(
     const unlocked: readonly Action["type"][] = [
       "buyFactory",
       "buyUpgrade",
+      "buyToolSupply",
       "buyCollectorUpgrade",
       "buyMint",
       "buyRefinery",
@@ -226,6 +231,7 @@ test.each([false, true])(
       ZERO,
       FACTORY_UNLOCK_EARNED,
       UPGRADE_UNLOCK_EARNED,
+      TOOL_SUPPLY_UNLOCK_EARNED,
       COLLECTOR_UPGRADE_UNLOCK_EARNED,
       MINT_UNLOCK_EARNED,
       REFINERY_UNLOCK_EARNED,

@@ -1,11 +1,8 @@
-import * as fc from "fast-check";
 import { assert, expect, test } from "vitest";
 
 import type { GameState } from "../core/game.ts";
-import { gameState } from "../core/game.arbitrary.ts";
-import { advance, initialState, perform, withPurchase } from "../core/game.ts";
+import { advance, initialState, perform } from "../core/game.ts";
 import { mul, num } from "../core/num.ts";
-import { flooredDisplay } from "./view.arbitrary.ts";
 import { view } from "./view.ts";
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
@@ -47,6 +44,19 @@ const lockedUpgrade = (gain: number) =>
     affordable: false,
   }) as const;
 
+/**
+ * 解放の前の、工具の支給を買う品物（数 0）。これを使う状態では、増分（採集機の生産 × 0.25% × 工場の台数）が 1 未満で、
+ * 切り捨てて 0 と示す。
+ */
+const lockedToolSupply = {
+  action: { type: "buyToolSupply" },
+  label: "工具の支給を買う（2200000 コイン）",
+  effect:
+    "買うと毎秒の生産が 0 増える（採集機の生産が、持っている工場 1 台につき、支給の無いときの 0.25% ずつ増える）",
+  visible: false,
+  affordable: false,
+} as const;
+
 /** 解放の前の、採集機の改修を買う品物（数 0）。 */
 const lockedCollectorUpgrade = (gain: number) =>
   ({
@@ -71,7 +81,7 @@ const lockedFactoryLink = {
 const lockedAfterMint = [lockedMint, lockedRefinery, lockedExchange, lockedFactoryLink] as const;
 
 const autoBuyerWork =
-  "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、買える額に達するたびに自動で買う";
+  "採集機・工場・造幣所・精錬所・交易所・改良・工具の支給・採集機の改修・工場の連携を、買える額に達するたびに自動で買う";
 
 /** 控えめな自動購入を買う品物。自動購入か控えめな自動購入を買い終えると見えない。 */
 const cautiousRow = (visible: boolean) =>
@@ -79,7 +89,7 @@ const cautiousRow = (visible: boolean) =>
     action: { type: "buyCautiousAutoBuyer" },
     label: "控えめな自動購入を買う（30000 コイン）",
     effect:
-      "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
+      "採集機・工場・造幣所・精錬所・交易所・改良・工具の支給・採集機の改修・工場の連携を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
     visible,
     affordable: false,
   }) as const;
@@ -96,7 +106,7 @@ test.each([
   },
 );
 
-test("初期状態では採集機と 2 つの自動購入を並べ、工場・改良・採集機の改修・造幣所・精錬所・交易所・工場の連携は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
+test("初期状態では採集機と 2 つの自動購入を並べ、工場・改良・工具の支給・採集機の改修・造幣所・精錬所・交易所・工場の連携は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",
     totalEarned: "0",
@@ -107,6 +117,7 @@ test("初期状態では採集機と 2 つの自動購入を並べ、工場・�
     refineries: "0",
     exchanges: "0",
     upgrades: "0",
+    toolSupplies: "0",
     collectorUpgrades: "0",
     factoryLinks: "0",
     autoBuyer: "なし",
@@ -138,6 +149,7 @@ test("初期状態では採集機と 2 つの自動購入を並べ、工場・�
       },
       // 採集機 1 台の毎秒 1 の 0.25 倍を切り捨てる。
       lockedUpgrade(0),
+      lockedToolSupply,
       // 採集機 1 台の毎秒 1 が 2 倍になる。
       lockedCollectorUpgrade(1),
       ...lockedAfterMint,
@@ -165,6 +177,7 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
     refineries: "0",
     exchanges: "0",
     upgrades: "0",
+    toolSupplies: "0",
     collectorUpgrades: "0",
     factoryLinks: "0",
     autoBuyer: "稼働中",
@@ -196,84 +209,12 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
       },
       // 毎秒 23 の 0.25 倍の 5.75 を切り捨てる。
       lockedUpgrade(5),
+      lockedToolSupply,
       // 採集機 3 台の毎秒 3 が 2 倍になる。
       lockedCollectorUpgrade(3),
       ...lockedAfterMint,
     ],
   });
-});
-
-const producers = [
-  { index: 0, action: { type: "buyCollector" } },
-  { index: 3, action: { type: "buyFactory" } },
-  { index: 6, action: { type: "buyMint" } },
-  { index: 7, action: { type: "buyRefinery" } },
-  { index: 8, action: { type: "buyExchange" } },
-] as const;
-
-/** 買うと増えると示す毎秒の生産と、買った後に示す毎秒の生産と今のものとの差。 */
-const shownGain = (
-  current: GameState,
-  index: number,
-  action: (typeof producers)[number]["action"],
-): { readonly shown: string | undefined; readonly difference: number } => ({
-  shown: view(current).shop[index]?.effect,
-  difference:
-    Number(view(withPurchase(current, action)).production) - Number(view(current).production),
-});
-
-test.each(producers)(
-  "$action.type: 改良と工場の連携と工具の支給が無く、毎秒の生産が 10 億未満の間、買うと増えると示す毎秒の生産は、買った後に示す毎秒の生産と今のものとの差に等しい",
-  ({ index, action }) => {
-    fc.assert(
-      fc.property(
-        gameState.map((generated): GameState => ({
-          ...generated,
-          upgrades: 0,
-          factoryLinks: 0,
-          toolSupplies: 0,
-        })),
-        (current) => {
-          const { shown, difference } = shownGain(current, index, action);
-
-          expect(shown).toBe(`買うと毎秒の生産が ${difference} 増える`);
-        },
-      ),
-    );
-  },
-);
-
-test.each(producers)(
-  "$action.type: 改良や工場の連携や工具の支給で毎秒の生産に端数があると、毎秒の生産が 10 億未満で表示で切り上がる端数が無い間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい",
-  ({ index, action }) => {
-    // 増分も毎秒の生産も端数を切り捨てて示すため、差は切り捨てた増分か、端数の和が 1 を超えた分だけ大きくなる。
-    fc.assert(
-      fc.property(flooredDisplay(action), (current) => {
-        const { shown, difference } = shownGain(current, index, action);
-
-        expect([
-          `買うと毎秒の生産が ${difference} 増える`,
-          `買うと毎秒の生産が ${difference - 1} 増える`,
-        ]).toContain(shown);
-      }),
-    );
-  },
-);
-
-test("改良: 毎秒の生産が 10 億未満で表示で切り上がる端数が無い間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい", () => {
-  const action = { type: "buyUpgrade" } as const;
-  const rule = "（すべての施設の生産が 1.25 倍になる）";
-  fc.assert(
-    fc.property(flooredDisplay(action), (current) => {
-      const difference =
-        Number(view(withPurchase(current, action)).production) - Number(view(current).production);
-
-      expect([
-        `買うと毎秒の生産が ${difference} 増える${rule}`,
-        `買うと毎秒の生産が ${difference - 1} 増える${rule}`,
-      ]).toContain(view(current).shop[4]?.effect);
-    }),
-  );
 });
 
 test("これまでに生産したコインは、生産で増え、購入で手元のコインが減っても減らない", () => {

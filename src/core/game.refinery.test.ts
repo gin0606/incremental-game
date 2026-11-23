@@ -50,12 +50,12 @@ test("精錬所は解放の前は値段が無く買えず、解放の後は値�
 });
 
 // 採集機 200 台（次は約 1.4e13）、工場 100 台（約 1.2e10）、造幣所 50（約 1.2e9）、改良 20（約 5.1e9）、採集機の改修
-// 2 つ（採集機 1 台が毎秒 4 を生む。次は 3.2e8）で、毎秒 3300 × 1.25^20。精錬所（3e7）のほかは、テストの間に値段か
-// 解放の条件（交易所は 7.5e8）に届かない。
+// 2 つ（次は 3.2e8）と工具の支給 2 つ（次は 2.2e8。採集機 1 台が毎秒 4 × 1.5 = 6 を生む）で、毎秒 3700 × 1.25^20。
+// 精錬所（3e7）のほかは、テストの間に値段か解放の条件（交易所は 7.5e8）に届かない。
 const MULTIPLIER = 1.25 ** 20;
-const RATE = 3300 * MULTIPLIER;
+const RATE = 3700 * MULTIPLIER;
 /** 精錬所を 1 つ買った後の毎秒の生産。 */
-const RATE_AFTER = 3400 * MULTIPLIER;
+const RATE_AFTER = 3800 * MULTIPLIER;
 const trial = (totalEarned: number, automation: Partial<GameState>): GameState =>
   state({
     totalEarned: num(totalEarned),
@@ -64,26 +64,27 @@ const trial = (totalEarned: number, automation: Partial<GameState>): GameState =
     mints: 50,
     upgrades: 20,
     collectorUpgrades: 2,
+    toolSupplies: 2,
     ...automation,
   });
 
 test("自動購入は、精錬所の値段に届いても、累計の生産量が解放の条件に届くまで買わず、届いた時刻に買う", () => {
-  // コインは 3e7 / 毎秒の生産 ≈ 105 秒で値段に届くが、累計の生産量は 5e7 / 毎秒の生産 ≈ 175 秒で 4.5e8 に届く。
+  // コインは 3e7 / 毎秒の生産 ≈ 93 秒で値段に届くが、累計の生産量は 5e7 / 毎秒の生産 ≈ 156 秒で 4.5e8 に届く。
   const start = trial(4e8, { autoBuyer: true });
   const unlockedAt = 5e7 / RATE;
 
-  expect(advance(start, 170).refineries).toBe(0);
-  const after = advance(start, 180);
+  expect(advance(start, 150).refineries).toBe(0);
+  const after = advance(start, 160);
   expect(after.refineries).toBe(1);
   // 解放の時刻のコイン 5e7 から 3e7 を払い、2 つ目（3.24e7）には届かない。
-  expect(after.coins).toBeApprox(num(2e7 + (180 - unlockedAt) * RATE_AFTER), 1e-6);
+  expect(after.coins).toBeApprox(num(2e7 + (160 - unlockedAt) * RATE_AFTER), 1e-6);
 });
 
 test("精錬所の解放の前後で区切っても、一度に進めたときと同じ時刻に精錬所を買う", () => {
   const start = trial(4e8, { autoBuyer: true });
-  // 解放の時刻（約 175 秒）に 1 つ目を、約 42 秒後に 2 つ目（3.24e7）を買う。
-  const once = advance(start, 300);
-  const split = advance(advance(start, 150), 150);
+  // 解放の時刻（約 156 秒）に 1 つ目を、約 38 秒後に 2 つ目（3.24e7）を買う。3 つ目（約 3.5e7）は約 297 秒に届く。
+  const once = advance(start, 280);
+  const split = advance(advance(start, 150), 130);
 
   expect(split.refineries).toBe(2);
   expect(split.refineries).toBe(once.refineries);
@@ -91,7 +92,7 @@ test("精錬所の解放の前後で区切っても、一度に進めたとき�
 });
 
 test("控えめな自動購入は、払った後も 600 秒分のコインが残るときに精錬所を買う", () => {
-  // 値段 3e7 と、毎秒の生産の 600 秒分の和に約 705 秒で届く。
+  // 値段 3e7 と、毎秒の生産の 600 秒分の和に約 693 秒で届く。
   const start = trial(4.5e8, { cautiousAutoBuyer: true });
   const reachedAt = (3e7 + 600 * RATE) / RATE;
 
@@ -103,7 +104,7 @@ test("控えめな自動購入は、払った後も 600 秒分のコインが残
 
 test("自動購入は、精錬所とそれより安い造幣所を買える額でも、値段あたりの増分が大きければ精錬所を買う", () => {
   // 精錬所は 3e7 で増分 100（値段あたり約 3.33e-6）、造幣所は 1e7 で増分 30（3e-6）。3.5e7 コインで精錬所を買うと、
-  // 残りの 5e6 では造幣所に届かない。採集機・工場・改良は 1e9 より、採集機の改修は 3.2e8 と高い。
+  // 残りの 5e6 では造幣所に届かない。採集機・工場・改良は 1e9 より、採集機の改修は 3.2e8 と、工具の支給は 2.2e8 と高い。
   const after = advance(trial(4.5e8, { coins: num(3.5e7), mints: 0, autoBuyer: true }), 0);
 
   expect(after.refineries).toBe(1);

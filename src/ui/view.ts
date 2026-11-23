@@ -8,6 +8,7 @@ import {
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
   REFINERY_UNLOCK_EARNED,
+  TOOL_SUPPLY_UNLOCK_EARNED,
   UPGRADE_UNLOCK_EARNED,
   collectorCost,
   collectorUpgradeCost,
@@ -21,6 +22,7 @@ import {
   isFactoryUnlocked,
   isMintUnlocked,
   isRefineryUnlocked,
+  isToolSupplyUnlocked,
   isUpgradeUnlocked,
   mintCost,
   mintUnlockEarned,
@@ -28,6 +30,7 @@ import {
   priceOf,
   production,
   refineryCost,
+  toolSupplyCost,
   upgradeCost,
   upgradeUnlockEarned,
 } from "../core/game.ts";
@@ -56,6 +59,7 @@ export interface View {
   readonly refineries: string;
   readonly exchanges: string;
   readonly upgrades: string;
+  readonly toolSupplies: string;
   readonly collectorUpgrades: string;
   readonly factoryLinks: string;
   readonly autoBuyer: string;
@@ -171,6 +175,7 @@ const unlocks: readonly {
 }[] = [
   { name: "工場", earned: FACTORY_UNLOCK_EARNED, unlocked: isFactoryUnlocked },
   { name: "改良", earned: UPGRADE_UNLOCK_EARNED, unlocked: isUpgradeUnlocked },
+  { name: "工具の支給", earned: TOOL_SUPPLY_UNLOCK_EARNED, unlocked: isToolSupplyUnlocked },
   {
     name: "採集機の改修",
     earned: COLLECTOR_UPGRADE_UNLOCK_EARNED,
@@ -228,6 +233,13 @@ const shopOffers = (state: GameState): readonly Offer[] => [
   offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), upgradeUnlockEarned(state)),
   offer(
     state,
+    { type: "buyToolSupply" },
+    "工具の支給",
+    toolSupplyCost(state),
+    TOOL_SUPPLY_UNLOCK_EARNED,
+  ),
+  offer(
+    state,
     { type: "buyCollectorUpgrade" },
     "採集機の改修",
     collectorUpgradeCost(state),
@@ -258,6 +270,7 @@ export function view(state: GameState, pausedSeconds = 0): View {
     refineries: state.refineries.toString(),
     exchanges: state.exchanges.toString(),
     upgrades: state.upgrades.toString(),
+    toolSupplies: state.toolSupplies.toString(),
     collectorUpgrades: state.collectorUpgrades.toString(),
     factoryLinks: state.factoryLinks.toString(),
     autoBuyer: autoBuyerStatus(state),

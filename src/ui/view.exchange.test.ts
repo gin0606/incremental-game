@@ -20,7 +20,7 @@ test("交易所の解放までの残りは、端数を切り上げる。条件�
   expect(view(state({ totalEarned: num(7.4e8) })).nextUnlock).toBe(`${condition}（あと 10000000）`);
   expect(view(state({ totalEarned: num(749_999_999) })).nextUnlock).toBe(`${condition}（あと 1）`);
   expect(withinTolerance.nextUnlock).toBe(`${factoryLinkCondition}（あと 300000001）`);
-  expect(withinTolerance.shop[8]?.visible).toBe(true);
+  expect(withinTolerance.shop[9]?.visible).toBe(true);
 });
 
 test("交易所が解放されたら次の工場の連携の解放の条件を示し、交易所を並べる。買うと得られるものと、買った数を示す", () => {
@@ -41,7 +41,7 @@ test("交易所が解放されたら次の工場の連携の解放の条件を�
     exchanges: "1",
     nextUnlock: `${factoryLinkCondition}（あと 300000000）`,
   });
-  expect(current.shop[8]).toStrictEqual({
+  expect(current.shop[9]).toStrictEqual({
     action: { type: "buyExchange" },
     label: "交易所を買う（42400000 コイン）",
     effect: "買うと毎秒の生産が 300 増える",

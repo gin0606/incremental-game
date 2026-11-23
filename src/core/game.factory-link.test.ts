@@ -107,8 +107,8 @@ test("工場の連携は解放の前は値段が無く買えず、解放の後�
 
 /**
  * 工場 80 台（次は約 3.2e8）、造幣所 30 台（約 1.7e8）、精錬所 30 台（約 3.0e8）、交易所 20 台（約 1.3e8）、改良 12 個
- * （約 1.5e8）、採集機の改修 3 つ（約 2.6e9）、採集機 200 台（約 1.4e13）。工場の連携（3.6e7）のほかは、テストの間に
- * 値段に届かない。工場の連携を 1 つ買うと、工場 80 台の生産がそれぞれ 8 割増える。
+ * （約 1.5e8）、採集機の改修 3 つ（約 2.6e9）、工具の支給 2 つ（2.2e8）、採集機 200 台（約 1.4e13）。工場の連携（3.6e7）の
+ * ほかは、テストの間に値段に届かない。工場の連携を 1 つ買うと、工場 80 台の生産がそれぞれ 8 割増える。
  */
 const trial = (short: number, automation: Partial<GameState>): GameState =>
   state({
@@ -120,6 +120,7 @@ const trial = (short: number, automation: Partial<GameState>): GameState =>
     exchanges: 20,
     upgrades: 12,
     collectorUpgrades: 3,
+    toolSupplies: 2,
     ...automation,
   });
 
