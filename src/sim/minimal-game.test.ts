@@ -12,6 +12,7 @@ import {
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
   REFINERY_UNLOCK_EARNED,
+  TOOL_SUPPLY_UNLOCK_EARNED,
   UPGRADE_UNLOCK_EARNED,
   advance,
   collectorCost,
@@ -24,6 +25,7 @@ import {
   perform,
   production,
   refineryCost,
+  toolSupplyCost,
   upgradeCost,
 } from "../core/game.ts";
 import type { Num } from "../core/num.ts";
@@ -53,6 +55,7 @@ test("初期状態・時間の経過・資源・生産量は core のものを�
 const unlocks: readonly (readonly [string, Num])[] = [
   ["factory", FACTORY_UNLOCK_EARNED],
   ["upgrade", UPGRADE_UNLOCK_EARNED],
+  ["toolSupply", TOOL_SUPPLY_UNLOCK_EARNED],
   ["collectorUpgrade", COLLECTOR_UPGRADE_UNLOCK_EARNED],
   ["mint", MINT_UNLOCK_EARNED],
   ["refinery", REFINERY_UNLOCK_EARNED],
@@ -64,7 +67,7 @@ const unlocks: readonly (readonly [string, Num])[] = [
 const unlockedAt = (earned: Num): readonly string[] =>
   unlocks.filter(([, condition]) => atLeast(earned, condition)).map(([id]) => id);
 
-test("工場・改良・採集機の改修・造幣所・精錬所・交易所・工場の連携は解放されるまで候補に無く、自動購入は買った後は候補に無い", () => {
+test("工場・改良・工具の支給・採集機の改修・造幣所・精錬所・交易所・工場の連携は解放されるまで候補に無く、自動購入は買った後は候補に無い", () => {
   expect(ids(initialState)).toStrictEqual(["collector", "autoBuyer", "cautiousAutoBuyer"]);
   for (const [id, earned] of unlocks) {
     const reached = unlockedAt(earned);
@@ -87,7 +90,7 @@ test("控えめな自動購入は、買った後と、自動購入を買った�
   expect(ids(state({ autoBuyer: true }))).toStrictEqual(["collector"]);
 });
 
-test("解放済みの要素は、工場・改良・採集機の改修・造幣所・精錬所・交易所・工場の連携の解放で増え、自動購入と控えめな自動購入を買っても減らない", () => {
+test("解放済みの要素は、工場・改良・工具の支給・採集機の改修・造幣所・精錬所・交易所・工場の連携の解放で増え、自動購入と控えめな自動購入を買っても減らない", () => {
   expect(minimalGame.unlocked(initialState)).toStrictEqual([
     "collector",
     "autoBuyer",
@@ -115,6 +118,7 @@ test("候補の値段と生産量の増分は core の値段と生産量から�
     upgrades: 1,
     collectorUpgrades: 2,
     factoryLinks: 1,
+    toolSupplies: 1,
     // どの解放の条件よりも多い。
     totalEarned: num(1e300),
   });
@@ -127,6 +131,7 @@ test("候補の値段と生産量の増分は core の値段と生産量から�
     ["cautiousAutoBuyer", CAUTIOUS_AUTO_BUYER_COST, num(0)],
     ["factory", factoryCost(game), gainOf({ factories: 2 })],
     ["upgrade", upgradeCost(game), gainOf({ upgrades: 2 })],
+    ["toolSupply", toolSupplyCost(game), gainOf({ toolSupplies: 2 })],
     ["collectorUpgrade", collectorUpgradeCost(game), gainOf({ collectorUpgrades: 3 })],
     ["mint", mintCost(game), gainOf({ mints: 3 })],
     ["refinery", refineryCost(game), gainOf({ refineries: 4 })],
@@ -162,6 +167,9 @@ test("候補を買うと、core で同じ行動をした状態になる", () => 
       );
       expect(minimalGame.buy(game, "factoryLink")).toStrictEqual(
         perform(game, { type: "buyFactoryLink" }),
+      );
+      expect(minimalGame.buy(game, "toolSupply")).toStrictEqual(
+        perform(game, { type: "buyToolSupply" }),
       );
       expect(minimalGame.buy(game, "autoBuyer")).toStrictEqual(
         perform(game, { type: "buyAutoBuyer" }),

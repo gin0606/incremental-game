@@ -8,6 +8,7 @@ import {
   isFactoryUnlocked,
   isMintUnlocked,
   isRefineryUnlocked,
+  isToolSupplyUnlocked,
   isUpgradeUnlocked,
   perform,
   priceOf,
@@ -45,6 +46,11 @@ const byAction: {
   },
   buyFactory: { id: "factory", action: { type: "buyFactory" }, unlocked: isFactoryUnlocked },
   buyUpgrade: { id: "upgrade", action: { type: "buyUpgrade" }, unlocked: isUpgradeUnlocked },
+  buyToolSupply: {
+    id: "toolSupply",
+    action: { type: "buyToolSupply" },
+    unlocked: isToolSupplyUnlocked,
+  },
   buyCollectorUpgrade: {
     id: "collectorUpgrade",
     action: { type: "buyCollectorUpgrade" },

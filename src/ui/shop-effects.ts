@@ -3,6 +3,7 @@ import {
   CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS,
   COLLECTOR_UPGRADE_MULTIPLIER,
   FACTORY_LINK_RATE,
+  TOOL_SUPPLY_RATE,
   UPGRADE_MULTIPLIER,
   production,
   withPurchase,
@@ -31,6 +32,8 @@ export const effects: Readonly<Record<Action["type"], (state: GameState) => stri
     `${productionGain(state, { type: "buyCollectorUpgrade" })}（採集機の生産が ${toNumber(COLLECTOR_UPGRADE_MULTIPLIER)} 倍になる）`,
   buyFactoryLink: (state) =>
     `${productionGain(state, { type: "buyFactoryLink" })}（工場の生産が、持っている工場 1 台につき、連携の無いときの ${toNumber(FACTORY_LINK_RATE) * 100}% ずつ増える）`,
+  buyToolSupply: (state) =>
+    `${productionGain(state, { type: "buyToolSupply" })}（採集機の生産が、持っている工場 1 台につき、支給の無いときの ${toNumber(TOOL_SUPPLY_RATE) * 100}% ずつ増える）`,
   buyAutoBuyer: () =>
     "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、買える額に達するたびに自動で買う",
   buyCautiousAutoBuyer: () =>

@@ -13,9 +13,11 @@ import {
   isFactoryUnlocked,
   isMintUnlocked,
   isRefineryUnlocked,
+  isToolSupplyUnlocked,
   isUpgradeUnlocked,
   mintCost,
   refineryCost,
+  toolSupplyCost,
   upgradeCost,
 } from "./economy.ts";
 import type { Action, GameState } from "./state.ts";
@@ -64,6 +66,10 @@ const purchases: Readonly<Record<Action["type"], Purchase>> = {
   buyFactoryLink: {
     price: (state) => (isFactoryLinkUnlocked(state) ? factoryLinkCost(state) : undefined),
     receive: (state) => ({ ...state, factoryLinks: state.factoryLinks + 1 }),
+  },
+  buyToolSupply: {
+    price: (state) => (isToolSupplyUnlocked(state) ? toolSupplyCost(state) : undefined),
+    receive: (state) => ({ ...state, toolSupplies: state.toolSupplies + 1 }),
   },
   buyAutoBuyer: {
     price: (state) => (state.autoBuyer ? undefined : AUTO_BUYER_COST),
