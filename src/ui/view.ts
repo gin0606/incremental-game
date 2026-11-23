@@ -6,6 +6,7 @@ import {
   COLLECTOR_UPGRADE_MULTIPLIER,
   COLLECTOR_UPGRADE_UNLOCK_EARNED,
   EXCHANGE_UNLOCK_EARNED,
+  FACTORY_LINK_RATE,
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
   REFINERY_UNLOCK_EARNED,
@@ -127,6 +128,8 @@ const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = 
     `${productionGain(state, { type: "buyUpgrade" })}（すべての施設の生産が ${toNumber(UPGRADE_MULTIPLIER)} 倍になる）`,
   buyCollectorUpgrade: (state) =>
     `${productionGain(state, { type: "buyCollectorUpgrade" })}（採集機の生産が ${toNumber(COLLECTOR_UPGRADE_MULTIPLIER)} 倍になる）`,
+  buyFactoryLink: (state) =>
+    `${productionGain(state, { type: "buyFactoryLink" })}（工場の生産が、持っている工場 1 台につき ${toNumber(FACTORY_LINK_RATE) * 100}% 増える）`,
   buyAutoBuyer: () =>
     "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、買える額に達するたびに自動で買う",
   buyCautiousAutoBuyer: () =>

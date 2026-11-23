@@ -6,8 +6,10 @@ import {
   collectorUpgradeCost,
   exchangeCost,
   factoryCost,
+  factoryLinkCost,
   isCollectorUpgradeUnlocked,
   isExchangeUnlocked,
+  isFactoryLinkUnlocked,
   isFactoryUnlocked,
   isMintUnlocked,
   isRefineryUnlocked,
@@ -58,6 +60,10 @@ const purchases: Readonly<Record<Action["type"], Purchase>> = {
   buyCollectorUpgrade: {
     price: (state) => (isCollectorUpgradeUnlocked(state) ? collectorUpgradeCost(state) : undefined),
     receive: (state) => ({ ...state, collectorUpgrades: state.collectorUpgrades + 1 }),
+  },
+  buyFactoryLink: {
+    price: (state) => (isFactoryLinkUnlocked(state) ? factoryLinkCost(state) : undefined),
+    receive: (state) => ({ ...state, factoryLinks: state.factoryLinks + 1 }),
   },
   buyAutoBuyer: {
     price: (state) => (state.autoBuyer ? undefined : AUTO_BUYER_COST),
