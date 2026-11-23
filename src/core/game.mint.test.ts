@@ -11,21 +11,21 @@ import {
 } from "./game.ts";
 import { num } from "./num.ts";
 
-// 造幣所の解放の条件と、造幣所を持っている状態の解放。解放の条件が 5e7 だった版の保存は、今の条件 1.3e8 に届かずに造幣所を持っていることがある。
+// 造幣所の解放の条件と、造幣所を持っている状態の解放。解放の条件が 5e7 だった版の保存は、今の条件 2e8 に届かずに造幣所を持っていることがある。
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
-test("造幣所は累計の生産量が 1.3e8 に達するまで解放されず、買えない", () => {
-  const locked = state({ coins: num(2e7), totalEarned: num(1.299e8) });
+test("造幣所は累計の生産量が 2e8 に達するまで解放されず、買えない", () => {
+  const locked = state({ coins: num(2e7), totalEarned: num(1.999e8) });
 
   expect(isMintUnlocked(locked)).toBe(false);
   expect(perform(locked, { type: "buyMint" })).toBeUndefined();
 });
 
-test("造幣所は累計の生産量が 1.3e8 に達すると解放され、買える", () => {
+test("造幣所は累計の生産量が 2e8 に達すると解放され、買える", () => {
   const unlocked = state({ coins: num(1.1e7), totalEarned: MINT_UNLOCK_EARNED });
 
-  expect(MINT_UNLOCK_EARNED).toBeApprox(num(1.3e8));
+  expect(MINT_UNLOCK_EARNED).toBeApprox(num(2e8));
   expect(isMintUnlocked(unlocked)).toBe(true);
   const after = perform(unlocked, { type: "buyMint" });
 

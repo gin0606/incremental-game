@@ -146,9 +146,9 @@ test("解放の前の改良も、解放されて値段に届くまでの時間�
   await expect(page.locator("#production")).toHaveText("875");
 });
 
-/** 造幣所の解放の条件（130000000）にちょうど届いたときの、次の精錬所の解放の表示。 */
+/** 造幣所の解放の条件（200000000）にちょうど届いたときの、次の精錬所の解放の表示。 */
 const refineryAfterMint =
-  "精錬所: これまでに生産したコインが 450000000 に達すると解放（あと 320000000）";
+  "精錬所: これまでに生産したコインが 450000000 に達すると解放（あと 250000000）";
 
 test("造幣所が解放される前は店に並べず、解放されると次の精錬所の条件を示して並べ、買うと造幣所の数と毎秒の生産が増える", async ({
   page,
@@ -164,7 +164,7 @@ test("造幣所が解放される前は店に並べず、解放されると次�
       savedAt: at(60_000).getTime(),
       state: {
         coins: { sign: 1, layer: 0, mag: 10_000_000 },
-        totalEarned: { sign: 1, layer: 0, mag: 129_999_970 },
+        totalEarned: { sign: 1, layer: 0, mag: 199_999_970 },
         collectors: 10,
         factories: 2,
         mints: 0,
@@ -181,7 +181,7 @@ test("造幣所が解放される前は店に並べず、解放されると次�
   const condition = page.locator('dt:text-is("次の解放") + dd');
   const mint = page.getByRole("button", { name: /^造幣所を買う/v });
   await expect(condition).toHaveText(
-    "造幣所: これまでに生産したコインが 130000000 に達すると解放（あと 30）",
+    "造幣所: これまでに生産したコインが 200000000 に達すると解放（あと 30）",
   );
   await expect(page.locator("#mints")).toHaveText("0");
   await expect(mint).toBeHidden();
@@ -222,7 +222,7 @@ test("品物が解放されると店の行は後ろに足され、それまで�
   await page.addInitScript(
     putSave,
     withoutUpgradesOrMints({
-      totalEarned: 129_999_970,
+      totalEarned: 199_999_970,
       collectors: 10,
       factories: 2,
       autoBuyer: false,

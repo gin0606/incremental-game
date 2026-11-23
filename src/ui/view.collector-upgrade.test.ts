@@ -49,7 +49,7 @@ test("採集機の改修が解放されたら次の造幣所の条件を示し�
   expect(current).toMatchObject({
     production: "26",
     collectorUpgrades: "1",
-    nextUnlock: "造幣所: これまでに生産したコインが 130000000 に達すると解放（あと 55000000）",
+    nextUnlock: "造幣所: これまでに生産したコインが 200000000 に達すると解放（あと 125000000）",
   });
   expect(current.shop[ROW]).toStrictEqual({
     action: { type: "buyCollectorUpgrade" },

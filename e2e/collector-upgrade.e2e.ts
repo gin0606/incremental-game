@@ -54,7 +54,7 @@ test("採集機の改修が解放される前は店に並べず、解放され�
   // 毎秒 30 で残りの 30 に 1 秒で届く。
   await page.clock.runFor(1000);
   await expect(condition).toHaveText(
-    "造幣所: これまでに生産したコインが 130000000 に達すると解放（あと 55000000）",
+    "造幣所: これまでに生産したコインが 200000000 に達すると解放（あと 125000000）",
   );
   await expect(collectorUpgrade).toBeVisible();
   await expect(collectorUpgrade).toHaveText("採集機の改修を買う（5000000 コイン）");

@@ -30,7 +30,7 @@ export const COLLECTOR_UPGRADE_MULTIPLIER: Num = num(2);
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
 export const UPGRADE_UNLOCK_EARNED: Num = num(1.2e7);
 export const COLLECTOR_UPGRADE_UNLOCK_EARNED: Num = num(7.5e7);
-export const MINT_UNLOCK_EARNED: Num = num(1.3e8);
+export const MINT_UNLOCK_EARNED: Num = num(2e8);
 export const REFINERY_UNLOCK_EARNED: Num = num(4.5e8);
 export const EXCHANGE_UNLOCK_EARNED: Num = num(7.5e8);
 

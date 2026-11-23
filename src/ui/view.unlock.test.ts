@@ -128,11 +128,11 @@ test("これまでに生産したコインが工場の解放の条件に達す�
 });
 
 test("造幣所の解放までの残りは、端数を切り上げる。条件に許容誤差の範囲で届くと、造幣所を並べて次の精錬所の条件を示す", () => {
-  const condition = "造幣所: これまでに生産したコインが 130000000 に達すると解放";
-  const withinTolerance = view(state({ totalEarned: num(1.3e8 * (1 - 1e-10)) }));
+  const condition = "造幣所: これまでに生産したコインが 200000000 に達すると解放";
+  const withinTolerance = view(state({ totalEarned: num(2e8 * (1 - 1e-10)) }));
 
-  expect(view(state({ totalEarned: num(1.2e8) })).nextUnlock).toBe(`${condition}（あと 10000000）`);
-  expect(view(state({ totalEarned: num(129_999_999.5) })).nextUnlock).toBe(
+  expect(view(state({ totalEarned: num(1.9e8) })).nextUnlock).toBe(`${condition}（あと 10000000）`);
+  expect(view(state({ totalEarned: num(199_999_999.5) })).nextUnlock).toBe(
     `${condition}（あと 1）`,
   );
   expect(withinTolerance.nextUnlock).toMatch(/^精錬所: /v);
@@ -245,7 +245,7 @@ test.each([false, true])(
 
 /**
  * これまでに生産したコインが 0〜9e8 の、到達しうる状態。造幣所・精錬所・交易所は解放の後にしか買えないので、造幣所を
- * 持つ状態では、これまでに生産したコインが解放の条件（以前の版の 5e7 から。今は 1.3e8）以上あり、精錬所を持つ状態では
+ * 持つ状態では、これまでに生産したコインが解放の条件（以前の版の 5e7 から。今は 2e8）以上あり、精錬所を持つ状態では
  * 解放の条件 4.5e8 以上、交易所を持つ状態では解放の条件 7.5e8 以上ある。
  */
 const reachable = fc
