@@ -45,6 +45,7 @@ const validFile = {
     refineries: 6,
     exchanges: 7,
     upgrades: 4,
+    collectorUpgrades: 8,
     autoBuyer: true,
     cautiousAutoBuyer: true,
   },
@@ -71,6 +72,7 @@ const loaded: GameState = {
   refineries: 6,
   exchanges: 7,
   upgrades: 4,
+  collectorUpgrades: 8,
   autoBuyer: true,
   cautiousAutoBuyer: true,
 };
@@ -100,7 +102,7 @@ test.each([
     text: JSON.stringify({ ...validFile, version: undefined }),
     error: "未知の版: undefined",
   },
-  { name: "未来の版", text: JSON.stringify({ ...validFile, version: 7 }), error: "未知の版: 7" },
+  { name: "未来の版", text: JSON.stringify({ ...validFile, version: 8 }), error: "未知の版: 8" },
   { name: "版 0", text: JSON.stringify({ ...validFile, version: 0 }), error: "未知の版: 0" },
   {
     name: "版が文字列",
@@ -224,66 +226,6 @@ test.each([
     text: withState({ factories: -1 }),
     error: "factories が 0 以上の整数でない",
   },
-  {
-    name: "mints が無い",
-    text: withState({ mints: undefined }),
-    error: "mints が 0 以上の整数でない",
-  },
-  {
-    name: "mints が負",
-    text: withState({ mints: -1 }),
-    error: "mints が 0 以上の整数でない",
-  },
-  {
-    name: "mints が整数でない",
-    text: withState({ mints: 0.5 }),
-    error: "mints が 0 以上の整数でない",
-  },
-  {
-    name: "refineries が無い",
-    text: withState({ refineries: undefined }),
-    error: "refineries が 0 以上の整数でない",
-  },
-  {
-    name: "refineries が負",
-    text: withState({ refineries: -1 }),
-    error: "refineries が 0 以上の整数でない",
-  },
-  {
-    name: "refineries が整数でない",
-    text: withState({ refineries: 0.5 }),
-    error: "refineries が 0 以上の整数でない",
-  },
-  {
-    name: "exchanges が無い",
-    text: withState({ exchanges: undefined }),
-    error: "exchanges が 0 以上の整数でない",
-  },
-  {
-    name: "exchanges が負",
-    text: withState({ exchanges: -1 }),
-    error: "exchanges が 0 以上の整数でない",
-  },
-  {
-    name: "exchanges が整数でない",
-    text: withState({ exchanges: 0.5 }),
-    error: "exchanges が 0 以上の整数でない",
-  },
-  {
-    name: "upgrades が無い",
-    text: withState({ upgrades: undefined }),
-    error: "upgrades が 0 以上の整数でない",
-  },
-  {
-    name: "upgrades が負",
-    text: withState({ upgrades: -1 }),
-    error: "upgrades が 0 以上の整数でない",
-  },
-  {
-    name: "upgrades が整数でない",
-    text: withState({ upgrades: 0.5 }),
-    error: "upgrades が 0 以上の整数でない",
-  },
   { name: "autoBuyer が数", text: withState({ autoBuyer: 1 }), error: "autoBuyer が真偽値でない" },
   {
     name: "cautiousAutoBuyer が無い",
@@ -297,4 +239,28 @@ test.each([
   },
 ] as const)("壊れたデータは読み込みに失敗する: $name", ({ text, error }) => {
   expect(deserialize(text)).toStrictEqual({ ok: false, error });
+});
+
+// 版 1 より後に足した数の項目は、どれも同じ規則で読む。
+const addedCountProblems = [
+  { problem: "無い", value: undefined },
+  { problem: "負", value: -1 },
+  { problem: "整数でない", value: 0.5 },
+] as const;
+
+interface AddedCountCase {
+  readonly key: string;
+  readonly problem: string;
+  readonly value: number | undefined;
+}
+
+test.each(
+  ["mints", "refineries", "exchanges", "upgrades", "collectorUpgrades"].flatMap((key) =>
+    addedCountProblems.map(({ problem, value }): AddedCountCase => ({ key, problem, value })),
+  ),
+)("壊れたデータは読み込みに失敗する: $key が$problem", ({ key, value }: AddedCountCase) => {
+  expect(deserialize(withState({ [key]: value }))).toStrictEqual({
+    ok: false,
+    error: `${key} が 0 以上の整数でない`,
+  });
 });

@@ -15,6 +15,8 @@ export interface GameState {
   readonly exchanges: number;
   /** 改良の数。 */
   readonly upgrades: number;
+  /** 採集機の改修の数。 */
+  readonly collectorUpgrades: number;
   readonly autoBuyer: boolean;
   /** 控えめな自動購入を持つか。自動購入（`autoBuyer`）を持てば、その働きに含まれる。 */
   readonly cautiousAutoBuyer: boolean;
@@ -39,6 +41,7 @@ export const initialState: GameState = {
   refineries: 0,
   exchanges: 0,
   upgrades: 0,
+  collectorUpgrades: 0,
   autoBuyer: false,
   cautiousAutoBuyer: false,
 };

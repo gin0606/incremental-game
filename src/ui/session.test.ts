@@ -21,6 +21,7 @@ const saved: GameState = {
   refineries: 0,
   exchanges: 0,
   upgrades: 0,
+  collectorUpgrades: 0,
   autoBuyer: false,
   cautiousAutoBuyer: false,
 };

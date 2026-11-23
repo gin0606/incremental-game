@@ -7,7 +7,7 @@ import type { GameState } from "./state.ts";
 
 const COLLECTOR_BASE_COST = num(10);
 const COLLECTOR_COST_GROWTH = num(1.15);
-export const COLLECTOR_PRODUCTION: Num = num(1);
+const COLLECTOR_PRODUCTION = num(1);
 const FACTORY_BASE_COST = num(150);
 const FACTORY_COST_GROWTH = num(1.2);
 export const FACTORY_PRODUCTION: Num = num(10);
@@ -23,9 +23,14 @@ export const EXCHANGE_PRODUCTION: Num = num(300);
 const UPGRADE_BASE_COST = num(8e5);
 const UPGRADE_COST_GROWTH = num(1.55);
 export const UPGRADE_MULTIPLIER: Num = num(1.25);
+const COLLECTOR_UPGRADE_BASE_COST = num(5e6);
+const COLLECTOR_UPGRADE_COST_GROWTH = num(8);
+export const COLLECTOR_UPGRADE_MULTIPLIER: Num = num(2);
 
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
 export const UPGRADE_UNLOCK_EARNED: Num = num(1.2e7);
+// 採集機の改修を買う規則と自動購入がそれを買う規則がそろうまでは、届かない値にして解放しない。
+export const COLLECTOR_UPGRADE_UNLOCK_EARNED: Num = num(1e300);
 export const MINT_UNLOCK_EARNED: Num = num(1.3e8);
 export const REFINERY_UNLOCK_EARNED: Num = num(4.5e8);
 export const EXCHANGE_UNLOCK_EARNED: Num = num(7.5e8);
@@ -54,6 +59,13 @@ export function upgradeCost(state: GameState): Num {
   return mul(UPGRADE_BASE_COST, pow(UPGRADE_COST_GROWTH, state.upgrades));
 }
 
+export function collectorUpgradeCost(state: GameState): Num {
+  return mul(
+    COLLECTOR_UPGRADE_BASE_COST,
+    pow(COLLECTOR_UPGRADE_COST_GROWTH, state.collectorUpgrades),
+  );
+}
+
 export function isFactoryUnlocked(state: GameState): boolean {
   return atLeast(state.totalEarned, FACTORY_UNLOCK_EARNED);
 }
@@ -68,6 +80,10 @@ export function mintUnlockEarned(state: GameState): Num {
 
 export function isMintUnlocked(state: GameState): boolean {
   return atLeast(state.totalEarned, mintUnlockEarned(state));
+}
+
+export function isCollectorUpgradeUnlocked(state: GameState): boolean {
+  return atLeast(state.totalEarned, COLLECTOR_UPGRADE_UNLOCK_EARNED);
 }
 
 export function isRefineryUnlocked(state: GameState): boolean {
@@ -86,11 +102,16 @@ export function isUpgradeUnlocked(state: GameState): boolean {
   return atLeast(state.totalEarned, upgradeUnlockEarned(state));
 }
 
+/** 採集機 1 台の、改良の倍率を掛ける前の毎秒の生産量。採集機の改修の倍率を含む。 */
+export function collectorProduction(state: GameState): Num {
+  return mul(COLLECTOR_PRODUCTION, pow(COLLECTOR_UPGRADE_MULTIPLIER, state.collectorUpgrades));
+}
+
 /** 改良の倍率を掛ける前の、施設の毎秒の生産量の和。 */
 export function baseProduction(state: GameState): Num {
   return add(
     add(
-      mul(COLLECTOR_PRODUCTION, num(state.collectors)),
+      mul(collectorProduction(state), num(state.collectors)),
       mul(FACTORY_PRODUCTION, num(state.factories)),
     ),
     add(

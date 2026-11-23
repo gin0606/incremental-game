@@ -27,6 +27,8 @@ export type { Action, GameState } from "./state.ts";
 export { initialState } from "./state.ts";
 
 export {
+  COLLECTOR_UPGRADE_MULTIPLIER,
+  COLLECTOR_UPGRADE_UNLOCK_EARNED,
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
   REFINERY_UNLOCK_EARNED,
@@ -34,8 +36,11 @@ export {
   UPGRADE_MULTIPLIER,
   UPGRADE_UNLOCK_EARNED,
   collectorCost,
+  collectorProduction,
+  collectorUpgradeCost,
   exchangeCost,
   factoryCost,
+  isCollectorUpgradeUnlocked,
   isExchangeUnlocked,
   isFactoryUnlocked,
   isMintUnlocked,

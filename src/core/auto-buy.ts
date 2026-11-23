@@ -2,7 +2,6 @@ import type { Num } from "./num.ts";
 import { ZERO, add, atLeast, div, mul, num, sub, toNumber, toleranceFloor } from "./num.ts";
 
 import {
-  COLLECTOR_PRODUCTION,
   EXCHANGE_PRODUCTION,
   EXCHANGE_UNLOCK_EARNED,
   FACTORY_PRODUCTION,
@@ -13,6 +12,7 @@ import {
   UPGRADE_MULTIPLIER,
   baseProduction,
   collectorCost,
+  collectorProduction,
   exchangeCost,
   factoryCost,
   mintCost,
@@ -50,7 +50,7 @@ const automated: readonly {
   {
     action: { type: "buyCollector" },
     cost: collectorCost,
-    gain: () => COLLECTOR_PRODUCTION,
+    gain: collectorProduction,
     unlock: () => ZERO,
   },
   {

@@ -20,6 +20,7 @@ export const gameState: fc.Arbitrary<GameState> = fc
     refineries: fc.nat({ max: 100 }),
     exchanges: fc.nat({ max: 100 }),
     upgrades: fc.nat({ max: 60 }),
+    collectorUpgrades: fc.nat({ max: 20 }),
     autoBuyer: fc.boolean(),
     cautiousAutoBuyer: fc.boolean(),
   })
@@ -33,6 +34,7 @@ export const gameState: fc.Arbitrary<GameState> = fc
       refineries,
       exchanges,
       upgrades,
+      collectorUpgrades,
       autoBuyer,
       cautiousAutoBuyer,
     }) => ({
@@ -44,6 +46,7 @@ export const gameState: fc.Arbitrary<GameState> = fc
       refineries,
       exchanges,
       upgrades,
+      collectorUpgrades,
       autoBuyer,
       cautiousAutoBuyer,
     }),
