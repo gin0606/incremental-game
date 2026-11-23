@@ -22,6 +22,7 @@ const saved: GameState = {
   exchanges: 0,
   upgrades: 0,
   collectorUpgrades: 0,
+  factoryLinks: 0,
   autoBuyer: false,
   cautiousAutoBuyer: false,
 };

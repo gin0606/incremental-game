@@ -19,6 +19,7 @@ const validFile = {
     exchanges: 7,
     upgrades: 4,
     collectorUpgrades: 8,
+    factoryLinks: 9,
     autoBuyer: true,
     cautiousAutoBuyer: true,
   },
@@ -35,6 +36,7 @@ const loaded: GameState = {
   exchanges: 7,
   upgrades: 4,
   collectorUpgrades: 8,
+  factoryLinks: 9,
   autoBuyer: true,
   cautiousAutoBuyer: true,
 };
@@ -47,6 +49,7 @@ test("造幣所と改良と控えめな自動購入と精錬所と交易所の�
     refineries: _refineries,
     exchanges: _exchanges,
     collectorUpgrades: _collectorUpgrades,
+    factoryLinks: _factoryLinks,
     ...stateV1
   } = validFile.state;
 
@@ -62,6 +65,7 @@ test("造幣所と改良と控えめな自動購入と精錬所と交易所の�
         refineries: 0,
         exchanges: 0,
         collectorUpgrades: 0,
+        factoryLinks: 0,
       },
     },
   });
@@ -74,6 +78,7 @@ test("改良と控えめな自動購入と精錬所と交易所の無い版 2 �
     refineries: _refineries,
     exchanges: _exchanges,
     collectorUpgrades: _collectorUpgrades,
+    factoryLinks: _factoryLinks,
     ...stateV2
   } = validFile.state;
 
@@ -88,6 +93,7 @@ test("改良と控えめな自動購入と精錬所と交易所の無い版 2 �
         refineries: 0,
         exchanges: 0,
         collectorUpgrades: 0,
+        factoryLinks: 0,
       },
     },
   });
@@ -104,6 +110,7 @@ test.each([
       refineries: _refineries,
       exchanges: _exchanges,
       collectorUpgrades: _collectorUpgrades,
+      factoryLinks: _factoryLinks,
       ...stateV3
     } = validFile.state;
 
@@ -120,6 +127,7 @@ test.each([
           refineries: 0,
           exchanges: 0,
           collectorUpgrades: 0,
+          factoryLinks: 0,
         },
       },
     });
@@ -131,6 +139,7 @@ test("精錬所と交易所の無い版 4 の保存データは、精錬所 0・
     refineries: _refineries,
     exchanges: _exchanges,
     collectorUpgrades: _collectorUpgrades,
+    factoryLinks: _factoryLinks,
     ...stateV4
   } = validFile.state;
 
@@ -138,7 +147,7 @@ test("精錬所と交易所の無い版 4 の保存データは、精錬所 0・
     ok: true,
     data: {
       savedAt: 1000,
-      state: { ...loaded, refineries: 0, exchanges: 0, collectorUpgrades: 0 },
+      state: { ...loaded, refineries: 0, exchanges: 0, collectorUpgrades: 0, factoryLinks: 0 },
     },
   });
 });
@@ -154,7 +163,7 @@ test("版 4 の保存データは、精錬所の項目があっても読まな�
     ok: true,
     data: {
       savedAt: 1000,
-      state: { ...loaded, refineries: 0, exchanges: 0, collectorUpgrades: 0 },
+      state: { ...loaded, refineries: 0, exchanges: 0, collectorUpgrades: 0, factoryLinks: 0 },
     },
   });
 });
@@ -163,12 +172,16 @@ test("交易所の無い版 5 の保存データは、交易所 0 として読�
   const {
     exchanges: _exchanges,
     collectorUpgrades: _collectorUpgrades,
+    factoryLinks: _factoryLinks,
     ...stateV5
   } = validFile.state;
 
   expect(deserialize(JSON.stringify({ ...validFile, version: 5, state: stateV5 }))).toStrictEqual({
     ok: true,
-    data: { savedAt: 1000, state: { ...loaded, exchanges: 0, collectorUpgrades: 0 } },
+    data: {
+      savedAt: 1000,
+      state: { ...loaded, exchanges: 0, collectorUpgrades: 0, factoryLinks: 0 },
+    },
   });
 });
 
@@ -181,16 +194,23 @@ test("版 5 の保存データは、交易所の項目があっても読まな�
 
   expect(deserialize(text)).toStrictEqual({
     ok: true,
-    data: { savedAt: 1000, state: { ...loaded, exchanges: 0, collectorUpgrades: 0 } },
+    data: {
+      savedAt: 1000,
+      state: { ...loaded, exchanges: 0, collectorUpgrades: 0, factoryLinks: 0 },
+    },
   });
 });
 
 test("採集機の改修の無い版 6 の保存データは、採集機の改修 0 として読み込み、交易所はそのまま読む", () => {
-  const { collectorUpgrades: _collectorUpgrades, ...stateV6 } = validFile.state;
+  const {
+    collectorUpgrades: _collectorUpgrades,
+    factoryLinks: _factoryLinks,
+    ...stateV6
+  } = validFile.state;
 
   expect(deserialize(JSON.stringify({ ...validFile, version: 6, state: stateV6 }))).toStrictEqual({
     ok: true,
-    data: { savedAt: 1000, state: { ...loaded, collectorUpgrades: 0 } },
+    data: { savedAt: 1000, state: { ...loaded, collectorUpgrades: 0, factoryLinks: 0 } },
   });
 });
 
@@ -203,7 +223,29 @@ test("版 6 の保存データは、採集機の改修の項目があっても�
 
   expect(deserialize(text)).toStrictEqual({
     ok: true,
-    data: { savedAt: 1000, state: { ...loaded, collectorUpgrades: 0 } },
+    data: { savedAt: 1000, state: { ...loaded, collectorUpgrades: 0, factoryLinks: 0 } },
+  });
+});
+
+test("工場の連携の無い版 7 の保存データは、工場の連携 0 として読み込み、採集機の改修はそのまま読む", () => {
+  const { factoryLinks: _factoryLinks, ...stateV7 } = validFile.state;
+
+  expect(deserialize(JSON.stringify({ ...validFile, version: 7, state: stateV7 }))).toStrictEqual({
+    ok: true,
+    data: { savedAt: 1000, state: { ...loaded, factoryLinks: 0 } },
+  });
+});
+
+test("版 7 の保存データは、工場の連携の項目があっても読まない", () => {
+  const text = JSON.stringify({
+    ...validFile,
+    version: 7,
+    state: { ...validFile.state, factoryLinks: "壊れた値" },
+  });
+
+  expect(deserialize(text)).toStrictEqual({
+    ok: true,
+    data: { savedAt: 1000, state: { ...loaded, factoryLinks: 0 } },
   });
 });
 
@@ -224,6 +266,7 @@ test("版 3 の保存データは、控えめな自動購入の項目があっ�
         refineries: 0,
         exchanges: 0,
         collectorUpgrades: 0,
+        factoryLinks: 0,
       },
     },
   });

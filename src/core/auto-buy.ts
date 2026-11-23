@@ -5,7 +5,6 @@ import {
   COLLECTOR_UPGRADE_MULTIPLIER,
   EXCHANGE_PRODUCTION,
   EXCHANGE_UNLOCK_EARNED,
-  FACTORY_PRODUCTION,
   FACTORY_UNLOCK_EARNED,
   MINT_PRODUCTION,
   REFINERY_PRODUCTION,
@@ -17,6 +16,7 @@ import {
   collectorUpgradeCost,
   collectorUpgradeUnlockEarned,
   exchangeCost,
+  factoriesProduction,
   factoryCost,
   mintCost,
   mintUnlockEarned,
@@ -60,7 +60,12 @@ const automated: readonly {
   {
     action: { type: "buyFactory" },
     cost: factoryCost,
-    gain: () => FACTORY_PRODUCTION,
+    // 工場の連携を持てば、1 台足すと、足した工場の生産のほかに、持っている工場それぞれの生産も増える。
+    gain: (state) =>
+      sub(
+        factoriesProduction({ ...state, factories: state.factories + 1 }),
+        factoriesProduction(state),
+      ),
     unlock: () => FACTORY_UNLOCK_EARNED,
   },
   {
