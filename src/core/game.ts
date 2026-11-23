@@ -14,6 +14,8 @@ import type { GameState } from "./state.ts";
 // - 採集機の改修は、1 つごとに採集機の生産だけを COLLECTOR_UPGRADE_MULTIPLIER 倍にする。値段は数に対して指数的に伸びる。
 // - 工場の連携は、1 つごとに、持っている工場 1 台につき工場の生産を FACTORY_LINK_RATE の割合ずつ増やす。値段は数に
 //   対して指数的に伸びる。
+// - 工具の支給は、1 つごとに、持っている工場 1 台につき採集機の生産を TOOL_SUPPLY_RATE の割合ずつ増やす。値段は数に
+//   対して指数的に伸びる。
 // - 工場・改良・採集機の改修・造幣所・精錬所・交易所・工場の連携は、累計で稼いだコインがそれぞれの解放の条件
 //   （economy.ts の `*_UNLOCK_EARNED`）に達すると解放される。造幣所と改良は、持っていれば解放されている
 //   （mintUnlockEarned・upgradeUnlockEarned）。採集機の改修は、造幣所を持っていれば解放されている
@@ -41,6 +43,8 @@ export {
   MINT_UNLOCK_EARNED,
   REFINERY_UNLOCK_EARNED,
   EXCHANGE_UNLOCK_EARNED,
+  TOOL_SUPPLY_RATE,
+  TOOL_SUPPLY_UNLOCK_EARNED,
   UPGRADE_MULTIPLIER,
   UPGRADE_UNLOCK_EARNED,
   collectorCost,
@@ -57,11 +61,13 @@ export {
   isFactoryUnlocked,
   isMintUnlocked,
   isRefineryUnlocked,
+  isToolSupplyUnlocked,
   isUpgradeUnlocked,
   mintCost,
   mintUnlockEarned,
   production,
   refineryCost,
+  toolSupplyCost,
   upgradeCost,
   upgradeUnlockEarned,
 } from "./economy.ts";

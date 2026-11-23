@@ -56,6 +56,7 @@ test("初期状態はコイン 0、採集機 1 台で始まる", () => {
     upgrades: 0,
     collectorUpgrades: 0,
     factoryLinks: 0,
+    toolSupplies: 0,
     autoBuyer: false,
     cautiousAutoBuyer: false,
   });
@@ -148,6 +149,7 @@ test("採集機を買うと台数が増え、値段の分だけコインが減�
     upgrades: 0,
     collectorUpgrades: 0,
     factoryLinks: 0,
+    toolSupplies: 0,
     autoBuyer: false,
   });
   expect(after.coins).toBeApprox(num(25 - 11.5));
@@ -189,6 +191,7 @@ test("工場は累計の生産量が 100 に達すると解放され、買える
     upgrades: 0,
     collectorUpgrades: 0,
     factoryLinks: 0,
+    toolSupplies: 0,
     autoBuyer: false,
   });
   expect(after.coins).toBeApprox(num(10));
@@ -208,6 +211,7 @@ test("自動購入は一度だけ買える", () => {
     upgrades: 0,
     collectorUpgrades: 0,
     factoryLinks: 0,
+    toolSupplies: 0,
     autoBuyer: true,
   });
   expect(after.coins).toBeApprox(AUTO_BUYER_COST);
@@ -231,6 +235,7 @@ test("自動購入が無ければ、時間の経過でコインと累計の生�
     upgrades: 0,
     collectorUpgrades: 0,
     factoryLinks: 0,
+    toolSupplies: 0,
     autoBuyer: false,
   });
 });

@@ -30,6 +30,10 @@ const FACTORY_LINK_BASE_COST = num(3.6e7);
 const FACTORY_LINK_COST_GROWTH = num(8);
 /** 工場の連携 1 つが、持っている工場 1 台につき、工場 1 台の生産に足す割合。 */
 export const FACTORY_LINK_RATE: Num = num(0.01);
+const TOOL_SUPPLY_BASE_COST = num(2.2e6);
+const TOOL_SUPPLY_COST_GROWTH = num(10);
+/** 工具の支給 1 つが、持っている工場 1 台につき、採集機 1 台の生産に足す割合。 */
+export const TOOL_SUPPLY_RATE: Num = num(0.0025);
 
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
 export const UPGRADE_UNLOCK_EARNED: Num = num(1.2e7);
@@ -38,6 +42,8 @@ export const MINT_UNLOCK_EARNED: Num = num(2e8);
 export const REFINERY_UNLOCK_EARNED: Num = num(4.5e8);
 export const EXCHANGE_UNLOCK_EARNED: Num = num(7.5e8);
 export const FACTORY_LINK_UNLOCK_EARNED: Num = num(1.05e9);
+// 工具の支給を買う規則と自動購入がそれを買う規則がそろうまでは、届かない値にして解放しない。
+export const TOOL_SUPPLY_UNLOCK_EARNED: Num = num(1e300);
 
 export function collectorCost(state: GameState): Num {
   return mul(COLLECTOR_BASE_COST, pow(COLLECTOR_COST_GROWTH, state.collectors));
@@ -72,6 +78,10 @@ export function collectorUpgradeCost(state: GameState): Num {
 
 export function factoryLinkCost(state: GameState): Num {
   return mul(FACTORY_LINK_BASE_COST, pow(FACTORY_LINK_COST_GROWTH, state.factoryLinks));
+}
+
+export function toolSupplyCost(state: GameState): Num {
+  return mul(TOOL_SUPPLY_BASE_COST, pow(TOOL_SUPPLY_COST_GROWTH, state.toolSupplies));
 }
 
 export function isFactoryUnlocked(state: GameState): boolean {
@@ -115,6 +125,10 @@ export function isFactoryLinkUnlocked(state: GameState): boolean {
   return atLeast(state.totalEarned, FACTORY_LINK_UNLOCK_EARNED);
 }
 
+export function isToolSupplyUnlocked(state: GameState): boolean {
+  return atLeast(state.totalEarned, TOOL_SUPPLY_UNLOCK_EARNED);
+}
+
 /** {@link mintUnlockEarned} の改良の版。解放の条件が 6e6 だった版の保存のため。 */
 export const upgradeUnlockEarned = (state: GameState): Num =>
   state.upgrades > 0 ? ZERO : UPGRADE_UNLOCK_EARNED;
@@ -123,9 +137,20 @@ export function isUpgradeUnlocked(state: GameState): boolean {
   return atLeast(state.totalEarned, upgradeUnlockEarned(state));
 }
 
-/** 採集機 1 台の、改良の倍率を掛ける前の毎秒の生産量。採集機の改修の倍率を含む。 */
+/**
+ * 採集機 1 台の、改良の倍率を掛ける前の毎秒の生産量。採集機の改修の倍率と、工具の支給の倍率を含む。工具の支給の倍率は、
+ * 工具の支給 1 つごとに、持っている工場 1 台につき {@link TOOL_SUPPLY_RATE} を 1 に足したもの。
+ */
 export function collectorProduction(state: GameState): Num {
-  return mul(COLLECTOR_PRODUCTION, pow(COLLECTOR_UPGRADE_MULTIPLIER, state.collectorUpgrades));
+  return mul(
+    mul(COLLECTOR_PRODUCTION, pow(COLLECTOR_UPGRADE_MULTIPLIER, state.collectorUpgrades)),
+    add(num(1), mul(TOOL_SUPPLY_RATE, mul(num(state.toolSupplies), num(state.factories)))),
+  );
+}
+
+/** 改良の倍率を掛ける前の、採集機全体の毎秒の生産量。 */
+export function collectorsProduction(state: GameState): Num {
+  return mul(collectorProduction(state), num(state.collectors));
 }
 
 /**
@@ -147,7 +172,7 @@ export function factoriesProduction(state: GameState): Num {
 /** 改良の倍率を掛ける前の、施設の毎秒の生産量の和。 */
 export function baseProduction(state: GameState): Num {
   return add(
-    add(mul(collectorProduction(state), num(state.collectors)), factoriesProduction(state)),
+    add(collectorsProduction(state), factoriesProduction(state)),
     add(
       add(mul(MINT_PRODUCTION, num(state.mints)), mul(REFINERY_PRODUCTION, num(state.refineries))),
       mul(EXCHANGE_PRODUCTION, num(state.exchanges)),

@@ -16,6 +16,7 @@ import {
   collectorProduction,
   collectorUpgradeCost,
   collectorUpgradeUnlockEarned,
+  collectorsProduction,
   exchangeCost,
   factoriesProduction,
   factoryCost,
@@ -62,12 +63,15 @@ const automated: readonly {
   {
     action: { type: "buyFactory" },
     cost: factoryCost,
-    // 工場の連携を持てば、1 台足すと、足した工場の生産のほかに、持っている工場それぞれの生産も増える。
-    gain: (state) =>
-      sub(
-        factoriesProduction({ ...state, factories: state.factories + 1 }),
-        factoriesProduction(state),
-      ),
+    // 工場の連携を持てば、1 台足すと、足した工場の生産のほかに、持っている工場それぞれの生産も増える。工具の支給を
+    // 持てば、採集機それぞれの生産も増える。
+    gain: (state) => {
+      const added = { ...state, factories: state.factories + 1 };
+      return add(
+        sub(factoriesProduction(added), factoriesProduction(state)),
+        sub(collectorsProduction(added), collectorsProduction(state)),
+      );
+    },
     unlock: () => FACTORY_UNLOCK_EARNED,
   },
   {
@@ -97,11 +101,7 @@ const automated: readonly {
   {
     action: { type: "buyCollectorUpgrade" },
     cost: collectorUpgradeCost,
-    gain: (state) =>
-      mul(
-        mul(collectorProduction(state), num(state.collectors)),
-        sub(COLLECTOR_UPGRADE_MULTIPLIER, num(1)),
-      ),
+    gain: (state) => mul(collectorsProduction(state), sub(COLLECTOR_UPGRADE_MULTIPLIER, num(1))),
     unlock: collectorUpgradeUnlockEarned,
   },
   {

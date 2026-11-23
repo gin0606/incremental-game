@@ -47,6 +47,7 @@ const validFile = {
     upgrades: 4,
     collectorUpgrades: 8,
     factoryLinks: 9,
+    toolSupplies: 10,
     autoBuyer: true,
     cautiousAutoBuyer: true,
   },
@@ -75,6 +76,7 @@ const loaded: GameState = {
   upgrades: 4,
   collectorUpgrades: 8,
   factoryLinks: 9,
+  toolSupplies: 10,
   autoBuyer: true,
   cautiousAutoBuyer: true,
 };
@@ -104,7 +106,7 @@ test.each([
     text: JSON.stringify({ ...validFile, version: undefined }),
     error: "未知の版: undefined",
   },
-  { name: "未来の版", text: JSON.stringify({ ...validFile, version: 9 }), error: "未知の版: 9" },
+  { name: "未来の版", text: JSON.stringify({ ...validFile, version: 10 }), error: "未知の版: 10" },
   { name: "版 0", text: JSON.stringify({ ...validFile, version: 0 }), error: "未知の版: 0" },
   {
     name: "版が文字列",
@@ -257,9 +259,16 @@ interface AddedCountCase {
 }
 
 test.each(
-  ["mints", "refineries", "exchanges", "upgrades", "collectorUpgrades", "factoryLinks"].flatMap(
-    (key) =>
-      addedCountProblems.map(({ problem, value }): AddedCountCase => ({ key, problem, value })),
+  [
+    "mints",
+    "refineries",
+    "exchanges",
+    "upgrades",
+    "collectorUpgrades",
+    "factoryLinks",
+    "toolSupplies",
+  ].flatMap((key) =>
+    addedCountProblems.map(({ problem, value }): AddedCountCase => ({ key, problem, value })),
   ),
 )("壊れたデータは読み込みに失敗する: $key が$problem", ({ key, value }: AddedCountCase) => {
   expect(deserialize(withState({ [key]: value }))).toStrictEqual({

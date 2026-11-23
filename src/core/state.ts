@@ -19,6 +19,8 @@ export interface GameState {
   readonly collectorUpgrades: number;
   /** 工場の連携の数。 */
   readonly factoryLinks: number;
+  /** 工具の支給の数。 */
+  readonly toolSupplies: number;
   readonly autoBuyer: boolean;
   /** 控えめな自動購入を持つか。自動購入（`autoBuyer`）を持てば、その働きに含まれる。 */
   readonly cautiousAutoBuyer: boolean;
@@ -47,6 +49,7 @@ export const initialState: GameState = {
   upgrades: 0,
   collectorUpgrades: 0,
   factoryLinks: 0,
+  toolSupplies: 0,
   autoBuyer: false,
   cautiousAutoBuyer: false,
 };

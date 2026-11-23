@@ -17,6 +17,7 @@ const saved: GameState = {
   upgrades: 0,
   collectorUpgrades: 0,
   factoryLinks: 0,
+  toolSupplies: 0,
   autoBuyer: false,
   cautiousAutoBuyer: false,
 };
@@ -99,6 +100,7 @@ const unchanged = {
   upgrades: 0,
   collectorUpgrades: 0,
   factoryLinks: 0,
+  toolSupplies: 0,
 };
 
 test.each([

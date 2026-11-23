@@ -77,11 +77,11 @@ test("採集機の改修: 毎秒の生産が 10 億未満で表示で切り上�
   );
 });
 
-test("採集機の改修: 改良が無く、毎秒の生産が 10 億未満の間、買うと増えると示す毎秒の生産は、買った後に示す毎秒の生産と今のものとの差に等しい", () => {
+test("採集機の改修: 改良と工具の支給が無く、毎秒の生産が 10 億未満の間、買うと増えると示す毎秒の生産は、買った後に示す毎秒の生産と今のものとの差に等しい", () => {
   const action = { type: "buyCollectorUpgrade" } as const;
   fc.assert(
     fc.property(
-      gameState.map((generated): GameState => ({ ...generated, upgrades: 0 })),
+      gameState.map((generated): GameState => ({ ...generated, upgrades: 0, toolSupplies: 0 })),
       (current) => {
         fc.pre(toNumber(production(withPurchase(current, action))) < 1e9);
         const difference =

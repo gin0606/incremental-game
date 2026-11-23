@@ -13,8 +13,9 @@ import { atLeast, fromParts, toParts } from "../core/num.ts";
  * - 6: 5 に交易所の数（`exchanges`）を足した。1〜5 の保存は交易所 0 として読む。
  * - 7: 6 に採集機の改修の数（`collectorUpgrades`）を足した。1〜6 の保存は採集機の改修 0 として読む。
  * - 8: 7 に工場の連携の数（`factoryLinks`）を足した。1〜7 の保存は工場の連携 0 として読む。
+ * - 9: 8 に工具の支給の数（`toolSupplies`）を足した。1〜8 の保存は工具の支給 0 として読む。
  */
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 /** 保存する内容。オフラインの経過時間を求めるため、保存した時刻（Unix 時刻のミリ秒）を持つ。 */
 export interface SaveData {
@@ -26,7 +27,7 @@ export type LoadResult =
   | { readonly ok: true; readonly data: SaveData }
   | { readonly ok: false; readonly error: string };
 
-interface SavedStateV8 {
+interface SavedStateV9 {
   readonly coins: NumParts;
   readonly totalEarned: NumParts;
   readonly collectors: number;
@@ -37,21 +38,22 @@ interface SavedStateV8 {
   readonly upgrades: number;
   readonly collectorUpgrades: number;
   readonly factoryLinks: number;
+  readonly toolSupplies: number;
   readonly autoBuyer: boolean;
   readonly cautiousAutoBuyer: boolean;
 }
 
-interface SaveFileV8 {
-  readonly version: 8;
+interface SaveFileV9 {
+  readonly version: 9;
   readonly savedAt: number;
-  readonly state: SavedStateV8;
+  readonly state: SavedStateV9;
 }
 
-type Version = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+type Version = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 export function serialize(data: SaveData): string {
   const { state, savedAt } = data;
-  const file: SaveFileV8 = {
+  const file: SaveFileV9 = {
     version: SAVE_VERSION,
     savedAt,
     state: {
@@ -65,6 +67,7 @@ export function serialize(data: SaveData): string {
       upgrades: state.upgrades,
       collectorUpgrades: state.collectorUpgrades,
       factoryLinks: state.factoryLinks,
+      toolSupplies: state.toolSupplies,
       autoBuyer: state.autoBuyer,
       cautiousAutoBuyer: state.cautiousAutoBuyer,
     },
@@ -94,7 +97,14 @@ const readAmount = (value: unknown): Num | undefined => {
 const readAddedCount = (
   value: Readonly<Record<string, unknown>>,
   version: Version,
-  key: "collectorUpgrades" | "exchanges" | "factoryLinks" | "mints" | "refineries" | "upgrades",
+  key:
+    | "collectorUpgrades"
+    | "exchanges"
+    | "factoryLinks"
+    | "mints"
+    | "refineries"
+    | "toolSupplies"
+    | "upgrades",
   since: Version,
 ): number | string => {
   if (version < since) {
@@ -111,7 +121,13 @@ const readAddedCounts = (
 ):
   | Pick<
       GameState,
-      "mints" | "refineries" | "exchanges" | "upgrades" | "collectorUpgrades" | "factoryLinks"
+      | "mints"
+      | "refineries"
+      | "exchanges"
+      | "upgrades"
+      | "collectorUpgrades"
+      | "factoryLinks"
+      | "toolSupplies"
     >
   | string => {
   const mints = readAddedCount(value, version, "mints", 2);
@@ -138,7 +154,11 @@ const readAddedCounts = (
   if (typeof factoryLinks === "string") {
     return factoryLinks;
   }
-  return { mints, refineries, exchanges, upgrades, collectorUpgrades, factoryLinks };
+  const toolSupplies = readAddedCount(value, version, "toolSupplies", 9);
+  if (typeof toolSupplies === "string") {
+    return toolSupplies;
+  }
+  return { mints, refineries, exchanges, upgrades, collectorUpgrades, factoryLinks, toolSupplies };
 };
 
 const readState = (value: unknown, version: Version): GameState | string => {
@@ -224,6 +244,7 @@ export function deserialize(text: string): LoadResult {
     version !== 5 &&
     version !== 6 &&
     version !== 7 &&
+    version !== 8 &&
     version !== SAVE_VERSION
   ) {
     return { ok: false, error: `未知の版: ${describeVersion(version)}` };
