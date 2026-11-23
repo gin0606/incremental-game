@@ -5,7 +5,7 @@ import type { GameState } from "../core/game.ts";
 import { gameState } from "../core/game.arbitrary.ts";
 import { advance, initialState, perform, production, withPurchase } from "../core/game.ts";
 import { mul, num, toNumber } from "../core/num.ts";
-import { awayPanel, view } from "./view.ts";
+import { view } from "./view.ts";
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
 
@@ -56,8 +56,21 @@ const lockedCollectorUpgrade = (gain: number) =>
     affordable: false,
   }) as const;
 
+/** 解放の前の、工場の連携を買う品物（数 0）。改良を持たず工場が 3 台以下なら、増える毎秒の生産は 1 に満たず 0 と示す。 */
+const lockedFactoryLink = {
+  action: { type: "buyFactoryLink" },
+  label: "工場の連携を買う（36000000 コイン）",
+  effect:
+    "買うと毎秒の生産が 0 増える（工場の生産が、持っている工場 1 台につき、連携の無いときの 1% ずつ増える）",
+  visible: false,
+  affordable: false,
+} as const;
+
+/** 解放の前の、造幣所から工場の連携までの品物。 */
+const lockedAfterMint = [lockedMint, lockedRefinery, lockedExchange, lockedFactoryLink] as const;
+
 const autoBuyerWork =
-  "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、買える額に達するたびに自動で買う";
+  "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、買える額に達するたびに自動で買う";
 
 /** 控えめな自動購入を買う品物。自動購入か控えめな自動購入を買い終えると見えない。 */
 const cautiousRow = (visible: boolean) =>
@@ -65,7 +78,7 @@ const cautiousRow = (visible: boolean) =>
     action: { type: "buyCautiousAutoBuyer" },
     label: "控えめな自動購入を買う（30000 コイン）",
     effect:
-      "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
+      "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
     visible,
     affordable: false,
   }) as const;
@@ -82,7 +95,7 @@ test.each([
   },
 );
 
-test("初期状態では採集機と 2 つの自動購入を並べ、工場・改良・採集機の改修・造幣所・精錬所・交易所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
+test("初期状態では採集機と 2 つの自動購入を並べ、工場・改良・採集機の改修・造幣所・精錬所・交易所・工場の連携は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",
     totalEarned: "0",
@@ -94,6 +107,7 @@ test("初期状態では採集機と 2 つの自動購入を並べ、工場・�
     exchanges: "0",
     upgrades: "0",
     collectorUpgrades: "0",
+    factoryLinks: "0",
     autoBuyer: "なし",
     // 採集機の値段 11.5 に毎秒 1 で届くまで 11.5 秒。切り上げる。
     nextPurchase: "今の生産のままで約 12 秒",
@@ -125,9 +139,7 @@ test("初期状態では採集機と 2 つの自動購入を並べ、工場・�
       lockedUpgrade(0),
       // 採集機 1 台の毎秒 1 が 2 倍になる。
       lockedCollectorUpgrade(1),
-      lockedMint,
-      lockedRefinery,
-      lockedExchange,
+      ...lockedAfterMint,
     ],
   });
 });
@@ -153,6 +165,7 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
     exchanges: "0",
     upgrades: "0",
     collectorUpgrades: "0",
+    factoryLinks: "0",
     autoBuyer: "稼働中",
     nextPurchase: "今買える",
     nextUnlock: "改良: これまでに生産したコインが 12000000 に達すると解放（あと 11999000）",
@@ -184,9 +197,7 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
       lockedUpgrade(5),
       // 採集機 3 台の毎秒 3 が 2 倍になる。
       lockedCollectorUpgrade(3),
-      lockedMint,
-      lockedRefinery,
-      lockedExchange,
+      ...lockedAfterMint,
     ],
   });
 });
@@ -279,12 +290,4 @@ test("これまでに生産したコインは、手元のコインと同じく 1
   expect(view(state({ totalEarned: num(999_999_999.9) })).totalEarned).toBe("999999999");
   expect(view(state({ totalEarned: num(1.2345e9) })).totalEarned).toBe("1.23e9");
   expect(view(state({ totalEarned: mul(num(1e300), num(1e300)) })).totalEarned).toBe("1.00e600");
-});
-
-test("離れていた間に進んだことがあれば知らせの欄に出し、無ければ隠す", () => {
-  expect(awayPanel("1 時間 離れていた間に 10 コイン生産した")).toStrictEqual({
-    hidden: false,
-    text: "1 時間 離れていた間に 10 コイン生産した",
-  });
-  expect(awayPanel()).toStrictEqual({ hidden: true, text: "" });
 });

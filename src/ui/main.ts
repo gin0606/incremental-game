@@ -3,6 +3,7 @@
 // ここには置かない（このファイルはミューテーションテストの対象外で、E2E テストだけが確かめる）。
 import type { Action } from "../core/game.ts";
 import { createNotices } from "./notices.ts";
+import { awayPanel } from "./restore.ts";
 import { startSession } from "./session.ts";
 import type { SaveStorage, Session } from "./session.ts";
 import { focusedIndex, moveFocus, pressedByKeyboard } from "./shop-focus.ts";
@@ -10,7 +11,7 @@ import type { RowLook } from "./shop-rows.ts";
 import { rowLooks, shownAfter } from "./shop-rows.ts";
 import { playInOneTab, webLocks } from "./tab-lock.ts";
 import type { View } from "./view.ts";
-import { awayPanel, view } from "./view.ts";
+import { view } from "./view.ts";
 
 const TICK_MS = 100;
 const AUTOSAVE_MS = 1000;
@@ -33,6 +34,7 @@ const refineries = requireElement("refineries");
 const exchanges = requireElement("exchanges");
 const upgrades = requireElement("upgrades");
 const collectorUpgrades = requireElement("collector-upgrades");
+const factoryLinks = requireElement("factory-links");
 const autoBuyer = requireElement("auto-buyer");
 const stats = requireElement("stats");
 const nextPurchase = requireElement("next-purchase");
@@ -129,6 +131,7 @@ const renderStats = (current: View): void => {
   exchanges.textContent = current.exchanges;
   upgrades.textContent = current.upgrades;
   collectorUpgrades.textContent = current.collectorUpgrades;
+  factoryLinks.textContent = current.factoryLinks;
   autoBuyer.textContent = current.autoBuyer;
   nextPurchase.textContent = current.nextPurchase;
   nextUnlock.textContent = current.nextUnlock;

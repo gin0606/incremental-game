@@ -7,6 +7,7 @@ import {
   COLLECTOR_UPGRADE_UNLOCK_EARNED,
   EXCHANGE_UNLOCK_EARNED,
   FACTORY_LINK_RATE,
+  FACTORY_LINK_UNLOCK_EARNED,
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
   REFINERY_UNLOCK_EARNED,
@@ -17,8 +18,10 @@ import {
   collectorUpgradeUnlockEarned,
   exchangeCost,
   factoryCost,
+  factoryLinkCost,
   isCollectorUpgradeUnlocked,
   isExchangeUnlocked,
+  isFactoryLinkUnlocked,
   isFactoryUnlocked,
   isMintUnlocked,
   isRefineryUnlocked,
@@ -39,10 +42,7 @@ import { ZERO, add, atLeast, div, format, max, num, sub, toNumber } from "../cor
 export interface ShopItem {
   readonly action: Action;
   readonly label: string;
-  /**
-   * 買うと得られるもの。採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修は増える毎秒の生産、自動購入と控えめな
-   * 自動購入は働き。
-   */
+  /** 買うと得られるもの。自動購入と控えめな自動購入は働き、ほかの品物は増える毎秒の生産。 */
   readonly effect: string;
   /** 解放されていて、まだ買える（一度きりの品物を買い終えていない）。 */
   readonly visible: boolean;
@@ -61,6 +61,7 @@ export interface View {
   readonly exchanges: string;
   readonly upgrades: string;
   readonly collectorUpgrades: string;
+  readonly factoryLinks: string;
   readonly autoBuyer: string;
   /**
    * 次に何かを買えるまでの待ち時間。今買えるときと、生産が無くて届かないときは、その旨。時計が戻って生産が
@@ -129,11 +130,11 @@ const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = 
   buyCollectorUpgrade: (state) =>
     `${productionGain(state, { type: "buyCollectorUpgrade" })}（採集機の生産が ${toNumber(COLLECTOR_UPGRADE_MULTIPLIER)} 倍になる）`,
   buyFactoryLink: (state) =>
-    `${productionGain(state, { type: "buyFactoryLink" })}（工場の生産が、持っている工場 1 台につき ${toNumber(FACTORY_LINK_RATE) * 100}% 増える）`,
+    `${productionGain(state, { type: "buyFactoryLink" })}（工場の生産が、持っている工場 1 台につき、連携の無いときの ${toNumber(FACTORY_LINK_RATE) * 100}% ずつ増える）`,
   buyAutoBuyer: () =>
-    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、買える額に達するたびに自動で買う",
+    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、買える額に達するたびに自動で買う",
   buyCautiousAutoBuyer: () =>
-    `採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、払った後も今の生産の ${CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS / 60} 分ぶんのコインが残るときに自動で買う`,
+    `採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、払った後も今の生産の ${CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS / 60} 分ぶんのコインが残るときに自動で買う`,
 };
 
 /** 品物と、その値段。値段は、品物が見えていないとき（解放の前や買い終えた後）も求まる。 */
@@ -208,6 +209,7 @@ const unlocks: readonly {
   { name: "造幣所", earned: MINT_UNLOCK_EARNED, unlocked: isMintUnlocked },
   { name: "精錬所", earned: REFINERY_UNLOCK_EARNED, unlocked: isRefineryUnlocked },
   { name: "交易所", earned: EXCHANGE_UNLOCK_EARNED, unlocked: isExchangeUnlocked },
+  { name: "工場の連携", earned: FACTORY_LINK_UNLOCK_EARNED, unlocked: isFactoryLinkUnlocked },
 ];
 
 /**
@@ -232,39 +234,50 @@ const autoBuyerStatus = (state: GameState): string => {
   return state.cautiousAutoBuyer ? "控えめに稼働中" : "なし";
 };
 
+/**
+ * 店に並べる品物。品物を見え始める順（最初から見える採集機と 2 つの自動購入、続いて解放される順）に並べ、解放された
+ * 品物の行を後ろに足して、既に並んでいる行を動かさない（docs/design/shop-focus.md）。
+ */
+const shopOffers = (state: GameState): readonly Offer[] => [
+  offer(state, { type: "buyCollector" }, "採集機", collectorCost(state), ZERO),
+  offer(
+    state,
+    { type: "buyAutoBuyer" },
+    "自動購入",
+    AUTO_BUYER_COST,
+    state.autoBuyer ? undefined : ZERO,
+  ),
+  offer(
+    state,
+    { type: "buyCautiousAutoBuyer" },
+    "控えめな自動購入",
+    CAUTIOUS_AUTO_BUYER_COST,
+    state.autoBuyer || state.cautiousAutoBuyer ? undefined : ZERO,
+  ),
+  offer(state, { type: "buyFactory" }, "工場", factoryCost(state), FACTORY_UNLOCK_EARNED),
+  offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), upgradeUnlockEarned(state)),
+  offer(
+    state,
+    { type: "buyCollectorUpgrade" },
+    "採集機の改修",
+    collectorUpgradeCost(state),
+    collectorUpgradeUnlockEarned(state),
+  ),
+  offer(state, { type: "buyMint" }, "造幣所", mintCost(state), mintUnlockEarned(state)),
+  offer(state, { type: "buyRefinery" }, "精錬所", refineryCost(state), REFINERY_UNLOCK_EARNED),
+  offer(state, { type: "buyExchange" }, "交易所", exchangeCost(state), EXCHANGE_UNLOCK_EARNED),
+  offer(
+    state,
+    { type: "buyFactoryLink" },
+    "工場の連携",
+    factoryLinkCost(state),
+    FACTORY_LINK_UNLOCK_EARNED,
+  ),
+];
+
 /** 状態 `state` の表示。`pausedSeconds` は、時計が戻って止めている生産を再開するまでの秒数。 */
 export function view(state: GameState, pausedSeconds = 0): View {
-  // 店は品物を見え始める順（最初から見える採集機と 2 つの自動購入、続いて解放される順）に並べ、解放された品物の行を後ろに
-  // 足して、既に並んでいる行を動かさない（docs/design/shop-focus.md）。
-  const offers = [
-    offer(state, { type: "buyCollector" }, "採集機", collectorCost(state), ZERO),
-    offer(
-      state,
-      { type: "buyAutoBuyer" },
-      "自動購入",
-      AUTO_BUYER_COST,
-      state.autoBuyer ? undefined : ZERO,
-    ),
-    offer(
-      state,
-      { type: "buyCautiousAutoBuyer" },
-      "控えめな自動購入",
-      CAUTIOUS_AUTO_BUYER_COST,
-      state.autoBuyer || state.cautiousAutoBuyer ? undefined : ZERO,
-    ),
-    offer(state, { type: "buyFactory" }, "工場", factoryCost(state), FACTORY_UNLOCK_EARNED),
-    offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), upgradeUnlockEarned(state)),
-    offer(
-      state,
-      { type: "buyCollectorUpgrade" },
-      "採集機の改修",
-      collectorUpgradeCost(state),
-      collectorUpgradeUnlockEarned(state),
-    ),
-    offer(state, { type: "buyMint" }, "造幣所", mintCost(state), mintUnlockEarned(state)),
-    offer(state, { type: "buyRefinery" }, "精錬所", refineryCost(state), REFINERY_UNLOCK_EARNED),
-    offer(state, { type: "buyExchange" }, "交易所", exchangeCost(state), EXCHANGE_UNLOCK_EARNED),
-  ];
+  const offers = shopOffers(state);
   return {
     coins: format(state.coins),
     totalEarned: format(state.totalEarned),
@@ -276,20 +289,10 @@ export function view(state: GameState, pausedSeconds = 0): View {
     exchanges: state.exchanges.toString(),
     upgrades: state.upgrades.toString(),
     collectorUpgrades: state.collectorUpgrades.toString(),
+    factoryLinks: state.factoryLinks.toString(),
     autoBuyer: autoBuyerStatus(state),
     nextPurchase: nextPurchase(state, offers, pausedSeconds),
     nextUnlock: nextUnlock(state),
     shop: offers.map(({ item }) => item),
   };
-}
-
-/** 離れていた間に進んだことの知らせの欄に描く内容。 */
-export interface AwayPanel {
-  readonly hidden: boolean;
-  readonly text: string;
-}
-
-/** 離れていた間に進んだこと `report` の知らせの欄。無ければ（`undefined`）隠す。 */
-export function awayPanel(report?: string): AwayPanel {
-  return report === undefined ? { hidden: true, text: "" } : { hidden: false, text: report };
 }

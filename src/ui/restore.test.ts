@@ -4,7 +4,7 @@ import type { GameState } from "../core/game.ts";
 import { advance, initialState } from "../core/game.ts";
 import { num } from "../core/num.ts";
 import { serialize } from "../save/save.ts";
-import { awayReport, restore } from "./restore.ts";
+import { awayPanel, awayReport, restore } from "./restore.ts";
 
 const saved: GameState = {
   coins: num(5),
@@ -98,6 +98,7 @@ const unchanged = {
   exchanges: 0,
   upgrades: 0,
   collectorUpgrades: 0,
+  factoryLinks: 0,
 };
 
 test.each([
@@ -108,6 +109,7 @@ test.each([
   { ...unchanged, exchanges: 2, added: "交易所が 2 台" },
   { ...unchanged, upgrades: 2, added: "改良が 2 個" },
   { ...unchanged, collectorUpgrades: 2, added: "採集機の改修が 2 個" },
+  { ...unchanged, factoryLinks: 2, added: "工場の連携が 2 個" },
   {
     collectors: 3,
     factories: 2,
@@ -116,12 +118,23 @@ test.each([
     exchanges: 1,
     upgrades: 1,
     collectorUpgrades: 1,
+    factoryLinks: 1,
     added:
-      "採集機が 1 台、工場が 1 台、造幣所が 1 台、精錬所が 1 台、交易所が 1 台、改良が 1 個、採集機の改修が 1 個",
+      "採集機が 1 台、工場が 1 台、造幣所が 1 台、精錬所が 1 台、交易所が 1 台、改良が 1 個、採集機の改修が 1 個、工場の連携が 1 個",
   },
 ] as const)(
-  "自動購入で増えた施設と改良と採集機の改修だけを示す（採集機 $collectors 台、工場 $factories 台、造幣所 $mints 台、精錬所 $refineries 台、交易所 $exchanges 台、改良 $upgrades、採集機の改修 $collectorUpgrades）",
-  ({ collectors, factories, mints, refineries, exchanges, upgrades, collectorUpgrades, added }) => {
+  "自動購入で増えた施設と改良と採集機の改修と工場の連携だけを示す（採集機 $collectors 台、工場 $factories 台、造幣所 $mints 台、精錬所 $refineries 台、交易所 $exchanges 台、改良 $upgrades、採集機の改修 $collectorUpgrades、工場の連携 $factoryLinks）",
+  ({
+    collectors,
+    factories,
+    mints,
+    refineries,
+    exchanges,
+    upgrades,
+    collectorUpgrades,
+    factoryLinks,
+    added,
+  }) => {
     const after: GameState = {
       ...saved,
       totalEarned: num(120),
@@ -132,6 +145,7 @@ test.each([
       exchanges,
       upgrades,
       collectorUpgrades,
+      factoryLinks,
     };
 
     expect(awayReport(saved, after, 86_400 * 2 + 3600 * 5 + 59)).toBe(
@@ -148,6 +162,7 @@ test("増えた数は、離れる前の数との差で示す", () => {
     exchanges: 1,
     upgrades: 3,
     collectorUpgrades: 1,
+    factoryLinks: 2,
   };
   const after: GameState = {
     ...before,
@@ -157,10 +172,11 @@ test("増えた数は、離れる前の数との差で示す", () => {
     exchanges: 4,
     upgrades: 15,
     collectorUpgrades: 3,
+    factoryLinks: 3,
   };
 
   expect(awayReport(before, after, 3600)).toBe(
-    "離れていた 1 時間 0 分のあいだに、コインを 100 生産した。自動購入で造幣所が 1 台、精錬所が 2 台、交易所が 3 台、改良が 12 個、採集機の改修が 2 個増えた。",
+    "離れていた 1 時間 0 分のあいだに、コインを 100 生産した。自動購入で造幣所が 1 台、精錬所が 2 台、交易所が 3 台、改良が 12 個、採集機の改修が 2 個、工場の連携が 1 個増えた。",
   );
 });
 
@@ -174,4 +190,12 @@ test("自動購入を持っていれば、離れていた間の購入で増え�
   expect(restore(text, savedAt + 600_000).away).toBe(
     "離れていた 10 分 0 秒のあいだに、コインを 121996 生産した。自動購入で採集機が 48 台、工場が 22 台増えた。",
   );
+});
+
+test("離れていた間に進んだことがあれば知らせの欄に出し、無ければ隠す", () => {
+  expect(awayPanel("1 時間 離れていた間に 10 コイン生産した")).toStrictEqual({
+    hidden: false,
+    text: "1 時間 離れていた間に 10 コイン生産した",
+  });
+  expect(awayPanel()).toStrictEqual({ hidden: true, text: "" });
 });

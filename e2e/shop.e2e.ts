@@ -38,7 +38,7 @@ test("品物ごとに買うと得られるものを示し、工場の分は解�
   const collectorGain = "買うと毎秒の生産が 1 増える";
   const factoryGain = "買うと毎秒の生産が 10 増える";
   const autoBuyerWork =
-    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、買える額に達するたびに自動で買う";
+    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、買える額に達するたびに自動で買う";
 
   // 説明は品物のボタンの説明としても読め、ボタンの隣に見えている。
   await expect(collector).toHaveAccessibleDescription(collectorGain);
@@ -73,7 +73,7 @@ test("自動購入を買うと、そのボタンと説明を隠す", async ({ pa
 
   const autoBuyer = page.getByRole("button", { name: /^自動購入を買う/v });
   const work = page.getByText(
-    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、買える額に達するたびに自動で買う",
+    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、買える額に達するたびに自動で買う",
   );
   await expect(work).toBeVisible();
   await autoBuyer.click();
@@ -94,11 +94,11 @@ test("控えめな自動購入を買うと、そのボタンと説明を隠し�
 
   const cautious = page.getByRole("button", { name: /^控えめな自動購入を買う（30000 コイン）/v });
   const work = page.getByText(
-    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
+    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
   );
   await expect(page.locator("#auto-buyer")).toHaveText("なし");
   await expect(cautious).toHaveAccessibleDescription(
-    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
+    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
   );
   await cautious.click();
   await expect(page.locator("#auto-buyer")).toHaveText("控えめに稼働中");
@@ -184,7 +184,8 @@ test("キーボードで自動購入を買うと、フォーカスを店の中�
   await page.keyboard.press("Enter");
   await expect(page.locator("#auto-buyer")).toHaveText("稼働中");
   await expect(autoBuyer).toBeHidden();
-  // 自動購入の後ろにある見えている品物のうち最も近い工場へ移す（改良・造幣所・精錬所・交易所は解放の前で隠れている）。
+  // 自動購入の後ろにある見えている品物のうち最も近い工場へ移す（改良・採集機の改修・造幣所・精錬所・交易所・工場の連携は
+  // 解放の前で隠れている）。
   // コインを使い切って買えなくても、フォーカスは受けられる。
   await rendered(page);
   await expect(factory).toBeFocused();

@@ -5,6 +5,7 @@ import {
   COLLECTOR_UPGRADE_MULTIPLIER,
   EXCHANGE_PRODUCTION,
   EXCHANGE_UNLOCK_EARNED,
+  FACTORY_LINK_UNLOCK_EARNED,
   FACTORY_UNLOCK_EARNED,
   MINT_PRODUCTION,
   REFINERY_PRODUCTION,
@@ -18,6 +19,7 @@ import {
   exchangeCost,
   factoriesProduction,
   factoryCost,
+  factoryLinkCost,
   mintCost,
   mintUnlockEarned,
   production,
@@ -35,7 +37,7 @@ export const CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS = 600;
 
 /**
  * 自動購入と控えめな自動購入が買うものと、その値段と解放の条件。値段は解放の前でも返す。造幣所・精錬所・交易所・改良・
- * 採集機の改修の値段は解放に要る累計の生産量（economy.ts の `*_UNLOCK_EARNED`）より安く、解放の前にコインが値段に
+ * 採集機の改修・工場の連携の値段は解放に要る累計の生産量（economy.ts の `*_UNLOCK_EARNED`）より安く、解放の前にコインが値段に
  * 届きうる。そのため、買う時刻は、コインが値段（控えめな自動購入では、残すコインとの和）に届く時刻と、累計の生産量が
  * 解放の条件に届く時刻の遅いほうにする（{@link nextAutoBuy}）。累計の生産量もコインと同じ速さで増えるため、どちらの
  * 時刻も進め方によらない。
@@ -101,6 +103,16 @@ const automated: readonly {
         sub(COLLECTOR_UPGRADE_MULTIPLIER, num(1)),
       ),
     unlock: collectorUpgradeUnlockEarned,
+  },
+  {
+    action: { type: "buyFactoryLink" },
+    cost: factoryLinkCost,
+    gain: (state) =>
+      sub(
+        factoriesProduction({ ...state, factoryLinks: state.factoryLinks + 1 }),
+        factoriesProduction(state),
+      ),
+    unlock: () => FACTORY_LINK_UNLOCK_EARNED,
   },
 ];
 
