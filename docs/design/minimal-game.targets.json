@@ -6,7 +6,7 @@
     "rateRatios": [{ "from": 43200, "to": 259200, "min": 10 }]
   },
   "purchases": { "median": { "max": 600 }, "longest": { "max": 7200 } },
-  "novelty": { "perDay": { "min": 1.8 }, "longestGap": { "max": 60000 } },
+  "novelty": { "perDay": { "min": 2.2 }, "longestGap": { "max": 54000 } },
   "walls": { "longest": { "max": 86400 } },
   "choice": { "lead": { "min": 0.005, "max": 0.5 } },
   "idle": {
