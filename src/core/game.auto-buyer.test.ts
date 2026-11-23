@@ -1,8 +1,8 @@
 import { expect, test } from "vitest";
 
 import type { GameState } from "./game.ts";
-import { advance, collectorCost, initialState } from "./game.ts";
-import { num, toleranceFloor } from "./num.ts";
+import { MINT_UNLOCK_EARNED, advance, collectorCost, initialState } from "./game.ts";
+import { num, toNumber, toleranceFloor } from "./num.ts";
 
 // 自動購入を持つ状態を進めたときの購入。
 
@@ -89,29 +89,31 @@ test("自動購入があれば、工場の値段に達する時刻に工場を�
   expect(after.coins).toBeApprox(num(0.5 * 30), 1e-6);
 });
 
-// 採集機 200 台（次は約 1.4e13）と工場 100 台（次は約 1.2e10）に改良 8 つ（次は 8e5 × 1.55^8 ≈ 2.7e7）で、毎秒
-// 1200 × 1.25^8。造幣所（1e7）のほかは、テストの間に値段に届かない。
+// 採集機 200 台（次は約 1.4e13）、工場 100 台（約 1.2e10）、改良 8 つ（約 2.7e7）、採集機の改修 1 つ（採集機が毎秒 2。
+// 次は 4e7）で、毎秒 1400 × 1.25^8。造幣所（1e7）のほかは、テストの間に値段に届かない。
 const MULTIPLIER = 1.25 ** 8;
-const MINT_TRIAL_RATE = 1200 * MULTIPLIER;
+const MINT_TRIAL_RATE = 1400 * MULTIPLIER;
 /** 造幣所を 1 つ買った後の毎秒の生産。 */
-const MINT_TRIAL_RATE_AFTER = 1230 * MULTIPLIER;
-const mintTrial = (coins: number, totalEarned: number): GameState =>
+const MINT_TRIAL_RATE_AFTER = 1430 * MULTIPLIER;
+/** 造幣所の解放の条件より `short` だけ少ない累計の生産量から始める。 */
+const mintTrial = (coins: number, short: number): GameState =>
   state({
     coins: num(coins),
-    totalEarned: num(totalEarned),
+    totalEarned: num(toNumber(MINT_UNLOCK_EARNED) - short),
     collectors: 200,
     factories: 100,
     upgrades: 8,
+    collectorUpgrades: 1,
     autoBuyer: true,
   });
 
 test("自動購入は、造幣所の値段に届いても、累計の生産量が解放の条件に届くまで買わない", () => {
-  // コインは 1e7 / 毎秒の生産 ≈ 1398 秒で値段に届くが、累計の生産量は 1.5e7 / 毎秒の生産 ≈ 2097 秒で 1.3e8 に届く。
-  const start = mintTrial(0, 1.15e8);
+  // コインは 1e7 / 毎秒の生産 ≈ 1198 秒で値段に届くが、累計の生産量は 1.5e7 / 毎秒の生産 ≈ 1797 秒で解放の条件に届く。
+  const start = mintTrial(0, 1.5e7);
   const unlockedAt = 1.5e7 / MINT_TRIAL_RATE;
 
-  expect(advance(start, 2090).mints).toBe(0);
-  const after = advance(start, 2110);
+  expect(advance(start, 1790).mints).toBe(0);
+  const after = advance(start, 1810);
   expect(counts(after)).toStrictEqual({
     collectors: 200,
     factories: 100,
@@ -122,33 +124,35 @@ test("自動購入は、造幣所の値段に届いても、累計の生産量�
   // 解放の時刻のコイン 1.5e7 から 1e7 を払い、2 つ目（1.1e7）には届かない。残りの時間は造幣所を足した生産量で
   // 生産する。
   expect(after.coins).toBeApprox(
-    num(1.5e7 - 1e7 + (2110 - unlockedAt) * MINT_TRIAL_RATE_AFTER),
+    num(1.5e7 - 1e7 + (1810 - unlockedAt) * MINT_TRIAL_RATE_AFTER),
     1e-6,
   );
 });
 
 test("自動購入は、解放された造幣所を、値段に届く時刻に買う", () => {
-  // 解放の条件には 1e6 / 毎秒の生産 ≈ 140 秒で届くが、値段には 1e7 / 毎秒の生産 ≈ 1398 秒で届く。
-  const start = mintTrial(0, 1.29e8);
+  // 解放の条件には 1e6 / 毎秒の生産 ≈ 120 秒で届くが、値段には 1e7 / 毎秒の生産 ≈ 1198 秒で届く。
+  const start = mintTrial(0, 1e6);
   const reachedAt = 1e7 / MINT_TRIAL_RATE;
 
-  expect(advance(start, 1390).mints).toBe(0);
-  const after = advance(start, 1410);
+  expect(advance(start, 1190).mints).toBe(0);
+  const after = advance(start, 1210);
   expect(after.mints).toBe(1);
-  expect(after.coins).toBeApprox(num((1410 - reachedAt) * MINT_TRIAL_RATE_AFTER), 1e-6);
+  expect(after.coins).toBeApprox(num((1210 - reachedAt) * MINT_TRIAL_RATE_AFTER), 1e-6);
 });
 
 test("自動購入は、造幣所とそれより安い工場を買える額でも、値段あたりの増分が大きければ造幣所を買う", () => {
   // 造幣所は 1e7 で増分 30（値段あたり 3e-6）、工場 61 台目は 150 × 1.2^60 ≈ 8.45e6 で増分 10（約 1.18e-6）、
-  // 採集機 98 台目は 10 × 1.15^97 ≈ 7.7e6 で増分 1。1.05e7 コインでは、どれを買っても残りで次を買えない。増分は
-  // どれも改良 8 つの倍率を掛けた値になるが、大小は変わらない。改良（次は約 2.7e7）は買えない。
+  // 採集機 98 台目は 10 × 1.15^97 ≈ 7.7e6 で増分 2（採集機の改修 1 つ）。1.05e7 コインでは、どれを買っても残りで次を
+  // 買えない。増分はどれも改良 8 つの倍率を掛けた値になるが、大小は変わらない。改良（次は約 2.7e7）と採集機の改修
+  // （次は 4e7）は買えない。
   const after = advance(
     state({
       coins: num(1.05e7),
-      totalEarned: num(1.3e8),
+      totalEarned: MINT_UNLOCK_EARNED,
       collectors: 97,
       factories: 60,
       upgrades: 8,
+      collectorUpgrades: 1,
       autoBuyer: true,
     }),
     0,
@@ -165,8 +169,8 @@ test("自動購入は、造幣所とそれより安い工場を買える額で�
 });
 
 test("造幣所の解放の前後で区切っても、一度に進めたときと同じ時刻に造幣所を買う", () => {
-  const start = mintTrial(0, 1.15e8);
-  // 解放の時刻（約 2097 秒）に 1 つ目を買い、2 つ目（1.1e7）には約 818 秒後に届く。
+  const start = mintTrial(0, 1.5e7);
+  // 解放の時刻（約 1797 秒）に 1 つ目を買い、2 つ目（1.1e7）には約 704 秒後に届く。
   const once = advance(start, 2200);
   const split = advance(advance(start, 1500), 700);
 

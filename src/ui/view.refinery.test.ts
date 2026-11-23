@@ -22,8 +22,8 @@ test("精錬所の解放までの残りは、端数を切り上げる。条件�
     `${condition}（あと 1）`,
   );
   expect(withinTolerance.nextUnlock).toMatch(/^交易所: /v);
-  expect(withinTolerance.shop[6]?.visible).toBe(true);
-  expect(withinTolerance.shop[7]?.visible).toBe(false);
+  expect(withinTolerance.shop[7]?.visible).toBe(true);
+  expect(withinTolerance.shop[8]?.visible).toBe(false);
 });
 
 test("精錬所が解放されたら次の交易所の条件を示し、精錬所を並べる。買うと得られるものと、買った数を示す", () => {
@@ -44,7 +44,7 @@ test("精錬所が解放されたら次の交易所の条件を示し、精錬�
     refineries: "1",
     nextUnlock: exchangeAfterRefinery,
   });
-  expect(current.shop[6]).toStrictEqual({
+  expect(current.shop[7]).toStrictEqual({
     action: { type: "buyRefinery" },
     label: "精錬所を買う（32400000 コイン）",
     effect: "買うと毎秒の生産が 100 増える",

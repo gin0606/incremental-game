@@ -2,8 +2,9 @@ import type { Action, GameState } from "../core/game.ts";
 import {
   AUTO_BUYER_COST,
   CAUTIOUS_AUTO_BUYER_COST,
-  COLLECTOR_UPGRADE_MULTIPLIER,
   CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS,
+  COLLECTOR_UPGRADE_MULTIPLIER,
+  COLLECTOR_UPGRADE_UNLOCK_EARNED,
   EXCHANGE_UNLOCK_EARNED,
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
@@ -11,8 +12,11 @@ import {
   UPGRADE_MULTIPLIER,
   UPGRADE_UNLOCK_EARNED,
   collectorCost,
+  collectorUpgradeCost,
+  collectorUpgradeUnlockEarned,
   exchangeCost,
   factoryCost,
+  isCollectorUpgradeUnlocked,
   isExchangeUnlocked,
   isFactoryUnlocked,
   isMintUnlocked,
@@ -34,7 +38,10 @@ import { ZERO, add, atLeast, div, format, max, num, sub, toNumber } from "../cor
 export interface ShopItem {
   readonly action: Action;
   readonly label: string;
-  /** 買うと得られるもの。採集機・工場・造幣所・精錬所・交易所・改良は増える毎秒の生産、自動購入と控えめな自動購入は働き。 */
+  /**
+   * 買うと得られるもの。採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修は増える毎秒の生産、自動購入と控えめな
+   * 自動購入は働き。
+   */
   readonly effect: string;
   /** 解放されていて、まだ買える（一度きりの品物を買い終えていない）。 */
   readonly visible: boolean;
@@ -52,6 +59,7 @@ export interface View {
   readonly refineries: string;
   readonly exchanges: string;
   readonly upgrades: string;
+  readonly collectorUpgrades: string;
   readonly autoBuyer: string;
   /**
    * 次に何かを買えるまでの待ち時間。今買えるときと、生産が無くて届かないときは、その旨。時計が戻って生産が
@@ -120,9 +128,9 @@ const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = 
   buyCollectorUpgrade: (state) =>
     `${productionGain(state, { type: "buyCollectorUpgrade" })}（採集機の生産が ${toNumber(COLLECTOR_UPGRADE_MULTIPLIER)} 倍になる）`,
   buyAutoBuyer: () =>
-    "採集機・工場・造幣所・精錬所・交易所・改良を、買える額に達するたびに自動で買う",
+    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、買える額に達するたびに自動で買う",
   buyCautiousAutoBuyer: () =>
-    `採集機・工場・造幣所・精錬所・交易所・改良を、払った後も今の生産の ${CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS / 60} 分ぶんのコインが残るときに自動で買う`,
+    `採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、払った後も今の生産の ${CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS / 60} 分ぶんのコインが残るときに自動で買う`,
 };
 
 /** 品物と、その値段。値段は、品物が見えていないとき（解放の前や買い終えた後）も求まる。 */
@@ -189,6 +197,11 @@ const unlocks: readonly {
 }[] = [
   { name: "工場", earned: FACTORY_UNLOCK_EARNED, unlocked: isFactoryUnlocked },
   { name: "改良", earned: UPGRADE_UNLOCK_EARNED, unlocked: isUpgradeUnlocked },
+  {
+    name: "採集機の改修",
+    earned: COLLECTOR_UPGRADE_UNLOCK_EARNED,
+    unlocked: isCollectorUpgradeUnlocked,
+  },
   { name: "造幣所", earned: MINT_UNLOCK_EARNED, unlocked: isMintUnlocked },
   { name: "精錬所", earned: REFINERY_UNLOCK_EARNED, unlocked: isRefineryUnlocked },
   { name: "交易所", earned: EXCHANGE_UNLOCK_EARNED, unlocked: isExchangeUnlocked },
@@ -238,6 +251,13 @@ export function view(state: GameState, pausedSeconds = 0): View {
     ),
     offer(state, { type: "buyFactory" }, "工場", factoryCost(state), FACTORY_UNLOCK_EARNED),
     offer(state, { type: "buyUpgrade" }, "改良", upgradeCost(state), upgradeUnlockEarned(state)),
+    offer(
+      state,
+      { type: "buyCollectorUpgrade" },
+      "採集機の改修",
+      collectorUpgradeCost(state),
+      collectorUpgradeUnlockEarned(state),
+    ),
     offer(state, { type: "buyMint" }, "造幣所", mintCost(state), mintUnlockEarned(state)),
     offer(state, { type: "buyRefinery" }, "精錬所", refineryCost(state), REFINERY_UNLOCK_EARNED),
     offer(state, { type: "buyExchange" }, "交易所", exchangeCost(state), EXCHANGE_UNLOCK_EARNED),
@@ -252,6 +272,7 @@ export function view(state: GameState, pausedSeconds = 0): View {
     refineries: state.refineries.toString(),
     exchanges: state.exchanges.toString(),
     upgrades: state.upgrades.toString(),
+    collectorUpgrades: state.collectorUpgrades.toString(),
     autoBuyer: autoBuyerStatus(state),
     nextPurchase: nextPurchase(state, offers, pausedSeconds),
     nextUnlock: nextUnlock(state),

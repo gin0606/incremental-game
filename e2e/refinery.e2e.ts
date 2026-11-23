@@ -76,12 +76,12 @@ test("精錬所が解放される前は店に並べず、解放されると次�
 test("自動購入を持っていれば、精錬所が解放された時刻に、値段に届いている精錬所を自動で買う", async ({
   page,
 }) => {
-  // 採集機 200 台・工場 100 台・造幣所 50・改良 20 で毎秒 2700 × 1.25^20（約 234187）。ほかの品物はどれも 1e9 より
-  // 高く、手元の 30000000 では精錬所しか買えない。解放の条件まであと 100000 で、約 0.43 秒で届く。
+  // 採集機 200 台・工場 100 台・造幣所 50・改良 20・採集機の改修 2 つで毎秒 3300 × 1.25^20（約 286229）。ほかの品物は
+  // どれも 3e8 より高く、手元の 30000000 では精錬所しか買えない。解放の条件まであと 100000 で、約 0.35 秒で届く。
   await page.addInitScript(
     putSave,
     JSON.stringify({
-      version: 5,
+      version: 7,
       savedAt: at(60_000).getTime(),
       state: {
         coins: { sign: 1, layer: 0, mag: 30_000_000 },
@@ -90,7 +90,9 @@ test("自動購入を持っていれば、精錬所が解放された時刻に�
         factories: 100,
         mints: 50,
         refineries: 0,
+        exchanges: 0,
         upgrades: 20,
+        collectorUpgrades: 2,
         autoBuyer: true,
         cautiousAutoBuyer: false,
       },
@@ -99,11 +101,11 @@ test("自動購入を持っていれば、精錬所が解放された時刻に�
   await page.clock.install({ time: at(0) });
   await page.clock.pauseAt(at(60_000));
   await page.goto("/");
-  await expect(page.locator("#production")).toHaveText("234187");
+  await expect(page.locator("#production")).toHaveText("286229");
   await expect(page.locator("#refineries")).toHaveText("0");
 
-  // 2 つ目（32400000）には、この後 130 秒ほど届かない。
+  // 2 つ目（32400000）には、この後 110 秒ほど届かない。
   await page.clock.runFor(1000);
   await expect(page.locator("#refineries")).toHaveText("1");
-  await expect(page.locator("#production")).toHaveText("242861");
+  await expect(page.locator("#production")).toHaveText("294902");
 });

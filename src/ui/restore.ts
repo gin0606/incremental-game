@@ -27,7 +27,7 @@ const AWAY_REPORT_MIN_SECONDS = 10;
 
 /**
  * 離れていた間に進んだことの知らせ。`before` は保存した状態、`after` はそれを `seconds` 秒進めた状態。生産した
- * コインは、離れている間に自動購入が使った分も数えるよう、これまでに生産したコインの増分で示す。施設と改良が
+ * コインは、離れている間に自動購入が使った分も数えるよう、これまでに生産したコインの増分で示す。施設と改良と採集機の改修が
  * 増えるのは離れている間の自動購入だけ。離れていた時間が {@link AWAY_REPORT_MIN_SECONDS} 以下なら `undefined`。
  */
 export function awayReport(
@@ -47,6 +47,11 @@ export function awayReport(
       { name: "精錬所", count: after.refineries - before.refineries, unit: "台" },
       { name: "交易所", count: after.exchanges - before.exchanges, unit: "台" },
       { name: "改良", count: after.upgrades - before.upgrades, unit: "個" },
+      {
+        name: "採集機の改修",
+        count: after.collectorUpgrades - before.collectorUpgrades,
+        unit: "個",
+      },
     ] as const
   )
     .filter(({ count }) => count > 0)

@@ -29,8 +29,7 @@ export const COLLECTOR_UPGRADE_MULTIPLIER: Num = num(2);
 
 export const FACTORY_UNLOCK_EARNED: Num = num(100);
 export const UPGRADE_UNLOCK_EARNED: Num = num(1.2e7);
-// 採集機の改修を買う規則と自動購入がそれを買う規則がそろうまでは、届かない値にして解放しない。
-export const COLLECTOR_UPGRADE_UNLOCK_EARNED: Num = num(1e300);
+export const COLLECTOR_UPGRADE_UNLOCK_EARNED: Num = num(7.5e7);
 export const MINT_UNLOCK_EARNED: Num = num(1.3e8);
 export const REFINERY_UNLOCK_EARNED: Num = num(4.5e8);
 export const EXCHANGE_UNLOCK_EARNED: Num = num(7.5e8);
@@ -82,8 +81,17 @@ export function isMintUnlocked(state: GameState): boolean {
   return atLeast(state.totalEarned, mintUnlockEarned(state));
 }
 
+/**
+ * 採集機の改修を買えるようになるのに要る累計の生産量。造幣所を持っていれば 0。造幣所の解放の条件が 5e7 だった版の保存は、
+ * 採集機の改修の条件に届かずに造幣所を持っていることがある。そのまま読むと、後から解放される採集機の改修の行が店で
+ * 造幣所の行より前に足され、並んでいた行が動く（docs/design/shop-focus.md）。
+ */
+export function collectorUpgradeUnlockEarned(state: GameState): Num {
+  return state.mints > 0 ? ZERO : COLLECTOR_UPGRADE_UNLOCK_EARNED;
+}
+
 export function isCollectorUpgradeUnlocked(state: GameState): boolean {
-  return atLeast(state.totalEarned, COLLECTOR_UPGRADE_UNLOCK_EARNED);
+  return atLeast(state.totalEarned, collectorUpgradeUnlockEarned(state));
 }
 
 export function isRefineryUnlocked(state: GameState): boolean {

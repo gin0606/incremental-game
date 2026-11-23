@@ -51,7 +51,7 @@ test("改良を持つときも、自動購入は改良の倍率を掛ける前�
   const after = advance(
     state({
       coins: num(2.7e7),
-      totalEarned: num(1e8),
+      totalEarned: num(5e7),
       collectors: 200,
       factories: 42,
       upgrades: 8,

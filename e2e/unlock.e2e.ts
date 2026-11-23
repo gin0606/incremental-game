@@ -74,7 +74,7 @@ const putSave = (save: string): void => {
   localStorage.setItem("incremental-game:save", save);
 };
 
-test("改良が解放される前は店に並べず、解放されると次の造幣所の条件を示して並べ、買うと改良の数と毎秒の生産が増える", async ({
+test("改良が解放される前は店に並べず、解放されると次の採集機の改修の条件を示して並べ、買うと改良の数と毎秒の生産が増える", async ({
   page,
 }) => {
   // 改良の解放の条件まであと 30 で、採集機 10 台と工場 2 つ（毎秒 30）、自動購入なし。
@@ -103,7 +103,7 @@ test("改良が解放される前は店に並べず、解放されると次の�
   // 毎秒 30 で残りの 30 に 1 秒で届く。
   await page.clock.runFor(1000);
   await expect(condition).toHaveText(
-    "造幣所: これまでに生産したコインが 130000000 に達すると解放（あと 118000000）",
+    "採集機の改修: これまでに生産したコインが 75000000 に達すると解放（あと 63000000）",
   );
   await expect(upgrade).toBeVisible();
   await expect(upgrade).toHaveText("改良を買う（800000 コイン）");
@@ -217,8 +217,8 @@ const boxesOf = async (
 test("品物が解放されると店の行は後ろに足され、それまで並んでいた品物のボタンの位置は変わらない", async ({
   page,
 }) => {
-  // 造幣所の解放の条件まであと 30 で、採集機 10 台と工場 2 つ（毎秒 30）、自動購入なし。工場と改良は解放済みで、店には
-  // 採集機・自動購入・控えめな自動購入・工場・改良が並ぶ。
+  // 造幣所の解放の条件まであと 30 で、採集機 10 台と工場 2 つ（毎秒 30）、自動購入なし。工場・改良・採集機の改修は
+  // 解放済みで、店には採集機・自動購入・控えめな自動購入・工場・改良・採集機の改修が並ぶ。
   await page.addInitScript(
     putSave,
     withoutUpgradesOrMints({
@@ -239,6 +239,7 @@ test("品物が解放されると店の行は後ろに足され、それまで�
     /^控えめな自動購入を買う/v,
     /^工場を買う/v,
     /^改良を買う/v,
+    /^採集機の改修を買う/v,
   ].map((name) => page.getByRole("button", { name }));
   const mint = page.getByRole("button", { name: /^造幣所を買う/v });
   await expect(mint).toBeHidden();

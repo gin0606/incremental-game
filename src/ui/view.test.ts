@@ -46,8 +46,18 @@ const lockedUpgrade = (gain: number) =>
     affordable: false,
   }) as const;
 
+/** 解放の前の、採集機の改修を買う品物（数 0）。 */
+const lockedCollectorUpgrade = (gain: number) =>
+  ({
+    action: { type: "buyCollectorUpgrade" },
+    label: "採集機の改修を買う（5000000 コイン）",
+    effect: `買うと毎秒の生産が ${gain} 増える（採集機の生産が 2 倍になる）`,
+    visible: false,
+    affordable: false,
+  }) as const;
+
 const autoBuyerWork =
-  "採集機・工場・造幣所・精錬所・交易所・改良を、買える額に達するたびに自動で買う";
+  "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、買える額に達するたびに自動で買う";
 
 /** 控えめな自動購入を買う品物。自動購入か控えめな自動購入を買い終えると見えない。 */
 const cautiousRow = (visible: boolean) =>
@@ -55,7 +65,7 @@ const cautiousRow = (visible: boolean) =>
     action: { type: "buyCautiousAutoBuyer" },
     label: "控えめな自動購入を買う（30000 コイン）",
     effect:
-      "採集機・工場・造幣所・精錬所・交易所・改良を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
+      "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修を、払った後も今の生産の 10 分ぶんのコインが残るときに自動で買う",
     visible,
     affordable: false,
   }) as const;
@@ -72,7 +82,7 @@ test.each([
   },
 );
 
-test("初期状態では採集機と 2 つの自動購入を並べ、工場・改良・造幣所・精錬所・交易所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
+test("初期状態では採集機と 2 つの自動購入を並べ、工場・改良・採集機の改修・造幣所・精錬所・交易所は解放されるまで隠して工場の解放の条件を示す。どれもまだ買えない。品物ごとに買うと得られるものを示す", () => {
   expect(view(initialState)).toStrictEqual({
     coins: "0",
     totalEarned: "0",
@@ -83,6 +93,7 @@ test("初期状態では採集機と 2 つの自動購入を並べ、工場・�
     refineries: "0",
     exchanges: "0",
     upgrades: "0",
+    collectorUpgrades: "0",
     autoBuyer: "なし",
     // 採集機の値段 11.5 に毎秒 1 で届くまで 11.5 秒。切り上げる。
     nextPurchase: "今の生産のままで約 12 秒",
@@ -112,6 +123,8 @@ test("初期状態では採集機と 2 つの自動購入を並べ、工場・�
       },
       // 採集機 1 台の毎秒 1 の 0.25 倍を切り捨てる。
       lockedUpgrade(0),
+      // 採集機 1 台の毎秒 1 が 2 倍になる。
+      lockedCollectorUpgrade(1),
       lockedMint,
       lockedRefinery,
       lockedExchange,
@@ -139,6 +152,7 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
     refineries: "0",
     exchanges: "0",
     upgrades: "0",
+    collectorUpgrades: "0",
     autoBuyer: "稼働中",
     nextPurchase: "今買える",
     nextUnlock: "改良: これまでに生産したコインが 12000000 に達すると解放（あと 11999000）",
@@ -168,6 +182,8 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
       },
       // 毎秒 23 の 0.25 倍の 5.75 を切り捨てる。
       lockedUpgrade(5),
+      // 採集機 3 台の毎秒 3 が 2 倍になる。
+      lockedCollectorUpgrade(3),
       lockedMint,
       lockedRefinery,
       lockedExchange,
@@ -178,9 +194,9 @@ test("工場が解放されたら改良の解放の条件を示し、工場は�
 const producers = [
   { index: 0, action: { type: "buyCollector" } },
   { index: 3, action: { type: "buyFactory" } },
-  { index: 5, action: { type: "buyMint" } },
-  { index: 6, action: { type: "buyRefinery" } },
-  { index: 7, action: { type: "buyExchange" } },
+  { index: 6, action: { type: "buyMint" } },
+  { index: 7, action: { type: "buyRefinery" } },
+  { index: 8, action: { type: "buyExchange" } },
 ] as const;
 
 /** 買うと増えると示す毎秒の生産と、買った後に示す毎秒の生産と今のものとの差。 */
