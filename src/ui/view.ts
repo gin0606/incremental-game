@@ -2,16 +2,12 @@ import type { Action, GameState } from "../core/game.ts";
 import {
   AUTO_BUYER_COST,
   CAUTIOUS_AUTO_BUYER_COST,
-  CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS,
-  COLLECTOR_UPGRADE_MULTIPLIER,
   COLLECTOR_UPGRADE_UNLOCK_EARNED,
   EXCHANGE_UNLOCK_EARNED,
-  FACTORY_LINK_RATE,
   FACTORY_LINK_UNLOCK_EARNED,
   FACTORY_UNLOCK_EARNED,
   MINT_UNLOCK_EARNED,
   REFINERY_UNLOCK_EARNED,
-  UPGRADE_MULTIPLIER,
   UPGRADE_UNLOCK_EARNED,
   collectorCost,
   collectorUpgradeCost,
@@ -34,10 +30,10 @@ import {
   refineryCost,
   upgradeCost,
   upgradeUnlockEarned,
-  withPurchase,
 } from "../core/game.ts";
 import type { Num, Rounding } from "../core/num.ts";
 import { ZERO, add, atLeast, div, format, max, num, sub, toNumber } from "../core/num.ts";
+import { effects } from "./shop-effects.ts";
 
 export interface ShopItem {
   readonly action: Action;
@@ -110,32 +106,6 @@ export function formatDuration(seconds: Num, rounding: Rounding): string {
   // number で表せない長さ（Infinity）もここへ来るため、日数は Num のまま求める。
   return `${format(div(seconds, num(SECONDS_PER_DAY)), rounding)} 日`;
 }
-
-/** 買うと増える毎秒の生産の表示。切り捨てて、増えない分を増えるように見せない。 */
-const productionGain = (state: GameState, action: Action): string =>
-  `買うと毎秒の生産が ${format(sub(production(withPurchase(state, action)), production(state)))} 増える`;
-
-/**
- * 品物ごとの、買うと得られるものの表示。自動購入と控えめな自動購入の働きは、`src/core/auto-buy.ts` の自動購入の規則
- * （何を、いつ買うか）を言葉にしたもので、規則を変えるときは合わせて直す。
- */
-const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = {
-  buyCollector: (state) => productionGain(state, { type: "buyCollector" }),
-  buyFactory: (state) => productionGain(state, { type: "buyFactory" }),
-  buyMint: (state) => productionGain(state, { type: "buyMint" }),
-  buyRefinery: (state) => productionGain(state, { type: "buyRefinery" }),
-  buyExchange: (state) => productionGain(state, { type: "buyExchange" }),
-  buyUpgrade: (state) =>
-    `${productionGain(state, { type: "buyUpgrade" })}（すべての施設の生産が ${toNumber(UPGRADE_MULTIPLIER)} 倍になる）`,
-  buyCollectorUpgrade: (state) =>
-    `${productionGain(state, { type: "buyCollectorUpgrade" })}（採集機の生産が ${toNumber(COLLECTOR_UPGRADE_MULTIPLIER)} 倍になる）`,
-  buyFactoryLink: (state) =>
-    `${productionGain(state, { type: "buyFactoryLink" })}（工場の生産が、持っている工場 1 台につき、連携の無いときの ${toNumber(FACTORY_LINK_RATE) * 100}% ずつ増える）`,
-  buyAutoBuyer: () =>
-    "採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、買える額に達するたびに自動で買う",
-  buyCautiousAutoBuyer: () =>
-    `採集機・工場・造幣所・精錬所・交易所・改良・採集機の改修・工場の連携を、払った後も今の生産の ${CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS / 60} 分ぶんのコインが残るときに自動で買う`,
-};
 
 /** 品物と、その値段。値段は、品物が見えていないとき（解放の前や買い終えた後）も求まる。 */
 interface Offer {
