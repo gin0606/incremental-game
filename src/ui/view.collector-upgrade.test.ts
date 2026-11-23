@@ -10,6 +10,7 @@ import {
   withPurchase,
 } from "../core/game.ts";
 import { num, toNumber } from "../core/num.ts";
+import { flooredDisplay } from "./view.arbitrary.ts";
 import { view } from "./view.ts";
 
 // 改良と造幣所の間に解放される採集機の改修の、次の解放の表示と店の行。ほかの要素の解放は view.unlock.test.ts。
@@ -60,12 +61,11 @@ test("採集機の改修が解放されたら次の造幣所の条件を示し�
   });
 });
 
-test("採集機の改修: 毎秒の生産が 10 億未満の間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい", () => {
+test("採集機の改修: 毎秒の生産が 10 億未満で表示で切り上がる端数が無い間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい", () => {
   const action = { type: "buyCollectorUpgrade" } as const;
   // 増分も毎秒の生産も端数を切り捨てて示すため、差は切り捨てた増分か、端数の和が 1 を超えた分だけ大きくなる。
   fc.assert(
-    fc.property(gameState, (current) => {
-      fc.pre(toNumber(production(withPurchase(current, action))) < 1e9);
+    fc.property(flooredDisplay(action), (current) => {
       const difference =
         Number(view(withPurchase(current, action)).production) - Number(view(current).production);
 

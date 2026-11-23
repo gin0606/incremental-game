@@ -2,14 +2,9 @@ import * as fc from "fast-check";
 import { expect, test } from "vitest";
 
 import type { GameState } from "../core/game.ts";
-import { gameState } from "../core/game.arbitrary.ts";
-import {
-  FACTORY_LINK_UNLOCK_EARNED,
-  initialState,
-  production,
-  withPurchase,
-} from "../core/game.ts";
-import { num, toNumber } from "../core/num.ts";
+import { FACTORY_LINK_UNLOCK_EARNED, initialState, withPurchase } from "../core/game.ts";
+import { num } from "../core/num.ts";
+import { flooredDisplay } from "./view.arbitrary.ts";
 import { view } from "./view.ts";
 
 // 交易所の後に解放される工場の連携の、次の解放の表示と店の行。ほかの要素の解放は view.unlock.test.ts。
@@ -61,12 +56,11 @@ test("工場の連携が解放されたら、工場の連携を店の最後に�
   });
 });
 
-test("工場の連携の、買うと増えると示す毎秒の生産は、毎秒の生産が 10 億未満の間、買った後に示す毎秒の生産と今のものとの差か、それより 1 だけ小さい", () => {
+test("工場の連携の、買うと増えると示す毎秒の生産は、毎秒の生産が 10 億未満で表示で切り上がる端数が無い間、買った後に示す毎秒の生産と今のものとの差か、それより 1 だけ小さい", () => {
   // 増分も毎秒の生産も端数を切り捨てて示すため、差は切り捨てた増分か、端数の和が 1 を超えた分だけ大きくなる。
   fc.assert(
-    fc.property(gameState, (current) => {
+    fc.property(flooredDisplay({ type: "buyFactoryLink" }), (current) => {
       const after = withPurchase(current, { type: "buyFactoryLink" });
-      fc.pre(toNumber(production(after)) < 1e9);
       const difference = Number(view(after).production) - Number(view(current).production);
 
       expect([

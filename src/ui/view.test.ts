@@ -3,8 +3,9 @@ import { assert, expect, test } from "vitest";
 
 import type { GameState } from "../core/game.ts";
 import { gameState } from "../core/game.arbitrary.ts";
-import { advance, initialState, perform, production, withPurchase } from "../core/game.ts";
-import { mul, num, toNumber } from "../core/num.ts";
+import { advance, initialState, perform, withPurchase } from "../core/game.ts";
+import { mul, num } from "../core/num.ts";
+import { flooredDisplay } from "./view.arbitrary.ts";
 import { view } from "./view.ts";
 
 const state = (overrides: Partial<GameState>): GameState => ({ ...initialState, ...overrides });
@@ -238,12 +239,11 @@ test.each(producers)(
 );
 
 test.each(producers)(
-  "$action.type: 改良や工場の連携で毎秒の生産に端数があると、毎秒の生産が 10 億未満の間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい",
+  "$action.type: 改良や工場の連携で毎秒の生産に端数があると、毎秒の生産が 10 億未満で表示で切り上がる端数が無い間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい",
   ({ index, action }) => {
     // 増分も毎秒の生産も端数を切り捨てて示すため、差は切り捨てた増分か、端数の和が 1 を超えた分だけ大きくなる。
     fc.assert(
-      fc.property(gameState, (current) => {
-        fc.pre(toNumber(production(withPurchase(current, action))) < 1e9);
+      fc.property(flooredDisplay(action), (current) => {
         const { shown, difference } = shownGain(current, index, action);
 
         expect([
@@ -255,12 +255,11 @@ test.each(producers)(
   },
 );
 
-test("改良: 毎秒の生産が 10 億未満の間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい", () => {
+test("改良: 毎秒の生産が 10 億未満で表示で切り上がる端数が無い間、買った後に示す毎秒の生産と今のものとの差は、示した増分か、それより 1 だけ大きい", () => {
   const action = { type: "buyUpgrade" } as const;
   const rule = "（すべての施設の生産が 1.25 倍になる）";
   fc.assert(
-    fc.property(gameState, (current) => {
-      fc.pre(toNumber(production(withPurchase(current, action))) < 1e9);
+    fc.property(flooredDisplay(action), (current) => {
       const difference =
         Number(view(withPurchase(current, action)).production) - Number(view(current).production);
 
