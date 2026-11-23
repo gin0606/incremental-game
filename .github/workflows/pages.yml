@@ -1,0 +1,56 @@
+# main のゲームをビルドして GitHub Pages で公開する。main に入る commit は取り込み前の検査（AGENTS.md「検証」）を
+# 通っているため、ここでは検査を繰り返さずにビルドだけを行う。
+#
+# - Pages はリポジトリ名のサブパス（/incremental-game/）で配信されるため、Vite の base をそれに合わせる。
+# - セーブは配信元ごとの localStorage に入るので、公開 URL を変えるとプレイヤーのセーブが引き継がれない。
+# - action は版ではなく commit の SHA で固定し、公開から日が浅い版は使わない（依存の版の扱いを pnpm の
+#   minimumReleaseAge に揃える）。
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    # 作業の記録だけの commit ではゲームが変わらないため、公開し直さない。
+    paths-ignore:
+      - ".axon/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # mise.toml の版の Node.js と pnpm を入れる。
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          minimum_release_age: 7d
+      - run: pnpm install --frozen-lockfile
+        env:
+          # CI では git hook を入れない。
+          LEFTHOOK: "0"
+      - run: pnpm exec vite build --base=/incremental-game/
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
