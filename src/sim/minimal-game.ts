@@ -2,6 +2,7 @@ import type { Action, GameState } from "../core/game.ts";
 import {
   advance,
   initialState,
+  isCollectorUpgradeUnlocked,
   isExchangeUnlocked,
   isFactoryUnlocked,
   isMintUnlocked,
@@ -43,6 +44,11 @@ const byAction: {
   },
   buyFactory: { id: "factory", action: { type: "buyFactory" }, unlocked: isFactoryUnlocked },
   buyUpgrade: { id: "upgrade", action: { type: "buyUpgrade" }, unlocked: isUpgradeUnlocked },
+  buyCollectorUpgrade: {
+    id: "collectorUpgrade",
+    action: { type: "buyCollectorUpgrade" },
+    unlocked: isCollectorUpgradeUnlocked,
+  },
   buyMint: { id: "mint", action: { type: "buyMint" }, unlocked: isMintUnlocked },
   buyRefinery: { id: "refinery", action: { type: "buyRefinery" }, unlocked: isRefineryUnlocked },
   buyExchange: { id: "exchange", action: { type: "buyExchange" }, unlocked: isExchangeUnlocked },

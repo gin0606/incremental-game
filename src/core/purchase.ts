@@ -3,8 +3,10 @@ import { ZERO, atLeast, max, num, sub } from "./num.ts";
 
 import {
   collectorCost,
+  collectorUpgradeCost,
   exchangeCost,
   factoryCost,
+  isCollectorUpgradeUnlocked,
   isExchangeUnlocked,
   isFactoryUnlocked,
   isMintUnlocked,
@@ -52,6 +54,10 @@ const purchases: Readonly<Record<Action["type"], Purchase>> = {
   buyUpgrade: {
     price: (state) => (isUpgradeUnlocked(state) ? upgradeCost(state) : undefined),
     receive: (state) => ({ ...state, upgrades: state.upgrades + 1 }),
+  },
+  buyCollectorUpgrade: {
+    price: (state) => (isCollectorUpgradeUnlocked(state) ? collectorUpgradeCost(state) : undefined),
+    receive: (state) => ({ ...state, collectorUpgrades: state.collectorUpgrades + 1 }),
   },
   buyAutoBuyer: {
     price: (state) => (state.autoBuyer ? undefined : AUTO_BUYER_COST),

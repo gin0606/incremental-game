@@ -2,6 +2,7 @@ import type { Action, GameState } from "../core/game.ts";
 import {
   AUTO_BUYER_COST,
   CAUTIOUS_AUTO_BUYER_COST,
+  COLLECTOR_UPGRADE_MULTIPLIER,
   CAUTIOUS_AUTO_BUYER_RESERVE_SECONDS,
   EXCHANGE_UNLOCK_EARNED,
   FACTORY_UNLOCK_EARNED,
@@ -116,6 +117,8 @@ const effects: Readonly<Record<Action["type"], (state: GameState) => string>> = 
   buyExchange: (state) => productionGain(state, { type: "buyExchange" }),
   buyUpgrade: (state) =>
     `${productionGain(state, { type: "buyUpgrade" })}（すべての施設の生産が ${toNumber(UPGRADE_MULTIPLIER)} 倍になる）`,
+  buyCollectorUpgrade: (state) =>
+    `${productionGain(state, { type: "buyCollectorUpgrade" })}（採集機の生産が ${toNumber(COLLECTOR_UPGRADE_MULTIPLIER)} 倍になる）`,
   buyAutoBuyer: () =>
     "採集機・工場・造幣所・精錬所・交易所・改良を、買える額に達するたびに自動で買う",
   buyCautiousAutoBuyer: () =>
